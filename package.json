@@ -1,0 +1,11 @@
+{
+  "name": "englishusuk-system",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix front-end run dev",
+    "build": "npm --prefix front-end run build",
+    "lint": "npm --prefix front-end run lint",
+    "start": "npm --prefix front-end run start"
+  }
+}

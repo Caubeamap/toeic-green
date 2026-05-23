@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --glass-bg: rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.58);
+  --green: #8ef588;
+  --green-dark: #007a22;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    linear-gradient(120deg, rgba(142, 245, 136, 0.2), rgba(255, 255, 255, 0) 32%),
+    linear-gradient(180deg, #fbfffb 0%, #f7fbf6 46%, #ffffff 100%);
+}
+
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .container-shell {
+    @apply mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8;
+  }
+
+  .glass-panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 24px 70px rgba(16, 35, 95, 0.1);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .soft-panel {
+    @apply rounded-[28px] border border-white/70 bg-white/80 shadow-soft;
+  }
+
+  .green-gradient {
+    background: linear-gradient(135deg, #8ef588 0%, #c8ffc4 48%, #ffffff 100%);
+  }
+
+  .subtle-grid {
+    background-image:
+      linear-gradient(rgba(0, 122, 34, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 122, 34, 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .animate-float-soft {
+    animation: float-soft 3.8s ease-in-out infinite;
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

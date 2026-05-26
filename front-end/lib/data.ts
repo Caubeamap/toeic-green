@@ -77,8 +77,8 @@ export const tests = [
     minutes: 120,
     questions: 200,
     difficulty: "Medium",
-    progress: 65,
-    status: "In Progress",
+    progress: 0,
+    status: "New Test",
     image:
       "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=900&q=80"
   },

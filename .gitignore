@@ -10,5 +10,6 @@ pnpm-debug.log*
 skills/
 stitch_toeic_green_learning_hub/
 .vscode/
+.cursor/
 tasks/
 CODEX.md

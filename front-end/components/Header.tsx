@@ -12,9 +12,12 @@ export function Header() {
   const pathname = usePathname();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/30 bg-white/45 shadow-[0_20px_40px_rgba(26,42,108,0.08)] backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/30 bg-white/45 shadow-glass backdrop-blur-lg">
       <div className="container-shell flex h-20 items-center justify-between">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-growth-dark">
+        <Link
+          href="/"
+          className="text-display-lg-mobile font-extrabold tracking-tight text-primary md:text-display-lg"
+        >
           TOEIC Green
         </Link>
 
@@ -24,8 +27,8 @@ export function Header() {
               key={`${item.href}-${item.label}`}
               href={item.href}
               className={cn(
-                "border-b-2 border-transparent pb-1 text-sm font-bold text-muted transition hover:text-growth-dark",
-                pathname === item.href && "border-growth-dark text-growth-dark"
+                "border-b-2 border-transparent pb-1 text-label-md font-bold text-on-surface-variant transition hover:text-primary",
+                pathname === item.href && "border-primary text-primary"
               )}
             >
               {item.label}
@@ -34,17 +37,24 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-4 sm:flex">
-          <button className="rounded-xl px-4 py-2 text-sm font-bold text-growth-dark transition hover:bg-white/40">
+          <button
+            type="button"
+            className="rounded-xl px-4 py-2 text-label-md font-bold text-primary transition hover:bg-white/20"
+          >
             Login
           </button>
-          <button className="rounded-xl bg-growth-dark px-6 py-2.5 text-sm font-bold text-white transition hover:scale-95">
+          <button
+            type="button"
+            className="rounded-xl bg-primary px-6 py-2.5 text-label-md font-bold text-on-primary transition hover:scale-95 active:scale-90"
+          >
             Sign up
           </button>
         </div>
 
         <button
+          type="button"
           aria-label="Toggle menu"
-          className="grid h-11 w-11 place-items-center rounded-2xl bg-white/70 text-growth-dark shadow-soft md:hidden"
+          className="grid h-11 w-11 place-items-center rounded-2xl bg-white/70 text-primary shadow-soft md:hidden"
           onClick={() => setOpen((value) => !value)}
         >
           {open ? <X size={21} /> : <Menu size={21} />}
@@ -53,14 +63,14 @@ export function Header() {
 
       {open ? (
         <div className="container-shell pb-5 md:hidden">
-          <div className="grid gap-2 rounded-[24px] border border-white/60 bg-white/80 p-3 shadow-soft backdrop-blur-xl">
+          <div className="glass-card grid gap-2 rounded-3xl p-3">
             {navItems.map((item) => (
               <Link
                 key={`${item.href}-${item.label}`}
                 href={item.href}
                 className={cn(
-                  "rounded-2xl px-4 py-3 text-sm font-bold text-ink hover:bg-growth/20",
-                  pathname === item.href && "bg-growth/20 text-growth-dark"
+                  "rounded-2xl px-4 py-3 text-sm font-bold text-on-surface hover:bg-primary-container/30",
+                  pathname === item.href && "bg-primary-container/30 text-primary"
                 )}
                 onClick={() => setOpen(false)}
               >

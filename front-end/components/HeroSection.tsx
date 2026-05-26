@@ -1,12 +1,11 @@
 "use client";
 
-import { ArrowRight, PlayCircle, Sparkles, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import { MaterialIcon } from "@/components/MaterialIcon";
 
-const heroImage =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBJhz6O6RoTuBn1RrhYE6Q7vrhtpNV9kApubgEq09PMxxnMZHH3lyxI5hNmd_pO2ph_EyDuvV2ARwKI84U0-Couso1aeiovsKKqGJnIVLVoMW1BW5m8Uze2Y2eNsHiqwoe-9HWMh6gOwjKIR-y2W26qwrxqfK_Far6JiS7Du2vMnTYQNlUlMn4gthJamUIpiHSbyK6nLgG_FXR5t9GZm4hW-X8cnERuxCcexrXinfJxVr2XH2jenAj2N83YPM6Lj2Kdj42wijH-DOk";
+const heroImage = "/images/toeic-hero-workspace.png";
 
 const avatars = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuBEfsG3-W9GuZnB-lSVeHtzUVCq2ov-iionH0rc0cBMDP4wTmjUPnRSYcDISvkXKBG9ZKual8nKY840ObJc4ZekzMK-47okepuhPLlz1JPAHow8qXsIWZqCJ962UU0KKkNlsGv3r5CzO-5VTOPotUGQUWqWcSXLBN2wJ6FSBBmsHyD3bcKbjZGVjuFifsFo04AtUlxxVhWP_5AKJRYrZah_sa9LjE-zk9uZSGoQ-rZ2CvI5liTm3kQxCa1zyYlM_A2pEAfOdemT7lU",
@@ -16,117 +15,119 @@ const avatars = [
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden pt-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(142,245,136,0.42),transparent_28%),radial-gradient(circle_at_92%_18%,rgba(166,181,255,0.32),transparent_28%),linear-gradient(180deg,#fbf9f8_0%,#fbf9f8_82%,rgba(255,255,255,0)_100%)]" />
+    <section className="container-shell relative mb-32 grid items-center gap-12 md:grid-cols-2">
+      <motion.div
+        initial={{ opacity: 0, y: 22 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: "easeOut" }}
+        className="space-y-8"
+      >
+        <div className="glass-card inline-flex items-center gap-2 rounded-full border-primary/20 px-4 py-2 text-primary">
+          <MaterialIcon name="auto_awesome" className="h-[18px] w-[18px]" filled />
+          <span className="text-label-md font-semibold uppercase tracking-wider">
+            AI-Powered Learning
+          </span>
+        </div>
 
-      <div className="container-shell relative grid min-h-[660px] items-center gap-12 py-14 lg:grid-cols-2 lg:py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease: "easeOut" }}
-          className="max-w-2xl"
-        >
-          <div className="inline-flex items-center gap-2 rounded-full border border-growth/35 bg-white/48 px-4 py-2 text-sm font-black uppercase tracking-[0.12em] text-growth-dark shadow-soft backdrop-blur-xl">
-            <Sparkles size={16} fill="currentColor" />
-            AI-powered learning
+        <h1 className="max-w-xl text-display-lg-mobile font-extrabold leading-[1.1] text-on-surface md:text-display-lg">
+          Master TOEIC with <br />
+          <span className="text-primary">Smart Practice</span>
+        </h1>
+
+        <p className="max-w-xl text-body-lg text-on-surface-variant">
+          Luyện thi TOEIC online, ghi chú từ vựng hằng ngày và xem giải thích chi
+          tiết sau mỗi bài test để nâng cao trình độ nhanh chóng.
+        </p>
+
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <Link
+            href="/practice"
+            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary-container px-8 py-4 text-headline-md font-bold text-on-primary-container shadow-xl transition hover:scale-[0.98] active:scale-95"
+          >
+            Bắt đầu luyện thi
+            <MaterialIcon name="arrow_forward" className="h-5 w-5" />
+          </Link>
+          <Link
+            href="/practice"
+            className="glass-card inline-flex min-h-14 items-center justify-center gap-2 rounded-xl px-8 py-4 text-headline-md font-bold text-on-surface transition hover:bg-white/60"
+          >
+            Khám phá bài test
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-6 pt-4">
+          <div className="flex -space-x-3">
+            {avatars.map((src) => (
+              <Image
+                key={src}
+                src={src}
+                alt="TOEIC Green student"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm"
+              />
+            ))}
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-secondary text-[12px] font-bold text-on-secondary">
+              12k+
+            </span>
           </div>
-
-          <h1 className="mt-8 max-w-xl text-4xl font-black leading-[1.08] text-ink md:text-5xl">
-            Master TOEIC with <br />
-            <span className="text-growth-dark">Smart Practice</span>
-          </h1>
-
-          <p className="mt-7 max-w-xl text-base leading-8 text-muted md:text-lg">
-            Luyện thi TOEIC online, ghi chú từ vựng hằng ngày và xem giải thích
-            chi tiết sau mỗi bài test để nâng cao trình độ nhanh chóng.
+          <p className="text-label-md font-semibold text-on-surface-variant">
+            Hơn 12,000 học viên đã bắt đầu
           </p>
+        </div>
+      </motion.div>
 
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-            <Link
-              href="/practice"
-              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-growth px-8 py-4 text-base font-black text-academic-blue shadow-glow transition duration-200 hover:-translate-y-0.5"
-            >
-              Bắt đầu luyện thi <ArrowRight size={20} />
-            </Link>
-            <Link
-              href="/practice"
-              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-white/58 px-8 py-4 text-base font-black text-ink shadow-soft backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:bg-white/80"
-            >
-              <PlayCircle size={20} /> Khám phá bài test
-            </Link>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+        className="relative"
+      >
+        <div className="absolute -right-10 -top-10 -z-0 h-full w-full -rotate-3 rounded-[28px] bg-secondary-container/20" />
+        <div className="glass-card relative z-10 rotate-3 rounded-[28px] p-2 shadow-2xl">
+          <div className="overflow-hidden rounded-[24px]">
+            <Image
+              src={heroImage}
+              alt="Laptop showing TOEIC Green practice interface"
+              width={760}
+              height={570}
+              priority
+              className="aspect-[4/3] w-full object-cover"
+            />
           </div>
 
-          <div className="mt-10 flex flex-wrap items-center gap-5">
-            <div className="flex -space-x-3">
-              {avatars.map((src) => (
-                <Image
-                  key={src}
-                  src={src}
-                  alt="TOEIC Green student"
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-soft"
-                />
-              ))}
-              <span className="grid h-10 w-10 place-items-center rounded-full border-2 border-white bg-academic-blue text-xs font-black text-white shadow-soft">
-                12k+
+          <div
+            className="glass-card absolute right-6 top-6 animate-bounce rounded-xl p-4 shadow-lg"
+            style={{ animationDuration: "4s" }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                <MaterialIcon name="trending_up" className="h-5 w-5" />
               </span>
+              <div>
+                <p className="text-label-md font-semibold text-primary">Score Goal</p>
+                <p className="text-headline-md font-bold text-on-surface">950+</p>
+              </div>
             </div>
-            <p className="text-sm font-bold text-muted">
-              Hơn 12,000 học viên đã bắt đầu
+          </div>
+
+          <div className="glass-card absolute bottom-4 left-4 w-[min(220px,calc(100%-2rem))] rounded-xl border border-white/60 bg-white/65 p-4 text-on-surface shadow-soft backdrop-blur-2xl sm:-bottom-4 sm:-left-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              </span>
+              <span className="text-label-sm font-bold text-on-surface">Live Progress</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
+              <div className="h-full w-3/4 rounded-full bg-primary" />
+            </div>
+            <p className="mt-2 text-[11px] font-semibold leading-snug text-on-surface-variant">
+              Luyện tập mỗi ngày, điểm số bay cao!
             </p>
           </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-          className="relative pb-10"
-        >
-          <div className="absolute -right-10 -top-8 h-[88%] w-[88%] rounded-[34px] bg-secondary-container/22" />
-          <div className="glass-panel relative z-10 rotate-2 rounded-[32px] p-2.5 shadow-glass">
-            <div className="overflow-hidden rounded-[25px]">
-              <Image
-                src={heroImage}
-                alt="Laptop showing TOEIC Green practice interface"
-                width={760}
-                height={570}
-                priority
-                className="aspect-[4/3] w-full object-cover"
-              />
-            </div>
-
-            <div className="animate-float-soft absolute right-6 top-6 rounded-2xl border border-white/60 bg-white/78 p-4 shadow-soft backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-growth/40 text-growth-dark">
-                  <TrendingUp size={20} />
-                </span>
-                <div>
-                  <p className="text-xs font-black text-growth-dark">Score Goal</p>
-                  <p className="text-2xl font-black text-ink">950+</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute -bottom-14 -left-8 max-w-[260px] rounded-2xl border border-white/80 bg-white/82 p-4 shadow-glass backdrop-blur-2xl sm:-bottom-14">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-growth-dark opacity-60" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-growth-dark" />
-                </span>
-                <span className="text-xs font-black text-ink">Live Progress</span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-white/90">
-                <div className="h-full w-3/4 rounded-full bg-growth-dark" />
-              </div>
-              <p className="mt-2 text-[12px] font-extrabold leading-5 text-ink/80">
-                Luyện tập mỗi ngày, điểm số bay cao!
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </section>
   );
 }

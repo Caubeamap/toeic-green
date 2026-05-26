@@ -1,5 +1,5 @@
-import { Mail, MessageCircle, Share2 } from "lucide-react";
 import Link from "next/link";
+import { MaterialIcon } from "@/components/MaterialIcon";
 
 const columns = [
   {
@@ -31,47 +31,44 @@ const columns = [
   }
 ];
 
-const socialLinks = [
-  { id: "mail", icon: Mail },
-  { id: "message", icon: MessageCircle },
-  { id: "share", icon: Share2 }
-];
+const socialIcons = ["public", "alternate_email", "share"] as const;
 
 export function Footer() {
   return (
-    <footer className="border-t border-emerald-100 bg-white">
-      <div className="container-shell py-16">
-        <div className="grid gap-12 lg:grid-cols-4">
-          <div className="space-y-6">
-            <div className="text-2xl font-black text-growth-dark">TOEIC Green</div>
-            <p className="max-w-sm leading-7 text-muted">
-              Nền tảng luyện thi TOEIC thông minh, giúp bạn đạt điểm số mong
-              muốn trong thời gian ngắn nhất bằng công nghệ AI tiên tiến.
+    <footer className="border-t border-outline-variant bg-white pb-10 pt-20">
+      <div className="container-shell">
+        <div className="mb-20 grid gap-12 md:grid-cols-4">
+          <div className="space-y-6 md:col-span-1">
+            <div className="text-2xl font-bold text-primary">TOEIC Green</div>
+            <p className="max-w-sm text-body-md leading-relaxed text-on-surface-variant">
+              Nền tảng luyện thi TOEIC thông minh, giúp bạn đạt điểm số mong muốn
+              trong thời gian ngắn nhất bằng công nghệ AI tiên tiến.
             </p>
             <div className="flex gap-4">
-              {socialLinks.map(({ id, icon: Icon }) => (
-                <button
-                  key={id}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-growth-dark transition hover:bg-growth"
-                  aria-label="Social link"
+              {socialIcons.map((icon) => (
+                <a
+                  key={icon}
+                  href="#"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-primary transition hover:bg-primary hover:text-on-primary"
+                  aria-label={icon}
                 >
-                  <Icon size={17} />
-                </button>
+                  <MaterialIcon name={icon} className="h-4 w-4" />
+                </a>
               ))}
             </div>
           </div>
 
           {columns.map((column) => (
             <div key={column.title}>
-              <h3 className="text-sm font-black uppercase tracking-[0.14em] text-ink">
+              <h3 className="mb-6 text-[12px] font-semibold uppercase tracking-widest text-on-surface">
                 {column.title}
               </h3>
-              <ul className="mt-6 space-y-4">
+              <ul className="space-y-4">
                 {column.links.map(([label, href]) => (
                   <li key={label}>
                     <Link
                       href={href}
-                      className="text-sm font-semibold text-muted transition hover:text-growth-dark"
+                      className="text-body-md text-on-surface-variant transition hover:text-primary"
                     >
                       {label}
                     </Link>
@@ -82,13 +79,19 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-16 flex flex-col gap-4 border-t border-emerald-100 pt-8 text-sm font-semibold text-muted md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-6 border-t border-outline-variant pt-8 text-sm text-on-surface-variant md:flex-row md:items-center md:justify-between">
           <p>© 2026 TOEIC Green. All rights reserved. Made for excellence.</p>
           <div className="flex gap-8">
-            <a className="underline transition hover:text-growth-dark" href="#">
+            <a
+              className="text-label-sm text-on-tertiary-container underline opacity-80 transition hover:text-primary hover:opacity-100"
+              href="#"
+            >
               Privacy Policy
             </a>
-            <a className="underline transition hover:text-growth-dark" href="#">
+            <a
+              className="text-label-sm text-on-tertiary-container underline opacity-80 transition hover:text-primary hover:opacity-100"
+              href="#"
+            >
               Terms of Service
             </a>
           </div>

@@ -37,18 +37,18 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-4 sm:flex">
-          <button
-            type="button"
+          <Link
+            href="/login"
             className="rounded-xl px-4 py-2 text-label-md font-bold text-primary transition hover:bg-white/20"
           >
-            Login
-          </button>
-          <button
-            type="button"
+            Đăng nhập
+          </Link>
+          <Link
+            href="/login?mode=signup"
             className="rounded-xl bg-primary px-6 py-2.5 text-label-md font-bold text-on-primary transition hover:scale-95 active:scale-90"
           >
-            Sign up
-          </button>
+            Đăng ký
+          </Link>
         </div>
 
         <button
@@ -77,6 +77,24 @@ export function Header() {
                 {item.label}
               </Link>
             ))}
+
+            {/* Auth links trong mobile menu */}
+            <div className="mt-1 border-t border-outline-variant/50 pt-3">
+              <Link
+                href="/login"
+                className="block rounded-2xl px-4 py-3 text-sm font-bold text-primary hover:bg-primary-container/30"
+                onClick={() => setOpen(false)}
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                href="/login?mode=signup"
+                className="mt-1 block rounded-2xl bg-primary px-4 py-3 text-center text-sm font-bold text-on-primary"
+                onClick={() => setOpen(false)}
+              >
+                Đăng ký tài khoản
+              </Link>
+            </div>
           </div>
         </div>
       ) : null}

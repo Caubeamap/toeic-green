@@ -64,6 +64,7 @@ export function PracticeTestDetailView({ test }: { test: PracticeTest }) {
   }
 
   const pageTitle = `${test.title} ${test.subtitle}`;
+  const loginHref = `/login?next=${encodeURIComponent(`/practice/${test.id}/start`)}`;
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
@@ -126,13 +127,14 @@ export function PracticeTestDetailView({ test }: { test: PracticeTest }) {
                     test={test}
                     timeLimit={timeLimit}
                     timeOptions={timeOptions}
+                    loginHref={loginHref}
                     onSelectAll={selectAllParts}
                     onTimeLimitChange={setTimeLimit}
                     onTogglePart={togglePart}
                   />
                 ) : null}
 
-                {activeTab === "full-test" ? <FullTestTab test={test} /> : null}
+                {activeTab === "full-test" ? <FullTestTab loginHref={loginHref} test={test} /> : null}
 
                 {activeTab === "discussion" ? <DiscussionTab /> : null}
               </div>
@@ -188,6 +190,7 @@ function PracticeTab({
   test,
   timeLimit,
   timeOptions,
+  loginHref,
   onSelectAll,
   onTimeLimitChange,
   onTogglePart
@@ -197,6 +200,7 @@ function PracticeTab({
   test: PracticeTest;
   timeLimit: number;
   timeOptions: number[];
+  loginHref: string;
   onSelectAll: () => void;
   onTimeLimitChange: (value: number) => void;
   onTogglePart: (partId: string) => void;
@@ -297,14 +301,19 @@ function PracticeTab({
         </select>
       </div>
 
-      <button
-        type="button"
-        disabled={selectedPartIds.length === 0}
-        className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-surface-container-highest disabled:text-on-surface-variant"
+      <Link
+        href={selectedPartIds.length === 0 ? "#" : loginHref}
+        aria-disabled={selectedPartIds.length === 0}
+        className={cn(
+          "inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 text-base font-extrabold shadow-glow transition",
+          selectedPartIds.length === 0
+            ? "pointer-events-none cursor-not-allowed bg-surface-container-highest text-on-surface-variant"
+            : "bg-primary text-white hover:bg-primary/90"
+        )}
       >
         <Play className="h-5 w-5" />
         Luyện tập
-      </button>
+      </Link>
     </div>
   );
 }
@@ -407,7 +416,7 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
   );
 }
 
-function FullTestTab({ test }: { test: PracticeTest }) {
+function FullTestTab({ loginHref, test }: { loginHref: string; test: PracticeTest }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
       <div className="rounded-[28px] border border-primary/15 bg-primary-container/18 p-7">
@@ -420,13 +429,13 @@ function FullTestTab({ test }: { test: PracticeTest }) {
         <p className="mt-3 text-body-md text-on-surface-variant">
           Full test sẽ khóa cấu trúc bài, tính giờ liên tục và lưu lại kết quả vào Test History sau khi nộp bài.
         </p>
-        <button
-          type="button"
+        <Link
+          href={loginHref}
           className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition hover:bg-primary/90 active:scale-[0.99]"
         >
           <Play className="h-5 w-5" />
           Bắt đầu thi
-        </button>
+        </Link>
       </div>
 
       <div className="space-y-3">

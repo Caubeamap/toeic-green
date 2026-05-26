@@ -9,104 +9,16 @@ import {
   Clock3,
   FileQuestion,
   Plus,
-  RotateCcw,
   Search
 } from "lucide-react";
+import Link from "next/link";
+import {
+  allPracticeTests,
+  practiceFilters,
+  type PracticeFilter,
+  type PracticeTest
+} from "@/lib/practice-tests";
 import { cn } from "@/lib/utils";
-
-type TestType = "Listening & Reading" | "Speaking & Writing";
-type TestStatus = "New" | "In Progress" | "Completed";
-type PracticeFilter = TestType | "Completed" | "Test History";
-
-type PracticeTest = {
-  id: string;
-  title: string;
-  subtitle: string;
-  type: TestType;
-  shortType: string;
-  minutes: number;
-  questions: number;
-  access: string;
-  status: TestStatus;
-  progress: number;
-  score?: string;
-  completedAt?: string;
-};
-
-const filters: PracticeFilter[] = [
-  "Listening & Reading",
-  "Speaking & Writing",
-  "Completed",
-  "Test History"
-];
-
-const listeningReadingTests: PracticeTest[] = [
-  ...[1, 2, 3].map((test) => ({ year: 2022, test })),
-  ...[1, 2, 3].map((test) => ({ year: 2023, test })),
-  ...[1, 2, 3].map((test) => ({ year: 2024, test })),
-  ...[1, 2, 3].map((test) => ({ year: 2025, test })),
-  ...[1, 2, 3, 4].map((test) => ({ year: 2026, test }))
-].map((item, index) => {
-  const completed = index === 2 || index === 8;
-  const inProgress = index === 0 || index === 10;
-
-  return {
-    id: `lr-${item.year}-${item.test}`,
-    title: `ETS TOEIC ${item.year}`,
-    subtitle: `Test ${item.test}`,
-    type: "Listening & Reading",
-    shortType: "L & R",
-    minutes: 120,
-    questions: 200,
-    access: "Free",
-    status: completed ? "Completed" : inProgress ? "In Progress" : "New",
-    progress: completed ? 100 : inProgress ? 65 : 0,
-    score: completed ? (index === 2 ? "890/990" : "845/990") : undefined,
-    completedAt: completed ? (index === 2 ? "18/05/2026" : "24/05/2026") : undefined
-  } satisfies PracticeTest;
-});
-
-const speakingWritingTests: PracticeTest[] = Array.from({ length: 8 }, (_, index) => {
-  const testNumber = index + 1;
-
-  return [
-    {
-      section: "SPEAKING",
-      subtitle: "Speaking Practice",
-      minutes: 20,
-      questions: 7,
-      completed: testNumber === 2,
-      inProgress: testNumber === 1,
-      score: "160/200",
-      completedAt: "20/05/2026"
-    },
-    {
-      section: "WRITING",
-      subtitle: "Writing Practice",
-      minutes: 60,
-      questions: 8,
-      completed: testNumber === 5,
-      inProgress: testNumber === 1,
-      score: "170/200",
-      completedAt: "25/05/2026"
-    }
-  ].map<PracticeTest>((part) => ({
-    id: `sw-${testNumber}-${part.section.toLowerCase()}`,
-    title: `TOEIC SW TEST ${testNumber} ${part.section}`,
-    subtitle: part.subtitle,
-    type: "Speaking & Writing",
-    shortType: part.section === "SPEAKING" ? "Speaking" : "Writing",
-    minutes: part.minutes,
-    questions: part.questions,
-    access: testNumber <= 3 ? "Free" : "Pro",
-    status: part.completed ? "Completed" : part.inProgress ? "In Progress" : "New",
-    progress: part.completed ? 100 : part.inProgress ? 35 : 0,
-    score: part.completed ? part.score : undefined,
-    completedAt: part.completed ? part.completedAt : undefined
-  }));
-}).flat();
-
-const allTests = [...listeningReadingTests, ...speakingWritingTests];
 
 export function PracticeSection() {
   const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
@@ -114,9 +26,9 @@ export function PracticeSection() {
 
   const historyTests = useMemo(
     () =>
-      allTests
-        .filter((test) => test.status !== "New")
-        .sort((a, b) => b.progress - a.progress),
+      allPracticeTests
+        .filter((test) => test.status === "Completed")
+        .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "")),
     []
   );
 
@@ -126,8 +38,8 @@ export function PracticeSection() {
       activeFilter === "Test History"
         ? historyTests
         : activeFilter === "Completed"
-          ? allTests.filter((test) => test.status === "Completed")
-          : allTests.filter((test) => test.type === activeFilter);
+          ? allPracticeTests.filter((test) => test.status === "Completed")
+          : allPracticeTests.filter((test) => test.type === activeFilter);
 
     return baseTests.filter((test) => {
       return (
@@ -184,7 +96,7 @@ export function PracticeSection() {
           </div>
 
           <div className="glass-card grid w-full max-w-4xl grid-cols-1 gap-1 rounded-xl bg-surface-container-low p-1 sm:grid-cols-2 lg:w-auto lg:grid-cols-4">
-            {filters.map((filter) => (
+            {practiceFilters.map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
@@ -244,8 +156,7 @@ export function PracticeSection() {
 
 function PracticeTestCard({ test }: { test: PracticeTest }) {
   const completed = test.status === "Completed";
-  const inProgress = test.status === "In Progress";
-  const actionLabel = completed ? "Xem chi tiết" : inProgress ? "Tiếp tục" : "Bắt đầu làm";
+  const actionLabel = completed ? "Xem chi tiết" : "Bắt đầu làm";
 
   return (
     <article
@@ -263,11 +174,6 @@ function PracticeTestCard({ test }: { test: PracticeTest }) {
             <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
               {test.access}
             </span>
-            {inProgress ? (
-              <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                {test.progress}%
-              </span>
-            ) : null}
             {completed ? (
               <span
                 aria-label="Completed"
@@ -280,9 +186,7 @@ function PracticeTestCard({ test }: { test: PracticeTest }) {
           </div>
         </div>
 
-        <h3 className="mb-1 text-lg font-bold leading-tight text-on-surface">
-          {test.title}
-        </h3>
+        <h3 className="mb-1 text-lg font-bold leading-tight text-on-surface">{test.title}</h3>
         <p className="mb-4 text-sm text-on-surface-variant">{test.subtitle}</p>
 
         <div className="mb-5 space-y-2 text-sm text-on-surface-variant">
@@ -296,20 +200,16 @@ function PracticeTestCard({ test }: { test: PracticeTest }) {
           </div>
         </div>
 
-        <button
+        <Link
+          href={`/practice/${test.id}/start`}
           className={cn(
             "mt-auto inline-flex w-full items-center justify-center rounded-lg py-2.5 text-sm font-bold transition active:scale-[0.98]",
-            completed &&
-              "border border-primary/30 bg-white/35 text-primary hover:bg-primary/10",
-            inProgress && "bg-primary text-white hover:bg-primary/90",
-            !completed &&
-              !inProgress &&
-              "bg-primary-container text-on-primary-container hover:bg-primary-fixed-dim"
+            completed && "border border-primary/30 bg-white/35 text-primary hover:bg-primary/10",
+            !completed && "bg-primary-container text-on-primary-container hover:bg-primary-fixed-dim"
           )}
-          type="button"
         >
           {actionLabel}
-        </button>
+        </Link>
       </div>
     </article>
   );
@@ -338,19 +238,8 @@ function HistoryList({ tests }: { tests: PracticeTest[] }) {
             )}
           >
             <div className="flex min-w-0 items-start gap-4">
-              <div
-                className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
-                  completed
-                    ? "bg-primary text-white"
-                    : "bg-secondary-container text-on-secondary-container"
-                )}
-              >
-                {completed ? (
-                  <CheckCircle2 className="h-6 w-6" />
-                ) : (
-                  <RotateCcw className="h-5 w-5" />
-                )}
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                <CheckCircle2 className="h-6 w-6" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -358,16 +247,10 @@ function HistoryList({ tests }: { tests: PracticeTest[] }) {
                   <span className="rounded bg-secondary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary">
                     {test.shortType}
                   </span>
-                  {completed ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold uppercase text-white">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Completed
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase text-on-secondary-container">
-                      {test.progress}% progress
-                    </span>
-                  )}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold uppercase text-white">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Completed
+                  </span>
                 </div>
                 <p className="mt-1 text-sm text-on-surface-variant">
                   {test.subtitle} · {test.minutes} phút · {test.questions} câu hỏi
@@ -380,17 +263,17 @@ function HistoryList({ tests }: { tests: PracticeTest[] }) {
               </div>
             </div>
 
-            <button
+            <Link
+              href={`/practice/${test.id}/start`}
               className={cn(
-                "w-full rounded-lg py-2.5 text-sm font-bold transition active:scale-[0.98] md:w-36",
+                "inline-flex w-full items-center justify-center rounded-lg py-2.5 text-sm font-bold transition active:scale-[0.98] md:w-36",
                 completed
                   ? "border border-primary/30 bg-white/35 text-primary hover:bg-primary/10"
                   : "bg-primary text-white hover:bg-primary/90"
               )}
-              type="button"
             >
-              {completed ? "Xem chi tiết" : "Tiếp tục"}
-            </button>
+              Xem chi tiết
+            </Link>
           </article>
         );
       })}

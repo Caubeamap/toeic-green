@@ -32,7 +32,7 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: "discussion", label: "Thảo luận" }
 ];
 
-export function PracticeTestDetailView({ test }: { test: PracticeTest }) {
+export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const [activeTab, setActiveTab] = useState<TabId>("practice");
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState(test.minutes);

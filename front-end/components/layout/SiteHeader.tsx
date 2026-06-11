@@ -8,7 +8,7 @@ import { navItems } from "@/lib/data";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-export function Header() {
+export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();

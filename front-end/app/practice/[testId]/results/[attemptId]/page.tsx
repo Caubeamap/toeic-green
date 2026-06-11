@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, FileQuestion } from "lucide-react";
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { allPracticeTests, getPracticeAttemptById } from "@/lib/practice-tests";
 
 type AttemptResultPageProps = {
@@ -47,7 +47,7 @@ export default async function AttemptResultPage({ params }: AttemptResultPagePro
 
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_44%),radial-gradient(circle_at_100%_20%,#eef4ff_0%,#fbf9f8_36%)] pt-32">
         <section className="container-shell pb-16">
           <Link
@@ -101,7 +101,7 @@ export default async function AttemptResultPage({ params }: AttemptResultPagePro
           </div>
         </section>
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

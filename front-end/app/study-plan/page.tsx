@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, CalendarCheck, CheckCircle2, Clock3, Target } from "lucide-react";
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
-import { SectionHeading } from "@/components/common/SectionHeading";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SectionHeader } from "@/components/common/SectionHeader";
 
 const weeks = [
   {
@@ -30,10 +30,10 @@ const weeks = [
 export default function StudyPlanPage() {
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="pt-28">
         <section className="container-shell pb-20">
-          <SectionHeading
+          <SectionHeader
             eyebrow="Study plan"
             title="Lộ trình học TOEIC 4 tuần, tập trung vào phần yếu"
             description="Trang này tách riêng kế hoạch học để sau này có thể thêm lịch cá nhân, reminder, target score và đề xuất tự động theo kết quả làm bài."
@@ -86,7 +86,7 @@ export default function StudyPlanPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

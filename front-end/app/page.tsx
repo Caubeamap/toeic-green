@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
-import { HeroSection } from "@/components/home/HeroSection";
-import { MaterialIcon } from "@/components/common/MaterialIcon";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { HomeHero } from "@/components/home/HomeHero";
+import { MaterialSymbolIcon } from "@/components/common/MaterialSymbolIcon";
 
 const listeningImage =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuCMHV78H5eQKd9Po-Zu8VqTG_r8xA5VALXx0N_Qoov4TMyhsNZ4depEEYjeneNmBGiG7tfzpjXfudOwNJ2DyOvx60C3N9v3t1tdXH8Vn6BWW7i3e6noY9Quk0urq8dw5rAXVTNvAw1CueGaEImG7aUjCeVpLMhTIEcIWsIqi1JFCjFtc2l8I9B3xBwu6eC7h4xwXDgKGdrCKW6_gDW3ICt9hCQhKAK6ijvlXE9pJNwMeaph4elRhP48bbSYWwZnR_ZwVy5fPxguvJQ";
@@ -56,15 +56,15 @@ const steps = [
 export default function Home() {
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="relative pt-32">
-        <HeroSection />
+        <HomeHero />
         <FeatureBento />
         <PersonalizedPath />
         <Testimonials />
         <HomeCta />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }
@@ -87,7 +87,7 @@ function FeatureBento() {
           <div className="relative z-10 flex min-h-[230px] flex-col justify-between">
             <div className="space-y-4">
               <IconTile tone="primary">
-                <MaterialIcon name="headphones" className="h-6 w-6" />
+                <MaterialSymbolIcon name="headphones" className="h-6 w-6" />
               </IconTile>
               <h3 className="text-headline-md font-bold">Listening & Reading</h3>
               <p className="max-w-md text-body-md text-on-surface-variant">
@@ -121,7 +121,7 @@ function FeatureBento() {
         >
           <div className="space-y-4">
             <IconTile tone="secondary">
-              <MaterialIcon name="edit_note" className="h-6 w-6" />
+              <MaterialSymbolIcon name="edit_note" className="h-6 w-6" />
             </IconTile>
             <h3 className="text-headline-md font-bold">Speaking & Writing</h3>
             <p className="text-body-md text-on-surface-variant">
@@ -136,7 +136,7 @@ function FeatureBento() {
         >
           <div className="space-y-4">
             <IconTile tone="tertiary">
-              <MaterialIcon name="menu_book" className="h-6 w-6" />
+              <MaterialSymbolIcon name="menu_book" className="h-6 w-6" />
             </IconTile>
             <h3 className="text-headline-md font-bold">Detailed Explanation</h3>
             <p className="text-body-md text-on-surface-variant">
@@ -151,7 +151,7 @@ function FeatureBento() {
         >
           <div className="flex-1 space-y-4">
             <IconTile tone="fixed">
-              <MaterialIcon name="history_edu" className="h-6 w-6" />
+              <MaterialSymbolIcon name="history_edu" className="h-6 w-6" />
             </IconTile>
             <h3 className="text-headline-md font-bold">Vocabulary Notes</h3>
             <p className="text-body-md text-on-surface-variant">
@@ -238,7 +238,7 @@ function PersonalizedPath() {
               <div className="glass-card interactive-surface absolute -bottom-6 -right-6 max-w-[240px] rounded-2xl border-primary/20 p-6 shadow-soft">
                 <div className="mb-3 flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary-container text-secondary">
-                    <MaterialIcon name="verified" className="h-6 w-6" />
+                    <MaterialSymbolIcon name="verified" className="h-6 w-6" />
                   </div>
                   <div className="text-label-md font-semibold text-on-surface">
                     Lộ trình được AI duyệt
@@ -278,7 +278,7 @@ function Testimonials() {
               <div className="space-y-4">
                 <div className="flex text-primary">
                   {Array.from({ length: 5 }).map((_, index) => (
-                    <MaterialIcon key={index} name="star" filled className="h-5 w-5" />
+                    <MaterialSymbolIcon key={index} name="star" filled className="h-5 w-5" />
                   ))}
                 </div>
                 <p className="min-h-36 text-body-md italic text-on-surface-variant">

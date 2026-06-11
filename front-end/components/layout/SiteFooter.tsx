@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MaterialIcon } from "@/components/common/MaterialIcon";
+import { MaterialSymbolIcon } from "@/components/common/MaterialSymbolIcon";
 
 const columns = [
   {
@@ -34,7 +34,7 @@ const columns = [
 
 const socialIcons = ["public", "alternate_email", "share"] as const;
 
-export function Footer() {
+export function SiteFooter() {
   return (
     <footer className="border-t border-outline-variant bg-white py-12">
       <div className="container-shell">
@@ -66,7 +66,7 @@ export function Footer() {
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-primary transition hover:bg-primary hover:text-on-primary"
                   aria-label={icon}
                 >
-                  <MaterialIcon name={icon} className="h-4 w-4" />
+                  <MaterialSymbolIcon name={icon} className="h-4 w-4" />
                 </a>
               ))}
             </div>

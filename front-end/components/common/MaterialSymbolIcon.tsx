@@ -31,13 +31,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
   share: Share2
 };
 
-type MaterialIconProps = {
+type MaterialSymbolIconProps = {
   name: string;
   className?: string;
   filled?: boolean;
 };
 
-export function MaterialIcon({ name, className, filled }: MaterialIconProps) {
+export function MaterialSymbolIcon({ name, className, filled }: MaterialSymbolIconProps) {
   const Icon = ICON_MAP[name];
   if (!Icon) return null;
 

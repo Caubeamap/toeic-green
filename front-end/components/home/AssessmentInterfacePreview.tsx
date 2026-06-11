@@ -13,17 +13,17 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { SectionHeading } from "@/components/common/SectionHeading";
+import { SectionHeader } from "@/components/common/SectionHeader";
 
 const modes = ["Listening & Reading", "Speaking & Writing"];
 
-export function TestInterface() {
+export function AssessmentInterfacePreview() {
   const [mode, setMode] = useState(modes[0]);
   const isListening = mode === "Listening & Reading";
 
   return (
     <section id="test-ui" className="container-shell py-20">
-      <SectionHeading
+      <SectionHeader
         eyebrow="Test-taking experience"
         title="Màn hình làm bài tập trung, rõ timer và điều hướng câu hỏi"
         description="Một khung giao diện có thể tái sử dụng cho Listening, Reading, Speaking và Writing, ưu tiên sự tập trung khi làm bài."

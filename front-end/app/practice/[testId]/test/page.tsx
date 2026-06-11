@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { getPracticeTestById } from "@/lib/practice-tests";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
-import { TestTakingView } from "@/components/practice/TestTakingView";
+import { PracticeExamSession } from "@/components/practice/PracticeExamSession";
 
 export default function TestPage() {
   const params = useParams<{ testId: string }>();
@@ -94,6 +94,6 @@ export default function TestPage() {
     );
   }
 
-  return <TestTakingView test={test} questions={questions} />;
+  return <PracticeExamSession test={test} questions={questions} />;
 }
 

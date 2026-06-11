@@ -358,7 +358,7 @@ export function LoginForm() {
   const [touched, setTouched] = useState({ username: false, password: false });
   const [status, setStatus] = useState<FormStatus>({ type: "idle" });
 
-  /* Listen for auth error response from AuthCard */
+  /* Listen for auth error response from AuthPanel */
   useEffect(() => {
     function handleError(e: Event) {
       const { error } = (e as CustomEvent).detail;

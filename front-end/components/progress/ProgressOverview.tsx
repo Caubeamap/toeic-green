@@ -1,13 +1,13 @@
 import { ArrowRight, PlayCircle, TrendingUp } from "lucide-react";
 import { nextLessons, progressStats } from "@/lib/data";
 import { Button } from "@/components/ui/Button";
-import { SectionHeading } from "@/components/common/SectionHeading";
+import { SectionHeader } from "@/components/common/SectionHeader";
 
-export function ProgressDashboard() {
+export function ProgressOverview() {
   return (
     <section id="dashboard" className="bg-gradient-to-b from-white to-soft-mint/40 py-20">
       <div className="container-shell">
-        <SectionHeading
+        <SectionHeader
           eyebrow="Your performance"
           title="Study Progress Dashboard"
           description="Dashboard tập trung vào số liệu học tập quan trọng: số bài đã làm, điểm trung bình, từ vựng đã lưu, streak và gợi ý bài học tiếp theo."

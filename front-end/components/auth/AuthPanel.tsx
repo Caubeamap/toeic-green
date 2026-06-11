@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoginForm, SignupForm } from "@/components/auth/AuthForms";
+import { LoginForm, SignupForm } from "@/components/auth/CredentialForms";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 type AuthMode = "login" | "signup";
 
-type AuthCardProps = {
+type AuthPanelProps = {
   initialMode: AuthMode;
   redirectTo: string;
 };
@@ -33,10 +33,10 @@ const headings: Record<AuthMode, { title: string; subtitle: string }> = {
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   AuthCard — Client Component with animated form switching
+   AuthPanel — Client Component with animated form switching
    ═══════════════════════════════════════════════════════════════ */
 
-export function AuthCard({ initialMode, redirectTo }: AuthCardProps) {
+export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();

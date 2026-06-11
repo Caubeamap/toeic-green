@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { getPracticeTestById } from "@/lib/practice-tests";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -38,7 +38,7 @@ type SavedResult = {
 
 
 
-// Part 1 specific images (matching TestTakingView)
+// Part 1 specific images (matching PracticeExamSession)
 const PART1_IMAGES: Record<number, string> = {
   1: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80",
   2: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80",
@@ -363,7 +363,7 @@ export default function LatestResultPage() {
   if (!test || !result || questions.length === 0 || !stats) {
     return (
       <>
-        <Header />
+        <SiteHeader />
         <main className="min-h-screen bg-background pt-32 grid place-items-center">
           <div className="max-w-md rounded-3xl border border-white/70 bg-white/86 p-10 text-center shadow-glass">
             <h1 className="text-xl font-black text-ink">Không tìm thấy kết quả</h1>
@@ -379,7 +379,7 @@ export default function LatestResultPage() {
             </button>
           </div>
         </main>
-        <Footer />
+        <SiteFooter />
       </>
     );
   }
@@ -389,7 +389,7 @@ export default function LatestResultPage() {
 
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_50%),radial-gradient(circle_at_100%_100%,#eef4ff_0%,#fbf9f8_50%)] pt-24 pb-16">
         
         {/* SECTION 1: SCOREBOARD BRIEFING */}
@@ -1157,7 +1157,7 @@ export default function LatestResultPage() {
         </section>
 
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

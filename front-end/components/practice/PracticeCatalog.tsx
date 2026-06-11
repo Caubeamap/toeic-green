@@ -19,7 +19,7 @@ import {
 } from "@/lib/practice-tests";
 import { cn } from "@/lib/utils";
 
-export function PracticeSection() {
+export function PracticeCatalog() {
   const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
   const [query, setQuery] = useState("");
 

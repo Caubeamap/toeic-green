@@ -6,9 +6,9 @@ import {
   ShieldCheck,
   Sparkles
 } from "lucide-react";
-import { AuthCard } from "@/components/auth/AuthCard";
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
+import { AuthPanel } from "@/components/auth/AuthPanel";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
 /* ─────────────────────────── Types ─────────────────────────── */
 
@@ -46,7 +46,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_44%),radial-gradient(circle_at_100%_20%,#eef4ff_0%,#fbf9f8_38%)] pt-28">
         <section className="container-shell grid min-h-[calc(100vh-112px)] gap-10 py-10 lg:grid-cols-2 lg:items-center">
           {/* ──── Left Side: Visual Panel ──── */}
@@ -79,7 +79,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           {/* ──── Right Side: Auth Card (Client Component with animations) ──── */}
           <div className="flex justify-center">
-            <AuthCard initialMode={activeMode} redirectTo={redirectTo} />
+            <AuthPanel initialMode={activeMode} redirectTo={redirectTo} />
           </div>
         </section>
 
@@ -96,7 +96,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           ))}
         </div>
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

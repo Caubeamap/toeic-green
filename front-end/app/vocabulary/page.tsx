@@ -1,15 +1,15 @@
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
-import { VocabularyNotes } from "@/components/vocabulary/VocabularyNotes";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { VocabularyNotebook } from "@/components/vocabulary/VocabularyNotebook";
 
 export default function VocabularyPage() {
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="pt-20">
-        <VocabularyNotes />
+        <VocabularyNotebook />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

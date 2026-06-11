@@ -1,15 +1,15 @@
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
-import { PracticeSection } from "@/components/practice/PracticeSection";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { PracticeCatalog } from "@/components/practice/PracticeCatalog";
 
 export default function PracticePage() {
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="pt-20">
-        <PracticeSection />
+        <PracticeCatalog />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

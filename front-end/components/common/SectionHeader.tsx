@@ -1,18 +1,18 @@
 import { type ReactNode } from "react";
 
-type SectionHeadingProps = {
+type SectionHeaderProps = {
   eyebrow?: string;
   title: string;
   description?: string;
   action?: ReactNode;
 };
 
-export function SectionHeading({
+export function SectionHeader({
   eyebrow,
   title,
   description,
   action
-}: SectionHeadingProps) {
+}: SectionHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-5 md:mb-10 md:flex-row md:items-end md:justify-between">
       <div className="max-w-2xl">

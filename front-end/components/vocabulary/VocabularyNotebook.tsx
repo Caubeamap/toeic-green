@@ -5,12 +5,12 @@ import { Heart, Plus, Search, Volume2 } from "lucide-react";
 import { vocabWords } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { SectionHeading } from "@/components/common/SectionHeading";
+import { SectionHeader } from "@/components/common/SectionHeader";
 
 const tags = ["All", "Business", "Travel", "Office", "Contract", "Meeting", "Email"];
 const statuses = ["All", "New", "Learning", "Mastered"];
 
-export function VocabularyNotes() {
+export function VocabularyNotebook() {
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState("All");
   const [status, setStatus] = useState("All");
@@ -29,7 +29,7 @@ export function VocabularyNotes() {
   return (
     <section id="vocabulary" className="bg-white py-20">
       <div className="container-shell">
-        <SectionHeading
+        <SectionHeader
           eyebrow="Vocabulary notes"
           title="Ghi chú từ vựng hằng ngày theo đúng ngữ cảnh TOEIC"
           description="Thiết kế dạng thẻ giúp đọc nhanh nghĩa, phiên âm, ví dụ, tag chủ đề và trạng thái học của từng từ."

@@ -1,15 +1,15 @@
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
-import { ProgressDashboard } from "@/components/progress/ProgressDashboard";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { ProgressOverview } from "@/components/progress/ProgressOverview";
 
 export default function ProgressPage() {
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="pt-20">
-        <ProgressDashboard />
+        <ProgressOverview />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

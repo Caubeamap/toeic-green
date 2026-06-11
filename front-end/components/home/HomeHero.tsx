@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MaterialIcon } from "@/components/common/MaterialIcon";
+import { MaterialSymbolIcon } from "@/components/common/MaterialSymbolIcon";
 
 const heroImage = "/images/toeic-hero-workspace.png";
 
@@ -10,12 +10,12 @@ const avatars = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAdYvtyELgSmiENQC0E96w9tLo66bwNWygDUpf-Z6is3RsjNuJnZN7lcfGVdZPcPPqxZpr03p6hfU0Whr-4v2eInrpCNxBE-yb0sN-Yk-Ts9mxA5-AGgBywhBy8UW6qeYq5ntx9hTPxeROOurKS0qHxVhSdymcUs9vxdAbP0vdgcxhVNq5C8_vaqUkiKcs9C7QK95ywFokZdz2j7x_bTmCUI3ITey3qMDA-6Qcdtx91ulvrc8A6pCscevD-jojUc5bFjSJCIZ4BNmw"
 ];
 
-export function HeroSection() {
+export function HomeHero() {
   return (
     <section className="container-shell relative mb-32 grid items-center gap-12 md:grid-cols-2">
       <div className="space-y-8">
         <div className="glass-card interactive-surface inline-flex items-center gap-2 rounded-full border-primary/20 px-4 py-2 text-primary">
-          <MaterialIcon name="auto_awesome" className="h-[18px] w-[18px]" filled />
+          <MaterialSymbolIcon name="auto_awesome" className="h-[18px] w-[18px]" filled />
           <span className="text-label-md font-semibold uppercase tracking-wider">
             Enhance Learning English skill
           </span>
@@ -37,7 +37,7 @@ export function HeroSection() {
             className="button-sheen inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary-container px-8 py-4 text-headline-md font-bold text-on-primary-container shadow-soft hover:bg-primary-fixed-dim"
           >
             Bắt đầu luyện thi
-            <MaterialIcon name="arrow_forward" className="h-5 w-5" />
+            <MaterialSymbolIcon name="arrow_forward" className="h-5 w-5" />
           </Link>
           <Link
             href="/practice"
@@ -88,7 +88,7 @@ export function HeroSection() {
           >
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
-                <MaterialIcon name="trending_up" className="h-5 w-5" />
+                <MaterialSymbolIcon name="trending_up" className="h-5 w-5" />
               </span>
               <div>
                 <p className="text-label-md font-semibold text-primary">Score Goal</p>

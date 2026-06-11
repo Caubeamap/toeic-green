@@ -1,13 +1,13 @@
 import { BookOpen, CheckCircle2, Lightbulb, XCircle } from "lucide-react";
 import { resultCards } from "@/lib/data";
-import { SectionHeading } from "@/components/common/SectionHeading";
+import { SectionHeader } from "@/components/common/SectionHeader";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
-export function TestResult() {
+export function ResultsReviewPreview() {
   return (
     <section id="results" className="container-shell py-20">
-      <SectionHeading
+      <SectionHeader
         eyebrow="Result & explanation"
         title="Kết quả sau bài làm phải biến lỗi sai thành bài học"
         description="Điểm số, tỷ lệ đúng sai, câu sai và lời giải được gom lại trong một màn hình dễ đọc, có highlight rõ đáp án đúng và sai."

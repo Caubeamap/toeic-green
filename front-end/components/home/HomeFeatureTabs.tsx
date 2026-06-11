@@ -4,15 +4,15 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { featureTabs } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { SectionHeading } from "@/components/common/SectionHeading";
+import { SectionHeader } from "@/components/common/SectionHeader";
 
-export function FeatureTabs() {
+export function HomeFeatureTabs() {
   const [activeId, setActiveId] = useState(featureTabs[0].id);
   const active = featureTabs.find((tab) => tab.id === activeId) ?? featureTabs[0];
 
   return (
     <section className="container-shell py-20">
-      <SectionHeading
+      <SectionHeader
         eyebrow="Core workspace"
         title="Một nền tảng cho toàn bộ hành trình TOEIC"
         description="Các tab được thiết kế như khu vực thao tác chính, chuyển mượt và đủ rõ active state để người học không bị lạc trong luồng ôn luyện."

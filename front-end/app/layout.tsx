@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
-import { AtmosphericBackground } from "@/components/layout/AtmosphericBackground";
-import { Providers } from "@/components/layout/Providers";
+import { AppBackground } from "@/components/layout/AppBackground";
+import { AppProviders } from "@/components/layout/AppProviders";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -72,10 +72,10 @@ export default function RootLayout({
         className={`${jakarta.variable} bg-background font-sans text-on-surface antialiased`}
         suppressHydrationWarning
       >
-        <Providers>
-          <AtmosphericBackground />
+        <AppProviders>
+          <AppBackground />
           {children}
-        </Providers>
+        </AppProviders>
       </body>
     </html>
   );

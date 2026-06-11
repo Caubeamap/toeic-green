@@ -100,7 +100,7 @@ function useCountdown(totalMinutes: number) {
    Main Component
    ═══════════════════════════════════════════════════════════════ */
 
-export function TestTakingView({
+export function PracticeExamSession({
   test,
   questions,
 }: {

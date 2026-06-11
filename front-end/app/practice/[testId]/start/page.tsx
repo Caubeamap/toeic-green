@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
-import { PracticeTestDetailView } from "@/components/practice/PracticeTestDetailView";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { PracticeTestSetup } from "@/components/practice/PracticeTestSetup";
 import { allPracticeTests, getPracticeTestById } from "@/lib/practice-tests";
 
 type TestStartPageProps = {
@@ -36,11 +36,11 @@ export default async function TestStartPage({ params }: TestStartPageProps) {
 
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="pt-20">
-        <PracticeTestDetailView test={test} />
+        <PracticeTestSetup test={test} />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

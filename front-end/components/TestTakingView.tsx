@@ -17,11 +17,8 @@ import {
   Pause,
   Maximize2,
   ListMusic,
-  Eye,
-  EyeOff,
   SkipBack,
-  SkipForward,
-  Lock
+  SkipForward
 } from "lucide-react";
 import type { PracticeTest } from "@/lib/practice-tests";
 import type { ToeicQuestion } from "@/lib/toeic-questions";
@@ -73,10 +70,18 @@ function useCountdown(totalMinutes: number) {
   const [running, setRunning] = useState(true);
 
   useEffect(() => {
-    if (!running || remaining <= 0) return;
-    const id = setInterval(() => setRemaining((s) => Math.max(0, s - 1)), 1000);
+    if (!running) return;
+    const id = setInterval(() => {
+      setRemaining((seconds) => {
+        if (seconds <= 1) {
+          setRunning(false);
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1000);
     return () => clearInterval(id);
-  }, [running, remaining]);
+  }, [running]);
 
   const hours = Math.floor(remaining / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);
@@ -114,17 +119,15 @@ export function TestTakingView({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
 
-  // Developer Mode Bypass State
-  const [isDevMode, setIsDevMode] = useState(false);
-
-  useEffect(() => {
+  const [isDevMode] = useState(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("dev") === "true" || params.get("bypass") === "true") {
-        setIsDevMode(true);
+        return true;
       }
     }
-  }, []);
+    return false;
+  });
 
   // Photo viewer modal state (Part 1)
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
@@ -258,14 +261,14 @@ export function TestTakingView({
 
   // Load new audio source when URL changes
   useEffect(() => {
-    setAudioTime(0);
     const audio = audioRef.current;
     if (audio) {
       audio.load();
-      if (audioPlaying) {
-        audio.play().catch((err) => console.log("Audio play error:", err));
-      }
     }
+
+    queueMicrotask(() => {
+      setAudioTime(0);
+    });
   }, [activeAudioUrl]);
 
   // Intercept browser tab close / refresh
@@ -371,7 +374,9 @@ export function TestTakingView({
     if (currentQuestion?.audio_url) {
       const idx = uniqueAudioUrls.indexOf(currentQuestion.audio_url);
       if (idx !== -1) {
-        setCurrentTrackIndex(idx);
+        queueMicrotask(() => {
+          setCurrentTrackIndex(idx);
+        });
       }
     }
   }, [currentQuestion, uniqueAudioUrls]);
@@ -379,16 +384,15 @@ export function TestTakingView({
   // Effect to manage automated transition countdown timer
   useEffect(() => {
     if (nextTrackCountdown === null) return;
-    if (nextTrackCountdown <= 0) {
-      setNextTrackCountdown(null);
-      // Automatically play next track
-      if (currentTrackIndex < uniqueAudioUrls.length - 1) {
-        playTrack(currentTrackIndex + 1, true);
-      }
-      return;
-    }
     const timerId = setTimeout(() => {
-      setNextTrackCountdown(nextTrackCountdown - 1);
+      if (nextTrackCountdown <= 1) {
+        setNextTrackCountdown(null);
+        if (currentTrackIndex < uniqueAudioUrls.length - 1) {
+          playTrack(currentTrackIndex + 1, true);
+        }
+      } else {
+        setNextTrackCountdown(nextTrackCountdown - 1);
+      }
     }, 1000);
     return () => clearTimeout(timerId);
   }, [nextTrackCountdown, currentTrackIndex, playTrack, uniqueAudioUrls.length]);
@@ -471,7 +475,7 @@ export function TestTakingView({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, currentGroupQuestions, questions, goNextGroup, goPrevGroup, goTo, showSubmitDialog, currentQuestion, selectAnswer, toggleFlag]);
+  }, [currentIndex, currentGroupQuestions, questions, goNextGroup, goPrevGroup, goTo, showSubmitDialog, currentQuestion, selectAnswer, toggleFlag, isNavigationBlocked]);
 
   // Submit test and format results
   const handleSubmit = useCallback(() => {
@@ -549,7 +553,7 @@ export function TestTakingView({
       const correspondingQ = questions.find((q) => q.questionNumber === qNum);
       if (!correspondingQ) return match;
 
-      const btnClass = "mx-1 inline-flex h-7 items-center justify-center rounded-lg px-2.5 text-xs font-black ring-1 transition duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-highest text-on-surface-variant ring-outline-variant hover:bg-surface-container-highest/80";
+      const btnClass = "mx-1 inline-flex h-7 items-center justify-center rounded-lg px-2.5 text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-highest text-on-surface-variant ring-outline-variant hover:bg-surface-container-highest/80";
       const textVal = `_____ (${qNum})`;
       return `<button type="button" data-qnum="${qNum}" class="${btnClass}">${textVal}</button>`;
     });
@@ -581,7 +585,8 @@ export function TestTakingView({
           src={activeAudioUrl}
           onTimeUpdate={() => {
             if (audioRef.current) {
-              setAudioTime(audioRef.current.currentTime);
+              const wholeSeconds = Math.floor(audioRef.current.currentTime);
+              setAudioTime((current) => (current === wholeSeconds ? current : wholeSeconds));
             }
           }}
           onLoadedMetadata={() => {
@@ -606,12 +611,12 @@ export function TestTakingView({
         />
       )}
       {/* ──── Sticky Header ──── */}
-      <header className="z-30 flex h-16 shrink-0 items-center justify-between border-b border-outline-variant/30 bg-white/70 px-4 shadow-glass backdrop-blur-xl md:px-6">
+      <header className="z-30 flex h-16 shrink-0 items-center justify-between border-b border-outline-variant/30 bg-white/95 px-4 shadow-glass md:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setShowExitDialog(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition hover:bg-surface-container-low active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-container-low"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -629,7 +634,7 @@ export function TestTakingView({
         <div className="mx-8 hidden flex-1 max-w-md items-center gap-3 lg:flex">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container-highest">
             <div
-              className="h-full rounded-full bg-primary shadow-glow transition-all duration-500"
+              className="h-full rounded-full bg-primary shadow-glow transition-[width] duration-200"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -646,9 +651,9 @@ export function TestTakingView({
           {/* Clock timer */}
           <div
             className={cn(
-              "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black tabular-nums transition-all",
+              "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black tabular-nums transition-colors",
               timer.remaining <= 300
-                ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
+                ? "bg-red-50 text-red-600 border-red-200"
                 : "border-outline-variant/40 bg-primary-container/20 text-on-primary-container"
             )}
           >
@@ -675,7 +680,7 @@ export function TestTakingView({
           <button
             type="button"
             onClick={() => setShowSubmitDialog(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-extrabold text-white shadow-glow transition hover:bg-primary/95 active:scale-[0.97]"
+            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-extrabold text-white shadow-glow transition-colors hover:bg-primary/95"
           >
             <Send className="h-3.5 w-3.5" />
             <span>Nộp bài</span>
@@ -696,7 +701,7 @@ export function TestTakingView({
                 disabled={isNavigationBlocked}
                 onClick={() => goTo(g.startIndex)}
                 className={cn(
-                  "rounded-full px-3.5 py-1.5 text-xs font-black transition-all duration-200 active:scale-95 whitespace-nowrap",
+                  "rounded-full px-3.5 py-1.5 text-xs font-black transition-colors duration-150 whitespace-nowrap",
                   isPartActive
                     ? "bg-primary text-white shadow-glow"
                     : "bg-surface-container-highest/60 text-muted hover:bg-primary-container/20 hover:text-primary",
@@ -716,7 +721,7 @@ export function TestTakingView({
             type="button"
             onClick={() => setMobileActiveTab("passage")}
             className={cn(
-              "flex-1 py-3 text-center text-xs font-black transition-all border-b-2",
+              "flex-1 py-3 text-center text-xs font-black transition-colors border-b-2",
               mobileActiveTab === "passage"
                 ? "border-primary text-primary bg-primary/5"
                 : "border-transparent text-muted hover:bg-surface-container-low"
@@ -728,7 +733,7 @@ export function TestTakingView({
             type="button"
             onClick={() => setMobileActiveTab("questions")}
             className={cn(
-              "flex-1 py-3 text-center text-xs font-black transition-all border-b-2",
+              "flex-1 py-3 text-center text-xs font-black transition-colors border-b-2",
               mobileActiveTab === "questions"
                 ? "border-primary text-primary bg-primary/5"
                 : "border-transparent text-muted hover:bg-surface-container-low"
@@ -746,7 +751,7 @@ export function TestTakingView({
         <div
           ref={leftPanelRef}
           className={cn(
-            "flex-1 md:flex-[1.2] lg:flex-[1.3] overflow-y-auto border-r border-outline-variant/20 p-4 md:p-6 lg:p-8 bg-surface-container-low transition-all duration-300 flex-col",
+            "flex-1 md:flex-[1.2] lg:flex-[1.3] overflow-y-auto border-r border-outline-variant/20 p-4 md:p-6 lg:p-8 bg-surface-container-low flex-col",
             currentQuestion.partId === "part-5"
               ? "hidden"
               : mobileActiveTab === "passage"
@@ -758,7 +763,7 @@ export function TestTakingView({
             
             {/* Unified Listening Player */}
             {isListening && (
-              <div className="mb-6 rounded-3xl border border-white bg-white/75 p-5 shadow-glass backdrop-blur-md">
+              <div className="mb-6 rounded-3xl border border-white bg-white/85 p-5 shadow-glass">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -800,7 +805,7 @@ export function TestTakingView({
                         }
                       }}
                       className={cn(
-                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-glow transition duration-200 active:scale-95",
+                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-glow transition-colors duration-150",
                         audioPlaying ? "bg-primary hover:bg-primary/95" : "bg-primary/90 hover:bg-primary"
                       )}
                       aria-label={audioPlaying ? "Pause" : "Play"}
@@ -823,7 +828,7 @@ export function TestTakingView({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between text-[11px] font-bold text-muted mb-1">
                         {nextTrackCountdown !== null ? (
-                          <span className="text-primary font-black animate-pulse">
+                          <span className="text-primary font-black">
                             Tự động chuyển câu sau {nextTrackCountdown}s...
                           </span>
                         ) : (
@@ -833,7 +838,7 @@ export function TestTakingView({
                       </div>
                       <div
                         className={cn(
-                          "h-2 rounded-full bg-surface-container-highest relative transition-all",
+                          "h-2 rounded-full bg-surface-container-highest relative",
                           isNavigationBlocked ? "cursor-default" : "cursor-pointer"
                         )}
                         onClick={(e) => {
@@ -850,8 +855,8 @@ export function TestTakingView({
                       >
                         <div
                           className={cn(
-                            "h-full rounded-full transition-all",
-                            nextTrackCountdown !== null ? "bg-primary shadow-glow animate-pulse duration-1000" : "bg-primary shadow-glow duration-300"
+                            "h-full rounded-full transition-[width]",
+                            nextTrackCountdown !== null ? "bg-primary shadow-glow duration-200" : "bg-primary shadow-glow duration-200"
                           )}
                           style={{
                             width: nextTrackCountdown !== null
@@ -877,13 +882,13 @@ export function TestTakingView({
                   <img
                     src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
-                    className="w-full h-[360px] object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    className="w-full h-[360px] object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
                     <button
                       type="button"
                       onClick={() => setIsPhotoZoomed(true)}
-                      className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft hover:bg-white active:scale-95"
+                      className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft transition-colors hover:bg-white"
                     >
                       <Maximize2 className="h-4 w-4" />
                       <span>Xem ảnh lớn</span>
@@ -900,7 +905,7 @@ export function TestTakingView({
             {currentQuestion.partId === "part-2" && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
                 <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-primary/10 blur-xl" />
+                  <div className="absolute inset-0 rounded-full bg-primary/10" />
                   <div className="relative flex h-24 w-24 items-center justify-center rounded-full border border-primary/20 bg-white shadow-glass">
                     <Headphones className="h-10 w-10 text-primary" />
                   </div>
@@ -919,7 +924,7 @@ export function TestTakingView({
                       key={idx}
                       className={cn(
                         "w-2 bg-primary/70 rounded-full",
-                        audioPlaying ? "animate-[pulse_1s_infinite]" : "opacity-30"
+                        audioPlaying ? "opacity-80" : "opacity-30"
                       )}
                       style={{
                         height: audioPlaying ? `${h}px` : "6px",
@@ -949,13 +954,13 @@ export function TestTakingView({
                     <img
                       src={currentQuestion.image_url}
                       alt="Attached chart/graphic"
-                      className="w-full h-[240px] object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                      className="w-full h-[240px] object-contain"
                     />
-                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
                       <button
                         type="button"
                         onClick={() => setIsPhotoZoomed(true)}
-                        className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft hover:bg-white active:scale-95"
+                        className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft transition-colors hover:bg-white"
                       >
                         <Maximize2 className="h-4 w-4" />
                         <span>Xem ảnh lớn</span>
@@ -980,7 +985,7 @@ export function TestTakingView({
             {currentQuestion.partId === "part-6" && (
               <div className="space-y-4">
                 <div 
-                  className="rounded-3xl border border-white bg-white/80 p-6 shadow-glass backdrop-blur-md max-h-[650px] lg:max-h-[750px] overflow-y-auto leading-relaxed cursor-pointer"
+                  className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto leading-relaxed cursor-pointer"
                   onClick={handlePassageClick}
                 >
                   <div 
@@ -1003,7 +1008,7 @@ export function TestTakingView({
                         type="button"
                         onClick={() => setActivePassageTab(idx)}
                         className={cn(
-                          "rounded-xl px-4 py-2.5 text-xs font-black transition whitespace-nowrap shrink-0 active:scale-95",
+                          "rounded-xl px-4 py-2.5 text-xs font-black transition-colors whitespace-nowrap shrink-0",
                           activePassageTab === idx
                             ? "bg-primary text-white shadow-glow"
                             : "border border-outline-variant/40 bg-white/60 text-muted hover:bg-white/80"
@@ -1015,7 +1020,7 @@ export function TestTakingView({
                   </div>
                 )}
                 
-                <div className="rounded-3xl border border-white bg-white/80 p-6 shadow-glass backdrop-blur-md max-h-[650px] lg:max-h-[750px] overflow-y-auto">
+                <div className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto">
                   {passagesList.length > 0 && (
                     <div 
                       className="text-sm leading-relaxed text-ink font-medium passage-content"
@@ -1086,7 +1091,7 @@ export function TestTakingView({
                         }
                       }}
                       className={cn(
-                        "rounded-2xl border p-4 transition duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft cursor-pointer relative",
+                        "rounded-2xl border p-4 transition-colors duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft cursor-pointer relative",
                         isCurrentlyFocused
                           ? "border-primary/50 bg-white ring-2 ring-primary/10 shadow-glow"
                           : "border-outline-variant/20 bg-white/70 hover:border-outline-variant/60 hover:bg-white"
@@ -1121,7 +1126,7 @@ export function TestTakingView({
                                 }
                               }}
                               className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-full text-xs font-black transition-all duration-150 border active:scale-90",
+                                "flex h-8 w-8 items-center justify-center rounded-full text-xs font-black transition-colors duration-150 border",
                                 isSelected
                                   ? "bg-primary text-white border-primary shadow-glow"
                                   : "bg-surface-container-low text-muted border-outline-variant/40 hover:border-primary/20 hover:bg-white hover:text-primary"
@@ -1142,7 +1147,7 @@ export function TestTakingView({
                             toggleFlag(q.id);
                           }}
                           className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-xl border transition active:scale-90",
+                            "flex h-8 w-8 items-center justify-center rounded-xl border transition-colors",
                             isFlagged
                               ? "bg-amber-100 text-amber-700 border-amber-200"
                               : "border-outline-variant/30 text-muted hover:bg-surface-container-low"
@@ -1166,9 +1171,9 @@ export function TestTakingView({
                       }
                     }}
                     className={cn(
-                      "rounded-3xl border p-5 transition duration-300 relative shadow-soft",
+                      "rounded-3xl border p-5 transition-colors duration-150 relative shadow-soft",
                       isCurrentlyFocused
-                        ? "border-primary/40 bg-white ring-2 ring-primary/10 scale-[1.01]"
+                        ? "border-primary/40 bg-white ring-2 ring-primary/10"
                         : "border-outline-variant/30 bg-white/70 hover:border-outline-variant/80 hover:bg-white"
                     )}
                   >
@@ -1198,7 +1203,7 @@ export function TestTakingView({
                             toggleFlag(q.id);
                           }}
                           className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-xl transition active:scale-90",
+                            "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
                             isFlagged
                               ? "bg-amber-100 text-amber-700"
                               : "text-muted hover:bg-surface-container-low"
@@ -1238,7 +1243,7 @@ export function TestTakingView({
                               setCurrentIndex(questions.indexOf(q));
                             }}
                             className={cn(
-                              "group flex w-full items-center gap-3.5 rounded-2xl border px-4 py-3 text-left transition duration-200 active:scale-[0.99]",
+                              "group flex w-full items-center gap-3.5 rounded-2xl border px-4 py-3 text-left transition-colors duration-150",
                               isSelected
                                 ? "border-primary/50 bg-primary-container/15 shadow-sm"
                                 : "border-outline-variant/40 bg-white/60 hover:border-primary/20 hover:bg-white"
@@ -1287,7 +1292,7 @@ export function TestTakingView({
                   disabled={questions.indexOf(currentGroupQuestions[0]) === 0}
                   onClick={goPrevGroup}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black border transition active:scale-95",
+                    "flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black border transition-colors",
                     questions.indexOf(currentGroupQuestions[0]) === 0
                       ? "border-outline-variant/20 text-muted/30 cursor-not-allowed"
                       : "border-outline-variant/60 bg-white hover:bg-surface-container-low text-muted"
@@ -1315,7 +1320,7 @@ export function TestTakingView({
                   }
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black transition active:scale-95 shadow-glow",
+                  "flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black transition-colors shadow-glow",
                   (isNavigationBlocked
                     ? (!currentGroupQuestions.every((q) => !!answers[q.id]) || currentTrackIndex === uniqueAudioUrls.length - 1)
                     : (questions.indexOf(currentGroupQuestions[currentGroupQuestions.length - 1]) === totalQuestions - 1))
@@ -1333,7 +1338,7 @@ export function TestTakingView({
         {/* SIDEBAR: Question Nav Sheet */}
         <aside
           className={cn(
-            "w-72 shrink-0 border-l border-outline-variant/20 bg-white/60 backdrop-blur-xl flex flex-col transition-all duration-300 overflow-hidden relative",
+            "w-72 shrink-0 border-l border-outline-variant/20 bg-white/88 flex flex-col transition-[width] duration-150 overflow-hidden relative",
             sidebarOpen ? "translate-x-0" : "w-0 border-l-0"
           )}
         >
@@ -1350,7 +1355,7 @@ export function TestTakingView({
                     disabled={isNavigationBlocked}
                     onClick={() => goTo(g.startIndex)}
                     className={cn(
-                      "rounded-lg py-1.5 text-[10px] font-black text-center transition active:scale-95",
+                      "rounded-lg py-1.5 text-[10px] font-black text-center transition-colors",
                       isPartActive
                         ? "bg-primary text-white shadow-glow"
                         : "bg-surface-container-highest/80 text-muted hover:bg-primary-container/40 hover:text-primary",
@@ -1388,7 +1393,7 @@ export function TestTakingView({
                       onClick={() => goTo(idx)}
                       title={`Question ${q.questionNumber}`}
                       className={cn(
-                        "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-all active:scale-90",
+                        "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
                         isCurr
                           ? "ring-2 ring-primary ring-offset-1 bg-white text-primary"
                           : isAns
@@ -1428,7 +1433,7 @@ export function TestTakingView({
                       onClick={() => goTo(idx)}
                       title={`Question ${q.questionNumber}`}
                       className={cn(
-                        "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-all active:scale-90",
+                        "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
                         isCurr
                           ? "ring-2 ring-primary ring-offset-1 bg-white text-primary"
                           : isAns
@@ -1471,10 +1476,10 @@ export function TestTakingView({
       {/* ──── Photo Zoom Overlay (Modal) ──── */}
       {isPhotoZoomed && (currentQuestion.partId === "part-1" || currentQuestion.image_url) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4 backdrop-blur-sm cursor-zoom-out"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4 cursor-zoom-out"
           onClick={() => setIsPhotoZoomed(false)}
         >
-          <div className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/20 bg-black shadow-2xl">
+          <div className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/20 bg-black shadow-soft">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
@@ -1494,10 +1499,10 @@ export function TestTakingView({
 
       {/* ──── Submit Confirm Modal ──── */}
       {showSubmitDialog && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-white bg-white p-7 shadow-2xl animate-[scaleIn_0.2s_ease-out]">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-white bg-white p-7 shadow-soft">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
-              <AlertTriangle className="h-6 w-6 animate-bounce" />
+              <AlertTriangle className="h-6 w-6" />
             </div>
             <h2 className="text-lg font-black text-ink">Bạn muốn nộp bài?</h2>
             <p className="mt-2.5 text-xs leading-relaxed text-muted font-medium">
@@ -1535,10 +1540,10 @@ export function TestTakingView({
 
       {/* ──── Exit Confirm Modal ──── */}
       {showExitDialog && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-white bg-white p-7 shadow-2xl animate-[scaleIn_0.2s_ease-out]">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-white bg-white p-7 shadow-soft">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 border border-red-200">
-              <AlertTriangle className="h-6 w-6 animate-bounce" />
+              <AlertTriangle className="h-6 w-6" />
             </div>
             <h2 className="text-lg font-black text-ink">Bạn có chắc muốn thoát?</h2>
             <p className="mt-2.5 text-xs leading-relaxed text-muted font-medium">

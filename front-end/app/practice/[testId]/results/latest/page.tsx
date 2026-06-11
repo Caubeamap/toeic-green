@@ -151,18 +151,32 @@ export default function LatestResultPage() {
 
   // Load results from SessionStorage
   useEffect(() => {
-    const raw = sessionStorage.getItem("toeic-test-result");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as SavedResult;
-        if (parsed.testId === params.testId) {
-          setResult(parsed);
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      const raw = sessionStorage.getItem("toeic-test-result");
+      let nextResult: SavedResult | null = null;
+
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as SavedResult;
+          if (parsed.testId === params.testId) {
+            nextResult = parsed;
+          }
+        } catch (e) {
+          console.error("Failed to parse saved TOEIC result", e);
         }
-      } catch (e) {
-        console.error("Failed to parse saved TOEIC result", e);
       }
-    }
-    setLoading(false);
+
+      if (!cancelled) {
+        setResult(nextResult);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [params.testId]);
 
   // Load questions asynchronously
@@ -307,7 +321,7 @@ export default function LatestResultPage() {
       }
 
       const btnClass = cn(
-        "mx-1 inline-flex h-7 items-center justify-center rounded-lg px-2.5 text-xs font-black ring-1 transition duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary",
+        "mx-1 inline-flex h-7 items-center justify-center rounded-lg px-2.5 text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary",
         isCurrent ? "scale-105 ring-primary" : "",
         isAnswered
           ? isCorrect
@@ -351,7 +365,7 @@ export default function LatestResultPage() {
       <>
         <Header />
         <main className="min-h-screen bg-background pt-32 grid place-items-center">
-          <div className="max-w-md rounded-3xl border border-white/70 bg-white/60 p-10 text-center shadow-glass backdrop-blur-xl">
+          <div className="max-w-md rounded-3xl border border-white/70 bg-white/86 p-10 text-center shadow-glass">
             <h1 className="text-xl font-black text-ink">Không tìm thấy kết quả</h1>
             <p className="mt-3 text-xs text-muted">
               Có vẻ bạn chưa làm bài thi này trong phiên làm việc hiện tại hoặc dữ liệu thi đã bị xóa.
@@ -390,7 +404,7 @@ export default function LatestResultPage() {
             </button>
           </div>
 
-          <div className="rounded-3xl border border-white bg-white/70 p-6 shadow-glass backdrop-blur-md">
+          <div className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass">
             <div className="grid gap-8 lg:grid-cols-[1fr_2fr]">
               
               {/* Circular Gauge Score */}
@@ -554,7 +568,7 @@ export default function LatestResultPage() {
                             type="button"
                             onClick={() => setLeftPanelLang("en")}
                             className={cn(
-                              "rounded-md px-2.5 py-1 text-[10px] font-black transition active:scale-95",
+                              "rounded-md px-2.5 py-1 text-[10px] font-black transition-colors",
                               leftPanelLang === "en"
                                 ? "bg-white text-primary shadow-sm"
                                 : "text-muted hover:text-ink"
@@ -568,7 +582,7 @@ export default function LatestResultPage() {
                               type="button"
                               onClick={() => setLeftPanelLang("vi")}
                               className={cn(
-                                "rounded-md px-2.5 py-1 text-[10px] font-black transition active:scale-95",
+                                "rounded-md px-2.5 py-1 text-[10px] font-black transition-colors",
                                 leftPanelLang === "vi"
                                   ? "bg-white text-primary shadow-sm"
                                   : "text-muted hover:text-ink"
@@ -580,7 +594,7 @@ export default function LatestResultPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[300px] overflow-y-auto text-xs leading-relaxed text-ink font-semibold whitespace-pre-line transition-all duration-200">
+                      <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[300px] overflow-y-auto text-xs leading-relaxed text-ink font-semibold whitespace-pre-line transition-colors duration-150">
                         {leftPanelLang === "en" ? (
                           <div dangerouslySetInnerHTML={{ __html: displayEn }} />
                         ) : (
@@ -618,7 +632,7 @@ export default function LatestResultPage() {
                             type="button"
                             onClick={() => setLeftPanelLang("en")}
                             className={cn(
-                              "rounded-md px-2.5 py-1 text-[10px] font-black transition active:scale-95",
+                              "rounded-md px-2.5 py-1 text-[10px] font-black transition-colors",
                               leftPanelLang === "en"
                                 ? "bg-white text-primary shadow-sm"
                                 : "text-muted hover:text-ink"
@@ -631,7 +645,7 @@ export default function LatestResultPage() {
                             type="button"
                             onClick={() => setLeftPanelLang("vi")}
                             className={cn(
-                              "rounded-md px-2.5 py-1 text-[10px] font-black transition active:scale-95",
+                              "rounded-md px-2.5 py-1 text-[10px] font-black transition-colors",
                               leftPanelLang === "vi"
                                 ? "bg-white text-primary shadow-sm"
                                 : "text-muted hover:text-ink"
@@ -675,7 +689,7 @@ export default function LatestResultPage() {
                             type="button"
                             onClick={() => setLeftPanelLang("en")}
                             className={cn(
-                              "rounded-md px-2.5 py-1 text-[10px] font-black transition active:scale-95",
+                              "rounded-md px-2.5 py-1 text-[10px] font-black transition-colors",
                               leftPanelLang === "en"
                                 ? "bg-white text-primary shadow-sm"
                                 : "text-muted hover:text-ink"
@@ -688,7 +702,7 @@ export default function LatestResultPage() {
                             type="button"
                             onClick={() => setLeftPanelLang("vi")}
                             className={cn(
-                              "rounded-md px-2.5 py-1 text-[10px] font-black transition active:scale-95",
+                              "rounded-md px-2.5 py-1 text-[10px] font-black transition-colors",
                               leftPanelLang === "vi"
                                 ? "bg-white text-primary shadow-sm"
                                 : "text-muted hover:text-ink"
@@ -710,7 +724,7 @@ export default function LatestResultPage() {
                                 type="button"
                                 onClick={() => setActivePassageTab(idx)}
                                 className={cn(
-                                  "rounded-lg px-3 py-1.5 text-[10px] font-black transition whitespace-nowrap active:scale-95",
+                                  "rounded-lg px-3 py-1.5 text-[10px] font-black transition-colors whitespace-nowrap",
                                   activePassageTab === idx
                                     ? "bg-primary text-white shadow-glow"
                                     : "border border-outline-variant/40 bg-white/60 text-muted"
@@ -795,7 +809,7 @@ export default function LatestResultPage() {
                                   <span
                                     key={opt.label}
                                     className={cn(
-                                      "flex h-8 w-8 items-center justify-center rounded-full text-xs font-black border transition-all duration-150 relative",
+                                      "flex h-8 w-8 items-center justify-center rounded-full text-xs font-black border transition-colors duration-150 relative",
                                       isOptCorrect
                                         ? "bg-green-600 text-white border-green-600 shadow-soft"
                                         : isOptSelected
@@ -845,7 +859,7 @@ export default function LatestResultPage() {
                                     e.stopPropagation();
                                     setShowTranscriptMap(prev => ({ ...prev, [q.id]: !prev[q.id] }));
                                   }}
-                                  className="inline-flex w-fit items-center gap-1 text-[10px] font-black text-primary hover:text-primary/80 transition active:scale-95 bg-primary/5 hover:bg-primary/10 px-2.5 py-1.5 rounded-lg border border-primary/10"
+                                  className="inline-flex w-fit items-center gap-1 text-[10px] font-black text-primary hover:text-primary/80 transition-colors bg-primary/5 hover:bg-primary/10 px-2.5 py-1.5 rounded-lg border border-primary/10"
                                 >
                                   <Headphones className="h-3 w-3" />
                                   <span>{isTranscriptOpen ? "Ẩn Script & Dịch" : "Xem Script & Dịch"}</span>
@@ -934,7 +948,7 @@ export default function LatestResultPage() {
                               <div
                                 key={opt.label}
                                 className={cn(
-                                  "flex w-full items-center gap-3.5 rounded-xl border px-4 py-2.5 text-xs font-semibold leading-relaxed transition-all",
+                                  "flex w-full items-center gap-3.5 rounded-xl border px-4 py-2.5 text-xs font-semibold leading-relaxed transition-colors",
                                   isOptCorrect
                                     ? "border-green-500/40 bg-green-500/10 text-ink shadow-sm"
                                     : isOptSelected
@@ -983,7 +997,7 @@ export default function LatestResultPage() {
                                     e.stopPropagation();
                                     setShowTranscriptMap(prev => ({ ...prev, [q.id]: !prev[q.id] }));
                                   }}
-                                  className="inline-flex w-fit items-center gap-1.5 text-xs font-black text-primary hover:text-primary/80 transition active:scale-95 bg-primary/5 hover:bg-primary/10 px-3 py-2 rounded-lg border border-primary/10"
+                                  className="inline-flex w-fit items-center gap-1.5 text-xs font-black text-primary hover:text-primary/80 transition-colors bg-primary/5 hover:bg-primary/10 px-3 py-2 rounded-lg border border-primary/10"
                                 >
                                   <Headphones className="h-3.5 w-3.5" />
                                   <span>{isTranscriptOpen ? "Ẩn Script & Dịch" : "Xem Script & Dịch"}</span>
@@ -1065,7 +1079,7 @@ export default function LatestResultPage() {
                           type="button"
                           onClick={() => goTo(idx)}
                           className={cn(
-                            "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition active:scale-90",
+                            "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
                             isSelected
                               ? "ring-2 ring-primary ring-offset-1 text-ink"
                               : "",
@@ -1102,7 +1116,7 @@ export default function LatestResultPage() {
                           type="button"
                           onClick={() => goTo(idx)}
                           className={cn(
-                            "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition active:scale-90",
+                            "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
                             isSelected
                               ? "ring-2 ring-primary ring-offset-1 text-ink"
                               : "",

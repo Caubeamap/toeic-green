@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -39,11 +39,7 @@ function validateEmail(value: string): FieldError {
   return null;
 }
 
-function validatePassword(value: string): FieldError {
-  if (!value) return "Vui lòng nhập mật khẩu.";
-  if (value.length < 8) return "Mật khẩu phải có ít nhất 8 ký tự.";
-  return null;
-}
+
 
 function validateRequired(value: string, fieldName: string): FieldError {
   if (!value.trim()) return `Vui lòng nhập ${fieldName}.`;
@@ -353,30 +349,31 @@ function SubmitButton({
    ═══════════════════════════════════════════════════════════════ */
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email: FieldError; password: FieldError }>({
-    email: null,
+  const [errors, setErrors] = useState<{ username: FieldError; password: FieldError }>({
+    username: null,
     password: null
   });
-  const [touched, setTouched] = useState({ email: false, password: false });
+  const [touched, setTouched] = useState({ username: false, password: false });
   const [status, setStatus] = useState<FormStatus>({ type: "idle" });
 
-  function validateField(field: "email" | "password") {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    if (field === "email") {
-      setErrors((prev) => ({ ...prev, email: validateEmail(email) }));
-    } else {
-      setErrors((prev) => ({ ...prev, password: validatePassword(password) }));
+  /* Listen for auth error response from AuthCard */
+  useEffect(() => {
+    function handleError(e: Event) {
+      const { error } = (e as CustomEvent).detail;
+      setStatus({ type: "error", message: error });
     }
-  }
+    window.addEventListener("toeic-login-error", handleError);
+    return () => window.removeEventListener("toeic-login-error", handleError);
+  }, []);
 
   function validateAll(): boolean {
-    const emailErr = validateEmail(email);
-    const passwordErr = validatePassword(password);
-    setErrors({ email: emailErr, password: passwordErr });
-    setTouched({ email: true, password: true });
-    return !emailErr && !passwordErr;
+    const usernameErr = validateRequired(username, "tên đăng nhập");
+    const passwordErr = !password ? "Vui lòng nhập mật khẩu." : null;
+    setErrors({ username: usernameErr, password: passwordErr });
+    setTouched({ username: true, password: true });
+    return !usernameErr && !passwordErr;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -384,15 +381,13 @@ export function LoginForm() {
     if (!validateAll()) return;
 
     setStatus({ type: "submitting" });
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // TODO: Thay bằng API call thực tế khi có backend
-    // Ví dụ: const res = await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setStatus({
-      type: "error",
-      message: "Chức năng đăng nhập đang được phát triển. Hệ thống sẽ sẵn sàng khi backend được tích hợp."
+    /* Dispatch a custom event so the page-level component can call useAuth().login */
+    const event = new CustomEvent("toeic-login-attempt", {
+      detail: { username: username.trim(), password }
     });
+    window.dispatchEvent(event);
   }
 
   const isSubmitting = status.type === "submitting";
@@ -402,20 +397,23 @@ export function LoginForm() {
       <FormAlert status={status} />
 
       <Field
-        id="login-email"
-        label="Email"
-        icon={<Mail className="h-[18px] w-[18px]" />}
-        placeholder="name@example.com"
-        type="email"
-        autoComplete="email"
+        id="login-username"
+        label="Tên đăng nhập"
+        icon={<UserRound className="h-[18px] w-[18px]" />}
+        placeholder="hoangusuk"
+        type="text"
+        autoComplete="username"
         required
-        value={email}
+        value={username}
         onChange={(v) => {
-          setEmail(v);
-          if (touched.email) setErrors((prev) => ({ ...prev, email: validateEmail(v) }));
+          setUsername(v);
+          if (touched.username) setErrors((prev) => ({ ...prev, username: validateRequired(v, "tên đăng nhập") }));
         }}
-        onBlur={() => validateField("email")}
-        error={touched.email ? errors.email : null}
+        onBlur={() => {
+          setTouched((prev) => ({ ...prev, username: true }));
+          setErrors((prev) => ({ ...prev, username: validateRequired(username, "tên đăng nhập") }));
+        }}
+        error={touched.username ? errors.username : null}
       />
       <Field
         id="login-password"
@@ -436,9 +434,12 @@ export function LoginForm() {
         value={password}
         onChange={(v) => {
           setPassword(v);
-          if (touched.password) setErrors((prev) => ({ ...prev, password: validatePassword(v) }));
+          if (touched.password) setErrors((prev) => ({ ...prev, password: !v ? "Vui lòng nhập mật khẩu." : null }));
         }}
-        onBlur={() => validateField("password")}
+        onBlur={() => {
+          setTouched((prev) => ({ ...prev, password: true }));
+          setErrors((prev) => ({ ...prev, password: !password ? "Vui lòng nhập mật khẩu." : null }));
+        }}
         error={touched.password ? errors.password : null}
       />
 

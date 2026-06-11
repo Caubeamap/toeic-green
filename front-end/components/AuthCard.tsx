@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { LoginForm, SignupForm } from "@/components/AuthForms";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 /* ─────────────────────────── Types ─────────────────────────── */
@@ -65,6 +65,37 @@ export function AuthCard({ initialMode, redirectTo }: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [direction, setDirection] = useState(0);
   const router = useRouter();
+  const { login, isAuthenticated } = useAuth();
+
+  /* Redirect immediately if already authenticated */
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace(redirectTo);
+    }
+  }, [isAuthenticated, redirectTo, router]);
+
+  /* Listen for login attempt from LoginForm */
+  useEffect(() => {
+    function handleLoginAttempt(e: Event) {
+      const { username, password } = (e as CustomEvent).detail;
+      const result = login(username, password);
+
+      if (result.ok) {
+        router.push(redirectTo);
+      } else {
+        /* Re-dispatch error back so LoginForm can display it */
+        window.dispatchEvent(
+          new CustomEvent("toeic-login-error", {
+            detail: { error: result.error }
+          })
+        );
+      }
+    }
+
+    window.addEventListener("toeic-login-attempt", handleLoginAttempt);
+    return () =>
+      window.removeEventListener("toeic-login-attempt", handleLoginAttempt);
+  }, [login, redirectTo, router]);
 
   function switchMode(newMode: AuthMode) {
     if (newMode === mode) return;

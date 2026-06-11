@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +13,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   function handleLogout() {
     logout();
@@ -48,21 +49,44 @@ export function Header() {
         {/* Desktop auth area */}
         <div className="hidden items-center gap-4 sm:flex">
           {isAuthenticated && user ? (
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary">
-                {user.avatar}
-              </div>
-              <span className="text-label-md font-bold text-on-surface">
-                {user.displayName}
-              </span>
+            <div className="relative">
               <button
                 type="button"
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-label-md font-bold text-on-surface-variant transition hover:bg-red-50 hover:text-red-600"
+                onClick={() => setShowUserDropdown((prev) => !prev)}
+                className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5 transition hover:bg-black/5 active:scale-98 focus:outline-none"
               >
-                <LogOut className="h-4 w-4" />
-                Đăng xuất
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary shadow-sm">
+                  {user.avatar}
+                </div>
+                <span className="text-label-md font-bold text-on-surface">
+                  {user.displayName}
+                </span>
+                <ChevronDown className={cn("h-4 w-4 text-on-surface-variant transition-transform duration-200", showUserDropdown && "rotate-180")} />
               </button>
+
+              {showUserDropdown && (
+                <>
+                  {/* Backdrop to close when clicking outside */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowUserDropdown(false)}
+                  />
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 mt-2 z-20 w-44 rounded-2xl border border-white/40 bg-white/90 p-1.5 shadow-glass backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleLogout();
+                        setShowUserDropdown(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-label-md font-bold text-red-600 transition hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <>

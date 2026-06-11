@@ -1,15 +1,24 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { navItems } from "@/lib/data";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  function handleLogout() {
+    logout();
+    setOpen(false);
+    router.push("/");
+  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/30 bg-white/45 shadow-glass backdrop-blur-lg">
@@ -36,19 +45,41 @@ export function Header() {
           ))}
         </nav>
 
+        {/* Desktop auth area */}
         <div className="hidden items-center gap-4 sm:flex">
-          <Link
-            href="/login"
-            className="rounded-xl px-4 py-2 text-label-md font-bold text-primary transition hover:bg-white/20"
-          >
-            Đăng nhập
-          </Link>
-          <Link
-            href="/login?mode=signup"
-            className="rounded-xl bg-primary px-6 py-2.5 text-label-md font-bold text-on-primary transition hover:scale-95 active:scale-90"
-          >
-            Đăng ký
-          </Link>
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary">
+                {user.avatar}
+              </div>
+              <span className="text-label-md font-bold text-on-surface">
+                {user.displayName}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-label-md font-bold text-on-surface-variant transition hover:bg-red-50 hover:text-red-600"
+              >
+                <LogOut className="h-4 w-4" />
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-xl px-4 py-2 text-label-md font-bold text-primary transition hover:bg-white/20"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                href="/login?mode=signup"
+                className="rounded-xl bg-primary px-6 py-2.5 text-label-md font-bold text-on-primary transition hover:scale-95 active:scale-90"
+              >
+                Đăng ký
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -78,22 +109,45 @@ export function Header() {
               </Link>
             ))}
 
-            {/* Auth links trong mobile menu */}
+            {/* Mobile auth */}
             <div className="mt-1 border-t border-outline-variant/50 pt-3">
-              <Link
-                href="/login"
-                className="block rounded-2xl px-4 py-3 text-sm font-bold text-primary hover:bg-primary-container/30"
-                onClick={() => setOpen(false)}
-              >
-                Đăng nhập
-              </Link>
-              <Link
-                href="/login?mode=signup"
-                className="mt-1 block rounded-2xl bg-primary px-4 py-3 text-center text-sm font-bold text-on-primary"
-                onClick={() => setOpen(false)}
-              >
-                Đăng ký tài khoản
-              </Link>
+              {isAuthenticated && user ? (
+                <>
+                  <div className="flex items-center gap-3 px-4 py-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary">
+                      {user.avatar}
+                    </div>
+                    <span className="text-sm font-bold text-on-surface">
+                      {user.displayName}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="mt-1 flex w-full items-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Đăng xuất
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block rounded-2xl px-4 py-3 text-sm font-bold text-primary hover:bg-primary-container/30"
+                    onClick={() => setOpen(false)}
+                  >
+                    Đăng nhập
+                  </Link>
+                  <Link
+                    href="/login?mode=signup"
+                    className="mt-1 block rounded-2xl bg-primary px-4 py-3 text-center text-sm font-bold text-on-primary"
+                    onClick={() => setOpen(false)}
+                  >
+                    Đăng ký tài khoản
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -101,3 +155,4 @@ export function Header() {
     </header>
   );
 }
+

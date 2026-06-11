@@ -24,10 +24,9 @@ export function AtmosphericBackground() {
 
   return (
     <>
-      <div className="blob h-[400px] w-[400px] -left-20 -top-20 animate-pulse bg-primary-fixed" />
+      <div className="blob h-[400px] w-[400px] -left-20 -top-20 bg-primary-fixed" />
       <div
-        className="blob h-[300px] w-[300px] -right-20 top-1/2 animate-bounce bg-secondary-fixed"
-        style={{ animationDuration: "10s" }}
+        className="blob h-[300px] w-[300px] -right-20 top-1/2 bg-secondary-fixed"
       />
       <div className="blob bottom-0 left-1/4 h-[500px] w-[500px] bg-primary-container" />
     </>

@@ -25,7 +25,7 @@ export function HeroSection() {
         <div className="glass-card inline-flex items-center gap-2 rounded-full border-primary/20 px-4 py-2 text-primary">
           <MaterialIcon name="auto_awesome" className="h-[18px] w-[18px]" filled />
           <span className="text-label-md font-semibold uppercase tracking-wider">
-            AI-Powered Learning
+            Enhance Learning English skill
           </span>
         </div>
 

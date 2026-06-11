@@ -22,6 +22,7 @@ import {
   Users
 } from "lucide-react";
 import type { PracticeAttempt, PracticeTest } from "@/lib/practice-tests";
+import { mergePracticeProgress } from "@/lib/practice-progress";
 import { cn } from "@/lib/utils";
 
 type TabId = "practice" | "full-test" | "discussion";
@@ -37,6 +38,8 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState(test.minutes);
 
+  const currentTest = useMemo(() => mergePracticeProgress([test])[0], [test]);
+
   const timeOptions = useMemo(
     () => Array.from({ length: 28 }, (_, index) => index * 5),
     []
@@ -44,10 +47,10 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
 
   const selectedQuestions = useMemo(
     () =>
-      test.parts
+      currentTest.parts
         .filter((part) => selectedPartIds.includes(part.id))
         .reduce((total, part) => total + part.questions, 0),
-    [selectedPartIds, test.parts]
+    [selectedPartIds, currentTest.parts]
   );
 
   function togglePart(partId: string) {
@@ -60,15 +63,15 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
 
   function selectAllParts() {
     setSelectedPartIds((current) =>
-      current.length === test.parts.length ? [] : test.parts.map((part) => part.id)
+      current.length === currentTest.parts.length ? [] : currentTest.parts.map((part) => part.id)
     );
   }
 
-  const pageTitle = `${test.title} ${test.subtitle}`;
+  const pageTitle = `${currentTest.title} ${currentTest.subtitle}`;
   const { isAuthenticated } = useAuth();
   const testHref = isAuthenticated
-    ? `/practice/${test.id}/test`
-    : `/login?next=${encodeURIComponent(`/practice/${test.id}/start`)}`;
+    ? `/practice/${currentTest.id}/test`
+    : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start`)}`;
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
@@ -78,7 +81,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
             Practice Tests
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-primary">{test.title}</span>
+          <span className="text-primary">{currentTest.title}</span>
         </nav>
 
         <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -96,15 +99,15 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
           </div>
 
           <div className="grid grid-cols-3 gap-3 rounded-2xl border border-white/60 bg-white/55 p-2 shadow-soft backdrop-blur-md">
-            <StatChip icon={<Clock3 className="h-5 w-5" />} label={`${test.minutes} phút`} />
-            <StatChip icon={<FileQuestion className="h-5 w-5" />} label={`${test.questions} câu`} />
-            <StatChip icon={<Users className="h-5 w-5" />} label={`${test.attempts.toLocaleString("en-US")} lượt`} />
+            <StatChip icon={<Clock3 className="h-5 w-5" />} label={`${currentTest.minutes} phút`} />
+            <StatChip icon={<FileQuestion className="h-5 w-5" />} label={`${currentTest.questions} câu`} />
+            <StatChip icon={<Users className="h-5 w-5" />} label={`${currentTest.attempts.toLocaleString("en-US")} lượt`} />
           </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
           <div className="lg:col-span-8">
-            <RecentAttempts attempts={test.recentAttempts ?? []} />
+            <RecentAttempts attempts={currentTest.recentAttempts ?? []} />
 
             <div className="overflow-hidden rounded-[28px] border border-white/70 bg-white/62 shadow-glass backdrop-blur-xl">
               <div className="grid border-b border-outline-variant/60 bg-surface-container-low/70 p-1 sm:grid-cols-3">
@@ -128,7 +131,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                   <PracticeTab
                     selectedPartIds={selectedPartIds}
                     selectedQuestions={selectedQuestions}
-                    test={test}
+                    test={currentTest}
                     timeLimit={timeLimit}
                     timeOptions={timeOptions}
                     actionHref={testHref}
@@ -138,7 +141,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                   />
                 ) : null}
 
-                {activeTab === "full-test" ? <FullTestTab actionHref={testHref} test={test} /> : null}
+                {activeTab === "full-test" ? <FullTestTab actionHref={testHref} test={currentTest} /> : null}
 
                 {activeTab === "discussion" ? <DiscussionTab /> : null}
               </div>

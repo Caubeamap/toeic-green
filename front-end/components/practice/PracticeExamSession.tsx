@@ -21,6 +21,11 @@ import {
   SkipForward
 } from "lucide-react";
 import type { PracticeTest } from "@/lib/practice-tests";
+import {
+  LATEST_PRACTICE_RESULT_KEY,
+  savePracticeAttemptResult,
+  type SavedPracticeResult
+} from "@/lib/practice-progress";
 import type { ToeicQuestion } from "@/lib/toeic-questions";
 import { cn } from "@/lib/utils";
 
@@ -489,7 +494,7 @@ export function PracticeExamSession({
       if (answers[q.id] === q.correctAnswer) correctCount++;
     });
 
-    const result = {
+    const result: SavedPracticeResult = {
       testId: test.id,
       testTitle: `${test.title} ${test.subtitle}`,
       correct: correctCount,
@@ -502,7 +507,8 @@ export function PracticeExamSession({
       timestamp: new Date().toISOString(),
     };
 
-    sessionStorage.setItem("toeic-test-result", JSON.stringify(result));
+    sessionStorage.setItem(LATEST_PRACTICE_RESULT_KEY, JSON.stringify(result));
+    savePracticeAttemptResult(test, result);
     router.push(`/practice/${test.id}/results/latest`);
   }, [test, questions, answers, answeredCount, flags, timer, router, totalQuestions]);
 

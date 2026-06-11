@@ -14,6 +14,11 @@ import {
   Sparkles
 } from "lucide-react";
 import { getPracticeTestById } from "@/lib/practice-tests";
+import {
+  getLatestPracticeResult,
+  LATEST_PRACTICE_RESULT_KEY,
+  type SavedPracticeResult
+} from "@/lib/practice-progress";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -22,21 +27,6 @@ import { cn } from "@/lib/utils";
 /* ═══════════════════════════════════════════════════════════════
    Types & Constants
    ═══════════════════════════════════════════════════════════════ */
-
-type SavedResult = {
-  testId: string;
-  testTitle: string;
-  correct: number;
-  total: number;
-  answered: number;
-  flagged: number;
-  flaggedIds?: string[];
-  duration: number;
-  answers: Record<string, string>;
-  timestamp: string;
-};
-
-
 
 // Part 1 specific images (matching PracticeExamSession)
 const PART1_IMAGES: Record<number, string> = {
@@ -134,7 +124,7 @@ export default function LatestResultPage() {
   const params = useParams<{ testId: string }>();
   const router = useRouter();
 
-  const [result, setResult] = useState<SavedResult | null>(null);
+  const [result, setResult] = useState<SavedPracticeResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [activePassageTab, setActivePassageTab] = useState(0);
@@ -154,12 +144,12 @@ export default function LatestResultPage() {
     let cancelled = false;
 
     queueMicrotask(() => {
-      const raw = sessionStorage.getItem("toeic-test-result");
-      let nextResult: SavedResult | null = null;
+      const raw = sessionStorage.getItem(LATEST_PRACTICE_RESULT_KEY);
+      let nextResult: SavedPracticeResult | null = null;
 
       if (raw) {
         try {
-          const parsed = JSON.parse(raw) as SavedResult;
+          const parsed = JSON.parse(raw) as SavedPracticeResult;
           if (parsed.testId === params.testId) {
             nextResult = parsed;
           }
@@ -167,6 +157,8 @@ export default function LatestResultPage() {
           console.error("Failed to parse saved TOEIC result", e);
         }
       }
+
+      nextResult = nextResult ?? getLatestPracticeResult(params.testId);
 
       if (!cancelled) {
         setResult(nextResult);

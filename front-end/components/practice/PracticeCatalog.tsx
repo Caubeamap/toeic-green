@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -14,21 +14,45 @@ import Link from "next/link";
 import {
   allPracticeTests,
   practiceFilters,
+  type PracticeAttempt,
   type PracticeFilter,
   type PracticeTest
 } from "@/lib/practice-tests";
+import { mergePracticeProgress } from "@/lib/practice-progress";
 import { cn } from "@/lib/utils";
+
+type TimestampedPracticeAttempt = PracticeAttempt & {
+  timestamp?: string;
+};
+
+function getLatestAttemptTimestamp(test: PracticeTest) {
+  const [latestAttempt] = (test.recentAttempts ?? []) as TimestampedPracticeAttempt[];
+
+  return latestAttempt?.timestamp ?? test.completedAt ?? "";
+}
 
 export function PracticeCatalog() {
   const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
   const [query, setQuery] = useState("");
+  const [testsWithProgress, setTestsWithProgress] = useState<PracticeTest[]>(allPracticeTests);
+
+  useEffect(() => {
+    function refreshProgress() {
+      setTestsWithProgress(mergePracticeProgress(allPracticeTests));
+    }
+
+    refreshProgress();
+    window.addEventListener("storage", refreshProgress);
+
+    return () => window.removeEventListener("storage", refreshProgress);
+  }, []);
 
   const historyTests = useMemo(
     () =>
-      allPracticeTests
+      testsWithProgress
         .filter((test) => test.status === "Completed")
-        .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "")),
-    []
+        .sort((a, b) => getLatestAttemptTimestamp(b).localeCompare(getLatestAttemptTimestamp(a))),
+    [testsWithProgress]
   );
 
   const visibleTests = useMemo(() => {
@@ -37,8 +61,8 @@ export function PracticeCatalog() {
       activeFilter === "Test History"
         ? historyTests
         : activeFilter === "Completed"
-          ? allPracticeTests.filter((test) => test.status === "Completed")
-          : allPracticeTests.filter((test) => test.type === activeFilter);
+          ? testsWithProgress.filter((test) => test.status === "Completed")
+          : testsWithProgress.filter((test) => test.type === activeFilter);
 
     return baseTests.filter((test) => {
       return (
@@ -46,7 +70,7 @@ export function PracticeCatalog() {
         `${test.title} ${test.subtitle} ${test.type}`.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [activeFilter, historyTests, query]);
+  }, [activeFilter, historyTests, query, testsWithProgress]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;

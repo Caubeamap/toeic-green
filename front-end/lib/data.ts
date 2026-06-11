@@ -101,9 +101,8 @@ export const tests = [
     minutes: 120,
     questions: 200,
     difficulty: "Easy",
-    progress: 100,
-    status: "Completed",
-    score: "890/990",
+    progress: 0,
+    status: "New Test",
     image:
       "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80"
   },

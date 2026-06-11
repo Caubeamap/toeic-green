@@ -67,100 +67,9 @@ export const writingParts: TestPart[] = [
   { id: "write-3", label: "Question 8", description: "Write an opinion essay", questions: 1 }
 ];
 
-function buildListeningReadingAttempts(testId: string, index: number): PracticeAttempt[] | undefined {
-  const completed = index === 2 || index === 8;
-
-  if (!completed) {
-    return undefined;
-  }
-
-  const baseScore = index === 2 ? 890 : 845;
-
-  return [
-    {
-      id: `${testId}-attempt-1`,
-      attemptedAt: "24/05/2026",
-      mode: "Full test",
-      scopeLabels: ["Full test"],
-      correct: index === 2 ? 182 : 174,
-      total: 200,
-      scaledScore: baseScore,
-      durationSeconds: 7140,
-      detailHref: `/practice/${testId}/results/${testId}-attempt-1`
-    },
-    {
-      id: `${testId}-attempt-2`,
-      attemptedAt: "21/05/2026",
-      mode: "Practice",
-      scopeLabels: ["Part 5", "Part 6"],
-      correct: index === 2 ? 41 : 38,
-      total: 46,
-      durationSeconds: 1480,
-      detailHref: `/practice/${testId}/results/${testId}-attempt-2`
-    },
-    {
-      id: `${testId}-attempt-3`,
-      attemptedAt: "18/05/2026",
-      mode: "Practice",
-      scopeLabels: ["Part 7"],
-      correct: index === 2 ? 45 : 42,
-      total: 54,
-      durationSeconds: 3337,
-      detailHref: `/practice/${testId}/results/${testId}-attempt-3`
-    }
-  ];
-}
-
-function buildSpeakingWritingAttempts(
-  testId: string,
-  completed: boolean,
-  section: string
-): PracticeAttempt[] | undefined {
-  if (!completed) {
-    return undefined;
-  }
-
-  const speaking = section === "SPEAKING";
-
-  return [
-    {
-      id: `${testId}-attempt-1`,
-      attemptedAt: speaking ? "20/05/2026" : "25/05/2026",
-      mode: "Full test",
-      scopeLabels: [speaking ? "Speaking" : "Writing"],
-      correct: speaking ? 6 : 7,
-      total: speaking ? 7 : 8,
-      scaledScore: speaking ? 160 : 170,
-      durationSeconds: speaking ? 1180 : 3560,
-      detailHref: `/practice/${testId}/results/${testId}-attempt-1`
-    },
-    {
-      id: `${testId}-attempt-2`,
-      attemptedAt: speaking ? "17/05/2026" : "22/05/2026",
-      mode: "Practice",
-      scopeLabels: speaking ? ["Questions 5-7"] : ["Question 8"],
-      correct: speaking ? 2 : 1,
-      total: speaking ? 3 : 1,
-      durationSeconds: speaking ? 520 : 1120,
-      detailHref: `/practice/${testId}/results/${testId}-attempt-2`
-    },
-    {
-      id: `${testId}-attempt-3`,
-      attemptedAt: speaking ? "14/05/2026" : "19/05/2026",
-      mode: "Practice",
-      scopeLabels: speaking ? ["Questions 1-2"] : ["Questions 1-5"],
-      correct: speaking ? 2 : 4,
-      total: speaking ? 2 : 5,
-      durationSeconds: speaking ? 260 : 920,
-      detailHref: `/practice/${testId}/results/${testId}-attempt-3`
-    }
-  ];
-}
-
 export const study4Tests: PracticeTest[] = Array.from({ length: 10 }, (_, index) => {
   const testNum = index + 1;
   const id = `practice-toeic-test-${testNum}`;
-  const completed = index === 2 || index === 8;
 
   return {
     id,
@@ -171,12 +80,9 @@ export const study4Tests: PracticeTest[] = Array.from({ length: 10 }, (_, index)
     minutes: 120,
     questions: 200,
     access: "Free",
-    status: completed ? "Completed" : "New",
+    status: "New",
     attempts: 15420 - index * 650,
-    parts: listeningReadingParts,
-    recentAttempts: buildListeningReadingAttempts(id, index),
-    score: completed ? (index === 2 ? "890/990" : "845/990") : undefined,
-    completedAt: completed ? (index === 2 ? "18/05/2026" : "24/05/2026") : undefined
+    parts: listeningReadingParts
   } satisfies PracticeTest;
 });
 
@@ -194,20 +100,14 @@ export const speakingWritingTests: PracticeTest[] = Array.from({ length: 8 }, (_
       subtitle: "Speaking Practice",
       minutes: 20,
       questions: 7,
-      parts: speakingParts,
-      completed: testNumber === 2,
-      score: "160/200",
-      completedAt: "20/05/2026"
+      parts: speakingParts
     },
     {
       section: "WRITING",
       subtitle: "Writing Practice",
       minutes: 60,
       questions: 8,
-      parts: writingParts,
-      completed: testNumber === 5,
-      score: "170/200",
-      completedAt: "25/05/2026"
+      parts: writingParts
     }
   ].map<PracticeTest>((part, partIndex) => {
     const id = `sw-${testNumber}-${part.section.toLowerCase()}`;
@@ -221,12 +121,9 @@ export const speakingWritingTests: PracticeTest[] = Array.from({ length: 8 }, (_
       minutes: part.minutes,
       questions: part.questions,
       access: testNumber <= 3 ? "Free" : "Pro",
-      status: part.completed ? "Completed" : "New",
+      status: "New",
       attempts: 6200 - testNumber * 215 - partIndex * 78,
-      parts: part.parts,
-      recentAttempts: buildSpeakingWritingAttempts(id, part.completed, part.section),
-      score: part.completed ? part.score : undefined,
-      completedAt: part.completed ? part.completedAt : undefined
+      parts: part.parts
     };
   });
 }).flat();

@@ -1,6 +1,3 @@
-"use client";
-
-import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { MaterialIcon } from "@/components/MaterialIcon";
@@ -16,13 +13,8 @@ const avatars = [
 export function HeroSection() {
   return (
     <section className="container-shell relative mb-32 grid items-center gap-12 md:grid-cols-2">
-      <motion.div
-        initial={{ opacity: 0, y: 22 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: "easeOut" }}
-        className="space-y-8"
-      >
-        <div className="glass-card inline-flex items-center gap-2 rounded-full border-primary/20 px-4 py-2 text-primary">
+      <div className="space-y-8">
+        <div className="glass-card interactive-surface inline-flex items-center gap-2 rounded-full border-primary/20 px-4 py-2 text-primary">
           <MaterialIcon name="auto_awesome" className="h-[18px] w-[18px]" filled />
           <span className="text-label-md font-semibold uppercase tracking-wider">
             Enhance Learning English skill
@@ -31,7 +23,7 @@ export function HeroSection() {
 
         <h1 className="max-w-xl text-display-lg-mobile font-extrabold leading-[1.1] text-on-surface md:text-display-lg">
           Master TOEIC with <br />
-          <span className="text-primary">Smart Practice</span>
+          <span className="accent-text">Smart Practice</span>
         </h1>
 
         <p className="max-w-xl text-body-lg text-on-surface-variant">
@@ -42,14 +34,14 @@ export function HeroSection() {
         <div className="flex flex-col gap-4 sm:flex-row">
           <Link
             href="/practice"
-            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary-container px-8 py-4 text-headline-md font-bold text-on-primary-container shadow-xl transition hover:scale-[0.98] active:scale-95"
+            className="button-sheen inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary-container px-8 py-4 text-headline-md font-bold text-on-primary-container shadow-soft hover:bg-primary-fixed-dim"
           >
             Bắt đầu luyện thi
             <MaterialIcon name="arrow_forward" className="h-5 w-5" />
           </Link>
           <Link
             href="/practice"
-            className="glass-card inline-flex min-h-14 items-center justify-center gap-2 rounded-xl px-8 py-4 text-headline-md font-bold text-on-surface transition hover:bg-white/60"
+            className="button-sheen glass-card inline-flex min-h-14 items-center justify-center gap-2 rounded-xl px-8 py-4 text-headline-md font-bold text-on-surface hover:bg-white/60"
           >
             Khám phá bài test
           </Link>
@@ -75,16 +67,11 @@ export function HeroSection() {
             Hơn 12,000 học viên đã bắt đầu
           </p>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-        className="relative"
-      >
+      <div className="relative">
         <div className="absolute -right-10 -top-10 -z-0 h-full w-full -rotate-3 rounded-[28px] bg-secondary-container/20" />
-        <div className="glass-card relative z-10 rotate-3 rounded-[28px] p-2 shadow-2xl">
+        <div className="glass-card relative z-10 rotate-3 rounded-[28px] p-2 shadow-soft">
           <div className="overflow-hidden rounded-[24px]">
             <Image
               src={heroImage}
@@ -97,8 +84,7 @@ export function HeroSection() {
           </div>
 
           <div
-            className="glass-card absolute right-6 top-6 animate-bounce rounded-xl p-4 shadow-lg"
-            style={{ animationDuration: "4s" }}
+            className="glass-card animate-float-soft absolute right-6 top-6 rounded-xl p-4 shadow-soft"
           >
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
@@ -111,23 +97,22 @@ export function HeroSection() {
             </div>
           </div>
 
-          <div className="glass-card absolute bottom-4 left-4 w-[min(220px,calc(100%-2rem))] rounded-xl border border-white/60 bg-white/65 p-4 text-on-surface shadow-soft backdrop-blur-2xl sm:-bottom-4 sm:-left-4">
+          <div className="glass-card animate-float-soft float-delay absolute bottom-4 left-4 w-[min(220px,calc(100%-2rem))] rounded-xl border border-white/60 bg-white/80 p-4 text-on-surface shadow-soft sm:-bottom-4 sm:-left-4">
             <div className="mb-2 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
               <span className="text-label-sm font-bold text-on-surface">Live Progress</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
-              <div className="h-full w-3/4 rounded-full bg-primary" />
+              <div className="progress-sheen h-full w-3/4 rounded-full bg-primary" />
             </div>
             <p className="mt-2 text-[11px] font-semibold leading-snug text-on-surface-variant">
               Luyện tập mỗi ngày, điểm số bay cao!
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

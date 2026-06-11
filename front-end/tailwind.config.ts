@@ -61,9 +61,9 @@ const config: Config = {
         gutter: "24px"
       },
       boxShadow: {
-        glass: "0 20px 40px rgba(26, 42, 108, 0.08)",
-        glow: "0 18px 44px rgba(142, 245, 136, 0.34)",
-        soft: "0 16px 40px rgba(17, 24, 23, 0.08)"
+        glass: "0 8px 22px rgba(17, 24, 23, 0.06)",
+        glow: "0 8px 18px rgba(0, 110, 25, 0.14)",
+        soft: "0 8px 20px rgba(17, 24, 23, 0.06)"
       },
       borderRadius: {
         "2xl": "1rem",

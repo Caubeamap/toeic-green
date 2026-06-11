@@ -30,11 +30,104 @@ textarea {
 
   .glass-panel,
   .glass-card {
-    background: rgba(255, 255, 255, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 20px 40px rgba(26, 42, 108, 0.08);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(0, 110, 25, 0.08);
+    box-shadow: 0 8px 22px rgba(17, 24, 23, 0.06);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .soft-panel {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(0, 110, 25, 0.08);
+    border-radius: 28px;
+    box-shadow: 0 8px 22px rgba(17, 24, 23, 0.05);
+  }
+
+  .interactive-surface {
+    position: relative;
+    isolation: isolate;
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .interactive-surface::after {
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    background:
+      linear-gradient(135deg, rgba(142, 245, 136, 0.2), transparent 34%),
+      linear-gradient(315deg, rgba(166, 181, 255, 0.16), transparent 38%);
+    content: "";
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .interactive-surface:hover {
+    border-color: rgba(0, 110, 25, 0.22);
+    box-shadow: 0 12px 28px rgba(17, 24, 23, 0.09);
+    transform: translateY(-2px);
+  }
+
+  .interactive-surface:hover::after {
+    opacity: 1;
+  }
+
+  .button-sheen {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition:
+      transform 150ms ease,
+      background-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .button-sheen::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.28) 42%, transparent 58%);
+    content: "";
+    opacity: 0;
+    transform: translateX(-70%);
+    transition:
+      opacity 150ms ease,
+      transform 320ms ease;
+  }
+
+  .button-sheen:hover {
+    box-shadow: 0 10px 22px rgba(0, 110, 25, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .button-sheen:hover::after {
+    opacity: 1;
+    transform: translateX(70%);
+  }
+
+  .accent-text {
+    background: linear-gradient(90deg, #006e19 0%, #4b5a9e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .progress-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-sheen::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+    content: "";
+    transform: translateX(-100%);
+    animation: progress-sheen 3.8s ease-in-out infinite;
   }
 
   .step-line {
@@ -43,17 +136,41 @@ textarea {
   }
 
   .animate-float-soft {
-    animation: float-soft 4s ease-in-out infinite;
+    animation: float-soft 8s ease-in-out infinite;
+  }
+
+  .float-delay {
+    animation-delay: -3s;
   }
 }
 
-.blob {
+.atmospheric-bg {
   position: fixed;
-  border-radius: 50%;
-  filter: blur(60px);
-  z-index: -1;
-  opacity: 0.6;
+  inset: 0;
+  background:
+    radial-gradient(circle at 4% 6%, rgba(142, 245, 136, 0.22), transparent 28%),
+    radial-gradient(circle at 96% 28%, rgba(166, 181, 255, 0.2), transparent 30%),
+    linear-gradient(180deg, #fbf9f8 0%, #f7fbf6 100%);
+  contain: paint;
+  opacity: 0.75;
   pointer-events: none;
+  transform: translateZ(0);
+  z-index: -1;
+}
+
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-lg,
+.backdrop-blur-xl,
+.backdrop-blur-2xl {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.animate-bounce,
+.animate-ping,
+.animate-pulse {
+  animation: none !important;
 }
 
 @keyframes float-soft {
@@ -67,6 +184,18 @@ textarea {
   }
 }
 
+@keyframes progress-sheen {
+  0%,
+  35% {
+    transform: translateX(-100%);
+  }
+
+  70%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -75,6 +204,16 @@ textarea {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
+  }
+
+  .animate-float-soft,
+  .progress-sheen::after {
+    animation: none !important;
+  }
+
+  .interactive-surface:hover,
+  .button-sheen:hover {
+    transform: none;
   }
 }
 
@@ -165,4 +304,3 @@ textarea {
 .passage-content li {
   margin-bottom: 0.5rem !important;
 }
-

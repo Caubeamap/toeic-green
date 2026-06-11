@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { featureTabs } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -31,11 +30,7 @@ export function FeatureTabs() {
               )}
             >
               {activeId === tab.id ? (
-                <motion.span
-                  layoutId="active-feature-tab"
-                  className="absolute inset-0 rounded-full bg-growth shadow-glow"
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                />
+                <span className="absolute inset-0 rounded-full bg-growth shadow-glow" />
               ) : null}
               <tab.icon className="relative" size={18} />
               <span className="relative whitespace-nowrap">{tab.label}</span>
@@ -44,13 +39,7 @@ export function FeatureTabs() {
         </div>
       </div>
 
-      <motion.div
-        key={active.id}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28 }}
-        className="mt-6 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]"
-      >
+      <div className="mt-6 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="soft-panel p-7">
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-growth text-academic-blue shadow-glow">
             <active.icon size={26} />
@@ -96,7 +85,7 @@ export function FeatureTabs() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

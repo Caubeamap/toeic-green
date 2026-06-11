@@ -127,7 +127,7 @@ export function PracticeCatalog() {
                 ? "Theo dõi các bài luyện thi đã bắt đầu hoặc đã hoàn thành để tiếp tục ôn tập đúng điểm yếu."
                 : isCompletedView
                   ? "Danh sách các bài luyện thi đã hoàn thành, kèm điểm số và trạng thái review rõ ràng."
-                  : "Sharpen your skills with our curated collection of full-length simulation tests designed to mirror the latest TOEIC standards."}
+                  : "Rèn luyện kỹ năng với bộ đề mô phỏng TOEIC đầy đủ, được thiết kế sát cấu trúc bài thi mới nhất."}
             </p>
           </div>
 

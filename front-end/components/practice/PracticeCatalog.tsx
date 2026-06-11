@@ -127,7 +127,7 @@ export function PracticeCatalog() {
                 ? "Theo dõi các bài luyện thi đã bắt đầu hoặc đã hoàn thành để tiếp tục ôn tập đúng điểm yếu."
                 : isCompletedView
                   ? "Danh sách các bài luyện thi đã hoàn thành, kèm điểm số và trạng thái review rõ ràng."
-                  : "Rèn luyện kỹ năng với bộ đề mô phỏng TOEIC đầy đủ, được thiết kế sát cấu trúc bài thi mới nhất."}
+                  : "Luyện thi với các bộ đề mô phỏng TOEIC."}
             </p>
           </div>
 
@@ -208,15 +208,7 @@ export function PracticeCatalog() {
         )}
       </div>
 
-      <button
-        className="button-sheen group fixed bottom-10 right-10 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-container text-on-primary-container shadow-soft hover:bg-primary-fixed-dim"
-        type="button"
-      >
-        <Plus className="h-8 w-8" />
-        <span className="pointer-events-none absolute right-full mr-4 whitespace-nowrap rounded-lg bg-white px-4 py-2 text-sm font-bold text-primary opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-          Start Custom Quiz
-        </span>
-      </button>
+
     </section>
   );
 }

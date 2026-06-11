@@ -28,7 +28,7 @@ const headings: Record<AuthMode, { title: string; subtitle: string }> = {
   signup: {
     title: "Tạo tài khoản mới",
     subtitle:
-      "Đăng ký miễn phí để bắt đầu luyện thi TOEIC cùng lộ trình thông minh."
+      "Đăng ký miễn phí để bắt đầu luyện thi TOEIC và lưu kết quả làm bài."
   }
 };
 

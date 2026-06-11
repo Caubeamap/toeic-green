@@ -178,23 +178,11 @@ function getSmartExplanation(q: ToeicQuestion, passageText?: string): string {
     const correctOpt = q.options.find(o => o.label === q.correctAnswer);
     const correctText = correctOpt ? correctOpt.text : "";
     
-    let gen = `**Phân tích câu hỏi:**\n`;
-    gen += `- Câu hỏi: "${q.stem}"\n`;
-    gen += `- Đáp án chính xác: **${q.correctAnswer}** (${correctText})\n\n`;
-    
-    if (passageText) {
-      const plainPassage = passageText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
-      const clue = findMatchingSentenceInPassage(plainPassage, correctText || q.stem);
-      if (clue) {
-        gen += `**Cơ sở chọn đáp án:**\n`;
-        gen += `Thông tin tương ứng trong bài đọc:\n> *"${clue}"*\n\n`;
-      }
+    let gen = `Chưa có giải thích chi tiết cho câu hỏi này.\n\n`;
+    gen += `**Đáp án đúng:** ${q.correctAnswer}`;
+    if (correctText) {
+      gen += ` (${correctText})`;
     }
-    
-    gen += `**Giải thích chi tiết:**\n`;
-    const defaultDesc = EXPLANATIONS[q.partId]?.desc || EXPLANATIONS["part-5"].desc;
-    gen += `${defaultDesc}\n\n`;
-    gen += `Dựa trên phân tích ngữ cảnh, phương án **${q.correctAnswer}** là sự lựa chọn tối ưu và hoàn toàn chính xác.`;
     
     return gen;
   }
@@ -728,7 +716,7 @@ function LatestResultPageContent() {
                   <div className="grid h-[85%] w-[85%] place-items-center rounded-full bg-white text-center">
                     <div>
                       <p className="text-4xl font-black tracking-tight text-primary">{stats.totalScore}</p>
-                      <p className="text-[10px] font-black uppercase text-muted tracking-wider mt-0.5">Ước tính điểm</p>
+                      <p className="text-[10px] font-black uppercase text-muted tracking-wider mt-0.5">Điểm ước tính (tham khảo)</p>
                     </div>
                   </div>
                 </div>
@@ -755,10 +743,10 @@ function LatestResultPageContent() {
                     <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Award className="h-4 w-4" />
                     </span>
-                    <h2 className="text-xl font-black text-ink">Báo cáo năng lực làm bài</h2>
+                    <h2 className="text-xl font-black text-ink">Kết quả làm bài</h2>
                   </div>
                   <p className="mt-2 text-xs text-muted leading-relaxed font-medium">
-                    Bài thi TOEIC ước lượng điểm dựa trên thang điểm chuẩn từ số câu đúng. Bạn hãy rà soát kỹ các câu hỏi sai bên dưới để tối ưu điểm số cho các lần thi sau.
+                    Bài thi TOEIC ước lượng điểm sơ bộ, không phải thang điểm chính thức của ETS. Xem lại các câu sai bên dưới để cải thiện.
                   </p>
                 </div>
 

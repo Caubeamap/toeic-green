@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { SectionHeader } from "@/components/common/SectionHeader";
 
-const modes = ["Listening & Reading", "Speaking & Writing"];
+const modes = ["Listening & Reading"];
 
 export function AssessmentInterfacePreview() {
   const [mode, setMode] = useState(modes[0]);
@@ -26,7 +26,7 @@ export function AssessmentInterfacePreview() {
       <SectionHeader
         eyebrow="Test-taking experience"
         title="Màn hình làm bài tập trung, rõ timer và điều hướng câu hỏi"
-        description="Một khung giao diện có thể tái sử dụng cho Listening, Reading, Speaking và Writing, ưu tiên sự tập trung khi làm bài."
+        description="Giao diện làm bài trực quan với audio player, bộ đếm thời gian và điều hướng câu hỏi."
         action={
           <div className="glass-panel flex rounded-3xl p-1.5">
             {modes.map((item) => (
@@ -50,10 +50,10 @@ export function AssessmentInterfacePreview() {
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-100 p-5">
             <div>
               <p className="font-extrabold text-growth-dark">
-                {isListening ? "Part 3: Short Conversations" : "Speaking & Writing Pack"}
+                {isListening ? "Part 3: Short Conversations" : "Part 5: Incomplete Sentences"}
               </p>
               <h3 className="mt-1 text-2xl font-black text-ink">
-                {isListening ? "Question 42" : "Task 04"}
+                {isListening ? "Question 42" : "Question 101"}
               </h3>
             </div>
             <div className="rounded-full bg-zinc-100 px-5 py-3 text-xl font-black text-growth-dark">
@@ -71,7 +71,7 @@ export function AssessmentInterfacePreview() {
             />
 
             <div className="flex flex-col gap-5">
-              {isListening ? <ListeningReadingPanel /> : <SpeakingWritingPanel />}
+              {isListening ? <ListeningReadingPanel /> : <ListeningReadingPanel />}
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button variant="secondary" className="flex-1">
                   <ChevronLeft size={18} /> Previous
@@ -162,31 +162,4 @@ function ListeningReadingPanel() {
   );
 }
 
-function SpeakingWritingPanel() {
-  return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-[24px] border border-growth/50 bg-growth/16 p-5">
-          <Mic2 className="text-growth-dark" size={26} />
-          <h4 className="mt-4 font-black text-ink">Record answer</h4>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Read the prompt aloud and answer within 45 seconds.
-          </p>
-          <Button variant="dark" className="mt-4 w-full">Start Recording</Button>
-        </div>
-        <div className="rounded-[24px] border border-zinc-200 bg-white/70 p-5">
-          <SquarePen className="text-growth-dark" size={26} />
-          <h4 className="mt-4 font-black text-ink">Writing response</h4>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Draft a concise business email using the required details.
-          </p>
-          <Button variant="secondary" className="mt-4 w-full">Open Rubric</Button>
-        </div>
-      </div>
-      <textarea
-        className="min-h-48 resize-none rounded-[24px] border border-zinc-200 bg-white/82 p-5 leading-7 outline-none transition focus:border-growth-dark focus:ring-4 focus:ring-growth/20"
-        placeholder="Write your TOEIC writing response here..."
-      />
-    </>
-  );
-}
+

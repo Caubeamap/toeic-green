@@ -40,7 +40,6 @@ export type PracticeTest = {
 
 export const practiceFilters: PracticeFilter[] = [
   "Listening & Reading",
-  "Speaking & Writing",
   "Completed",
   "Test History"
 ];
@@ -128,7 +127,7 @@ export const speakingWritingTests: PracticeTest[] = Array.from({ length: 8 }, (_
   });
 }).flat();
 
-export const allPracticeTests = [...listeningReadingTests, ...speakingWritingTests];
+export const allPracticeTests = [...listeningReadingTests];
 
 export function getPracticeTestById(testId: string) {
   return allPracticeTests.find((test) => test.id === testId);

@@ -110,7 +110,7 @@ textarea {
   }
 
   .accent-text {
-    background: linear-gradient(90deg, #006e19 0%, #4b5a9e 100%);
+    background: linear-gradient(90deg, #006e19 0%, #009622 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

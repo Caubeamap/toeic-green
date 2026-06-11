@@ -804,7 +804,7 @@ export function PracticeExamSession({
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-primary">Listening Control Tape</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary">Phần nghe</span>
                       <h3 className="text-sm font-extrabold text-ink mt-0.5">
                         {currentQuestion.partId === "part-1" && "Part 1: Photographs"}
                         {currentQuestion.partId === "part-2" && "Part 2: Question-Response"}

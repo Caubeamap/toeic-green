@@ -6,7 +6,6 @@ import {
   FileText,
   Headphones,
   History,
-  Mic2,
   PenLine,
   Sparkles,
   Target,
@@ -31,41 +30,33 @@ export const featureTabs = [
       "Luyện nghe và đọc theo cấu trúc TOEIC thật, có audio player, passage, question map và bộ giải thích sau test.",
     stat: "200 questions"
   },
-  {
-    id: "speaking-writing",
-    label: "Speaking & Writing Test",
-    icon: PenLine,
-    title: "Record, draft, review",
-    description:
-      "Màn hình speaking có ghi âm câu trả lời, writing có khung soạn bài và rubric để luyện tập có định hướng.",
-    stat: "11 tasks"
-  },
+
   {
     id: "vocabulary",
     label: "Vocabulary Notes",
     icon: BookOpen,
-    title: "Daily TOEIC vocabulary vault",
+    title: "Sổ ghi chú từ vựng",
     description:
-      "Lưu từ mới, tag chủ đề, trạng thái học và ghi chú cá nhân để ôn tập theo ngữ cảnh công việc.",
-    stat: "1,240 saved"
+      "Lưu từ mới khi làm đề, ghi chú và ôn tập theo danh sách cá nhân.",
+    stat: "—"
   },
   {
     id: "history",
     label: "Test History",
     icon: History,
-    title: "Every attempt stays useful",
+    title: "Xem lại bài đã làm",
     description:
-      "Theo dõi đề đã làm, câu sai thường gặp, thời gian hoàn thành và điểm tiến bộ theo từng tuần.",
-    stat: "48 tests"
+      "Theo dõi đề đã làm, câu sai thường gặp và thời gian hoàn thành.",
+    stat: "—"
   },
   {
     id: "progress",
     label: "Study Progress",
     icon: BarChart3,
-    title: "A clear path to 850+",
+    title: "Tổng quan tiến trình",
     description:
-      "Dashboard tập trung vào streak, điểm trung bình, vốn từ đã lưu và bài học tiếp theo nên luyện.",
-    stat: "+45 points"
+      "Xem điểm trung bình, vốn từ đã lưu và bài tập tiếp theo.",
+    stat: "—"
   }
 ];
 
@@ -82,18 +73,7 @@ export const tests = [
     image:
       "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=900&q=80"
   },
-  {
-    id: 2,
-    name: "TOEIC Full Test 02",
-    type: "Speaking + Writing",
-    minutes: 80,
-    questions: 11,
-    difficulty: "Hard",
-    progress: 0,
-    status: "New Test",
-    image:
-      "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=900&q=80"
-  },
+
   {
     id: 3,
     name: "TOEIC Full Test 03",
@@ -118,24 +98,12 @@ export const tests = [
     image:
       "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80"
   },
-  {
-    id: 5,
-    name: "TOEIC Speaking Pack 05",
-    type: "Speaking + Writing",
-    minutes: 80,
-    questions: 11,
-    difficulty: "Medium",
-    progress: 0,
-    status: "New Test",
-    image:
-      "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=900&q=80"
-  }
+
 ];
 
 export const filters = [
   "All",
   "Listening & Reading",
-  "Speaking & Writing",
   "Completed",
   "New Test"
 ];
@@ -190,10 +158,10 @@ export const resultCards = [
 ];
 
 export const progressStats = [
-  { label: "Tests taken", value: "48", delta: "+12%", icon: FileText },
-  { label: "Average score", value: "845", delta: "+5.2", icon: Target },
-  { label: "Vocabulary saved", value: "1,240", delta: "Target: 2k", icon: BookOpen },
-  { label: "Learning streak", value: "14 days", delta: "Hot", icon: Sparkles }
+  { label: "Tests taken", value: "—", delta: "", icon: FileText },
+  { label: "Average score", value: "—", delta: "", icon: Target },
+  { label: "Vocabulary saved", value: "—", delta: "", icon: BookOpen },
+  { label: "Learning streak", value: "—", delta: "", icon: Sparkles }
 ];
 
 export const nextLessons = [
@@ -224,10 +192,9 @@ export const nextLessons = [
 ];
 
 export const heroStats = [
-  { label: "Listening & Reading", value: "48 tests", icon: Headphones },
-  { label: "Speaking & Writing", value: "11 tasks", icon: Mic2 },
-  { label: "Vocabulary Notes", value: "1,240 words", icon: BookOpen },
-  { label: "Detailed Explanation", value: "200 answers", icon: BriefcaseBusiness },
-  { label: "Weekly progress", value: "+45 points", icon: TrendingUp },
-  { label: "Study streak", value: "14 days", icon: Clock3 }
+  { label: "Listening & Reading", value: "Đề mô phỏng", icon: Headphones },
+  { label: "Vocabulary Notes", value: "Ghi chú từ vựng", icon: BookOpen },
+  { label: "Detailed Explanation", value: "Giải thích đáp án", icon: BriefcaseBusiness },
+  { label: "Study Plan", value: "Lộ trình gợi ý", icon: TrendingUp },
+  { label: "Study streak", value: "Theo dõi tiến trình", icon: Clock3 }
 ];

@@ -13,7 +13,7 @@ const weeks = [
   {
     title: "Week 2 · Accuracy",
     focus: "Part 3-4 conversations, business email vocabulary",
-    tasks: ["1 full listening set", "Speaking response drills", "Error review"]
+    tasks: ["1 full listening set", "Ôn lại câu sai tuần trước", "Error review"]
   },
   {
     title: "Week 3 · Speed",
@@ -36,7 +36,7 @@ export default function StudyPlanPage() {
           <SectionHeader
             eyebrow="Study plan"
             title="Lộ trình học TOEIC 4 tuần, tập trung vào phần yếu"
-            description="Trang này tách riêng kế hoạch học để sau này có thể thêm lịch cá nhân, reminder, target score và đề xuất tự động theo kết quả làm bài."
+            description="Mỗi tuần tập trung vào một nhóm kỹ năng. Điều chỉnh theo tốc độ của bạn."
             action={
               <Link
                 href="/practice"
@@ -50,10 +50,9 @@ export default function StudyPlanPage() {
           <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
             <aside className="rounded-[28px] bg-academic-blue p-7 text-white shadow-glass">
               <CalendarCheck size={30} className="text-growth" />
-              <h2 className="mt-5 text-3xl font-black">Target 850+</h2>
+              <h2 className="mt-5 text-3xl font-black">Mục tiêu gợi ý</h2>
               <p className="mt-3 leading-7 text-white/78">
-                Kế hoạch ưu tiên Reading Part 5-7 và duy trì listening streak mỗi
-                ngày để tăng điểm ổn định.
+                Lịch học gợi ý cho 4 tuần. Bạn có thể điều chỉnh theo nhu cầu.
               </p>
               <div className="mt-7 space-y-3">
                 <PlanMetric icon={Target} label="Target score" value="850+" />

@@ -17,18 +17,18 @@ export function HomeHero() {
         <div className="glass-card interactive-surface inline-flex items-center gap-2 rounded-full border-primary/20 px-4 py-2 text-primary">
           <MaterialSymbolIcon name="auto_awesome" className="h-[18px] w-[18px]" filled />
           <span className="text-label-md font-semibold uppercase tracking-wider">
-            Enhance Learning English skill
+            Luyện thi TOEIC Online
           </span>
         </div>
 
-        <h1 className="max-w-xl text-display-lg-mobile font-extrabold leading-[1.1] text-on-surface md:text-display-lg">
-          Master TOEIC with <br />
-          <span className="accent-text">Smart Practice</span>
+        <h1 className="max-w-xl text-display-lg-mobile font-extrabold leading-[1.2] text-on-surface md:text-display-lg md:leading-[1.15]">
+          Luyện đề TOEIC —
+          <span className="accent-text block mt-3 md:mt-4">Giải thích chi tiết</span>
         </h1>
 
         <p className="max-w-xl text-body-lg text-on-surface-variant">
           Luyện thi TOEIC online, ghi chú từ vựng hằng ngày và xem giải thích chi
-          tiết sau mỗi bài test để nâng cao trình độ nhanh chóng.
+          tiết sau mỗi bài test để hiểu rõ từng câu sai.
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row">
@@ -47,26 +47,7 @@ export function HomeHero() {
           </Link>
         </div>
 
-        <div className="flex flex-wrap items-center gap-6 pt-4">
-          <div className="flex -space-x-3">
-            {avatars.map((src) => (
-              <Image
-                key={src}
-                src={src}
-                alt="TOEIC Green student"
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm"
-              />
-            ))}
-            <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-secondary text-[12px] font-bold text-on-secondary">
-              12k+
-            </span>
-          </div>
-          <p className="text-label-md font-semibold text-on-surface-variant">
-            Hơn 12,000 học viên đã bắt đầu
-          </p>
-        </div>
+
       </div>
 
       <div className="relative">
@@ -91,8 +72,8 @@ export function HomeHero() {
                 <MaterialSymbolIcon name="trending_up" className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-label-md font-semibold text-primary">Score Goal</p>
-                <p className="text-headline-md font-bold text-on-surface">950+</p>
+                <p className="text-label-md font-semibold text-primary">Mục tiêu</p>
+                <p className="text-headline-md font-bold text-on-surface">850</p>
               </div>
             </div>
           </div>
@@ -102,13 +83,13 @@ export function HomeHero() {
               <span className="relative flex h-2 w-2">
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
-              <span className="text-label-sm font-bold text-on-surface">Live Progress</span>
+              <span className="text-label-sm font-bold text-on-surface">Tiến trình</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
               <div className="progress-sheen h-full w-3/4 rounded-full bg-primary" />
             </div>
             <p className="mt-2 text-[11px] font-semibold leading-snug text-on-surface-variant">
-              Luyện tập mỗi ngày, điểm số bay cao!
+              75% mục tiêu tuần này
             </p>
           </div>
         </div>

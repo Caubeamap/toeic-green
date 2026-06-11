@@ -34,22 +34,22 @@ const avatars = [
     role: "Corporate English Learner",
     image: roadmapImage,
     quote:
-      "Công cụ học Speaking & Writing chấm điểm AI cực kỳ chính xác. Nó chỉ ra lỗi sai ngữ pháp mà trước đây mình chẳng bao giờ nhận ra."
+      "Phần giải thích đáp án rất chi tiết, giúp mình hiểu tại sao chọn sai và ghi nhớ kiến thức tốt hơn."
   }
 ];
 
 const steps = [
   {
-    title: "Đánh giá năng lực",
-    copy: "Làm bài test đầu vào ngắn gọn để xác định điểm yếu và điểm mạnh của bạn."
+    title: "Làm thử đề đầu tiên",
+    copy: "Chọn một bộ đề và thử sức để biết mình đang ở đâu."
   },
   {
-    title: "Học & Luyện tập mục tiêu",
-    copy: "Tập trung vào các phần Part bạn còn yếu với kho bài tập chuyên sâu."
+    title: "Tập trung vào Part yếu",
+    copy: "Luyện riêng từng Part để cải thiện điểm yếu."
   },
   {
-    title: "Mock Test & Bứt phá",
-    copy: "Luyện đề như thi thật để rèn luyện tâm lý và đạt điểm số mơ ước."
+    title: "Luyện full test trước ngày thi",
+    copy: "Làm đề đầy đủ để quen cấu trúc và áp lực thời gian."
   }
 ];
 
@@ -73,9 +73,9 @@ function FeatureBento() {
   return (
     <section className="container-shell mb-32">
       <div className="mb-16 space-y-4 text-center">
-        <h2 className="text-headline-lg font-bold text-on-surface">Tính Năng Ưu Việt</h2>
+        <h2 className="text-headline-lg font-bold text-on-surface">Tính năng chính</h2>
         <p className="mx-auto max-w-2xl text-body-md text-on-surface-variant">
-          Mọi công cụ bạn cần để đạt điểm TOEIC tối đa trong tầm tay.
+          Những công cụ có sẵn giúp bạn luyện thi TOEIC mỗi ngày.
         </p>
       </div>
 
@@ -91,8 +91,8 @@ function FeatureBento() {
               </IconTile>
               <h3 className="text-headline-md font-bold">Listening & Reading</h3>
               <p className="max-w-md text-body-md text-on-surface-variant">
-                Kho bài thi phong phú, sát với đề thi thật giúp bạn làm quen với
-                cấu trúc và áp lực thời gian.
+                Luyện đề TOEIC theo từng Part hoặc làm full test, có giải thích
+                đáp án chi tiết.
               </p>
             </div>
             <div className="mt-8 flex flex-wrap gap-2">
@@ -121,26 +121,26 @@ function FeatureBento() {
         >
           <div className="space-y-4">
             <IconTile tone="secondary">
-              <MaterialSymbolIcon name="edit_note" className="h-6 w-6" />
+              <MaterialSymbolIcon name="fact_check" className="h-6 w-6" />
             </IconTile>
-            <h3 className="text-headline-md font-bold">Speaking & Writing</h3>
+            <h3 className="text-headline-md font-bold">Giải thích đáp án</h3>
             <p className="text-body-md text-on-surface-variant">
-              Chấm điểm AI và hướng dẫn sửa lỗi ngữ pháp, phát âm chi tiết ngay lập tức.
+              Xem lý do đúng — sai cho từng câu hỏi bằng tiếng Việt sau mỗi bài làm.
             </p>
           </div>
         </Link>
 
         <Link
-          href="/practice"
+          href="/study-plan"
           className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-4"
         >
           <div className="space-y-4">
             <IconTile tone="tertiary">
-              <MaterialSymbolIcon name="menu_book" className="h-6 w-6" />
+              <MaterialSymbolIcon name="route" className="h-6 w-6" />
             </IconTile>
-            <h3 className="text-headline-md font-bold">Detailed Explanation</h3>
+            <h3 className="text-headline-md font-bold">Lộ trình 4 tuần</h3>
             <p className="text-body-md text-on-surface-variant">
-              Tại sao đúng? Tại sao sai? Giải thích cặn kẽ từng câu hỏi bằng tiếng Việt.
+              Kế hoạch học gợi ý theo tuần, giúp bạn ôn tập có hệ thống trước ngày thi.
             </p>
           </div>
         </Link>
@@ -155,8 +155,7 @@ function FeatureBento() {
             </IconTile>
             <h3 className="text-headline-md font-bold">Vocabulary Notes</h3>
             <p className="text-body-md text-on-surface-variant">
-              Lưu từ vựng mới chỉ với 1 cú click. Hệ thống Spaced Repetition giúp bạn
-              nhớ từ vựng mãi mãi.
+              Lưu từ vựng mới khi làm đề, ghi chú và ôn tập theo danh sách cá nhân.
             </p>
           </div>
           <div className="w-full flex-1 rounded-xl border border-white/40 bg-white/60 p-4">
@@ -196,14 +195,14 @@ function PersonalizedPath() {
         <div className="flex flex-col items-center gap-16 md:flex-row">
           <div className="space-y-6 md:w-1/2">
             <div className="inline-block rounded-full bg-primary-fixed-dim/30 px-4 py-1 text-label-sm font-bold uppercase tracking-widest text-primary">
-              Lộ trình cá nhân hóa
+              Cách học gợi ý
             </div>
             <h2 className="text-display-lg-mobile font-extrabold leading-tight text-on-surface md:text-display-lg">
-              Hành trình chinh phục <span className="text-primary">990 TOEIC</span>
+              Luyện <span className="text-primary">TOEIC</span> theo từng bước
             </h2>
             <p className="max-w-xl text-body-lg text-on-surface-variant">
-              Hệ thống AI của chúng tôi phân tích trình độ hiện tại và mục tiêu của
-              bạn để xây dựng một lộ trình học tập hiệu quả nhất.
+              Bắt đầu từ các Part bạn còn yếu, luyện tập đều đặn và làm mock
+              test trước ngày thi.
             </p>
 
             <div className="mt-10 space-y-0">
@@ -241,11 +240,11 @@ function PersonalizedPath() {
                     <MaterialSymbolIcon name="verified" className="h-6 w-6" />
                   </div>
                   <div className="text-label-md font-semibold text-on-surface">
-                    Lộ trình được AI duyệt
+                    Lộ trình gợi ý
                   </div>
                 </div>
                 <p className="text-[12px] text-on-surface-variant">
-                  Tối ưu hóa thời gian học tập lên đến 40%.
+                  Học 45 phút mỗi ngày, ôn đều 4 tuần.
                 </p>
               </div>
             </div>
@@ -265,7 +264,7 @@ function Testimonials() {
             Học viên nói gì về <span className="text-primary">TOEIC Green</span>
           </h2>
           <p className="text-body-md text-on-surface-variant">
-            Câu chuyện thành công từ những người đã thay đổi tương lai nhờ TOEIC.
+            Trải nghiệm từ người dùng TOEIC Green.
           </p>
         </div>
 
@@ -316,11 +315,10 @@ function HomeCta() {
         <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-primary-fixed/15" />
         <div className="relative z-10 mx-auto max-w-3xl space-y-8">
           <h2 className="text-display-lg-mobile font-extrabold leading-tight text-on-primary md:text-display-lg">
-            Sẵn sàng để chinh phục chứng chỉ TOEIC?
+            Bắt đầu luyện thi TOEIC ngay?
           </h2>
           <p className="text-body-lg text-white/80">
-            Gia nhập cộng đồng hơn 12.000 học viên và nâng cao điểm số của bạn ngay
-            hôm nay với phương pháp học hiện đại nhất.
+            Làm đề, ghi từ vựng và xem giải thích — hoàn toàn miễn phí.
           </p>
           <Link
             href="/practice"

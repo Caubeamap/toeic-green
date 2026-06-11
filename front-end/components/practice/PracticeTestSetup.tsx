@@ -99,7 +99,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary-container/80 px-4 py-2 text-label-sm font-bold text-on-primary-container">
               <ShieldCheck className="h-4 w-4" />
-              TOEIC Green Simulation
+              Đề mô phỏng
             </div>
             <h1 className="max-w-3xl text-headline-lg font-bold text-on-surface md:text-[40px] md:leading-tight">
               {pageTitle}
@@ -164,7 +164,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
               <div className="relative h-48">
                 <Image
                   src="/images/footer-study-visual.png"
-                  alt="TOEIC Green focused study setup"
+                  alt="TOEIC Green study setup"
                   fill
                   priority
                   sizes="(min-width: 1024px) 33vw, 100vw"
@@ -172,29 +172,18 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/75 via-primary/25 to-transparent" />
                 <div className="absolute bottom-5 left-5 right-5 text-white">
-                  <p className="text-xs font-bold uppercase tracking-widest opacity-80">Study Pack</p>
-                  <h2 className="mt-1 text-2xl font-extrabold">TOEIC Intensive 900+</h2>
+                  <p className="text-xs font-bold uppercase tracking-widest opacity-80">Ghi chú</p>
+                  <h2 className="mt-1 text-2xl font-extrabold">Mẹo làm bài TOEIC</h2>
                 </div>
               </div>
               <div className="p-5">
-                <p className="text-sm leading-relaxed text-on-surface-variant">
-                  Gợi ý lộ trình luyện theo điểm yếu sau mỗi bài thi, phù hợp cho người học cần tăng tốc trước ngày thi.
-                </p>
+                <ul className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>Đọc trước câu hỏi Part 3-4 trước khi nghe audio.</span></li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>Part 5: tập trung vào cấu trúc ngữ pháp trước khi xem nghĩa.</span></li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>Part 7: đọc câu hỏi trước, quét bài đọc tìm keyword.</span></li>
+                </ul>
               </div>
             </div>
-
-            <SidebarWidget
-              icon={<Calculator className="h-5 w-5" />}
-              title="Score Calculator"
-              copy="Ước tính thang điểm TOEIC sau khi hoàn thành Listening & Reading."
-              action="Tính điểm"
-            />
-            <SidebarWidget
-              icon={<MessageCircle className="h-5 w-5" />}
-              title="Cộng đồng luyện thi"
-              copy="Trao đổi chiến thuật làm bài và nhận phản hồi từ người học cùng mục tiêu."
-              action="Tham gia nhóm"
-            />
           </aside>
         </div>
       </div>
@@ -233,9 +222,9 @@ function PracticeTab({
             <Lightbulb className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-on-surface">Luyện tập có kiểm soát</h2>
+            <h2 className="text-lg font-bold text-on-surface">Chọn phần luyện</h2>
             <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
-              Chọn một hoặc nhiều phần để tập trung vào kỹ năng còn yếu. Khi cần mô phỏng áp lực thời gian, hãy đặt giới hạn thời gian trước khi bắt đầu.
+              Chọn Part và đặt thời gian nếu cần.
             </p>
           </div>
         </div>
@@ -351,7 +340,7 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
           </div>
           <h2 className="text-xl font-bold text-on-surface">Kết quả 5 lần gần nhất</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Lưu lại các lần luyện gần nhất để người học so sánh tiến bộ trước khi làm lại đề.
+            So sánh kết quả qua các lần làm bài.
           </p>
         </div>
         <Link
@@ -482,7 +471,7 @@ function FullTestTab({ actionHref, test }: { actionHref: string; test: PracticeT
       </div>
 
       <div className="space-y-3">
-        <ReadinessRow label="Tự động lưu tiến trình" />
+        <ReadinessRow label="Lưu kết quả sau khi nộp bài" />
         <ReadinessRow label="Hiển thị bộ đếm giờ rõ ràng" />
         <ReadinessRow label="Giữ cấu trúc part đúng định dạng TOEIC" />
         <ReadinessRow label="Tổng kết điểm và câu sai sau khi nộp" />
@@ -509,23 +498,14 @@ function DiscussionTab() {
               <Lock className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-on-surface">Đăng nhập để tham gia thảo luận</h2>
+              <h2 className="text-xl font-bold text-on-surface">Thảo luận</h2>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Chia sẻ chiến thuật làm bài, hỏi đáp phần khó và lưu lại ghi chú cá nhân.
+                Tính năng thảo luận sắp ra mắt.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90"
-          >
-            Đăng nhập
-          </button>
         </div>
       </div>
-
-      <Comment author="Minh Anh" body="Part 3 nên đọc trước câu hỏi và đánh dấu keyword, tốc độ nghe sẽ dễ kiểm soát hơn." />
-      <Comment author="Quốc Huy" body="Mình thường luyện Part 5 riêng 15 phút mỗi ngày trước khi làm full test." />
     </div>
   );
 }

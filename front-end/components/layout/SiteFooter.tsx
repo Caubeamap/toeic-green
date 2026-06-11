@@ -8,17 +8,14 @@ const columns = [
     links: [
       ["Practice Tests", "/practice"],
       ["Full Mock Test", "/practice"],
-      ["Vocabulary Master", "/vocabulary"],
-      ["Grammar Guide", "/study-plan"]
+      ["Sổ từ vựng", "/vocabulary"]
     ]
   },
   {
     title: "Công cụ",
     links: [
-      ["AI Speaking Coach", "/practice"],
-      ["Writing Assistant", "/practice"],
-      ["Study Plan Generator", "/study-plan"],
-      ["Progress Analytics", "/progress"]
+      ["Lộ trình gợi ý", "/study-plan"],
+      ["Tiến trình học", "/progress"]
     ]
   },
   {
@@ -42,19 +39,18 @@ export function SiteFooter() {
           <div className="glass-card rounded-[28px] bg-white/70 p-8">
             <div className="text-2xl font-bold text-primary">TOEIC Green</div>
             <p className="mt-4 max-w-xl text-body-md leading-relaxed text-on-surface-variant">
-              Nền tảng luyện thi TOEIC thông minh, giúp bạn luyện tập đều đặn,
-              theo dõi tiến độ và cải thiện điểm số với trải nghiệm học tập hiện đại.
+              Luyện đề TOEIC, ghi chú từ vựng và xem giải thích đáp án.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
               <span className="rounded-full bg-primary-container px-4 py-2 text-label-sm font-bold text-on-primary-container">
-                16+ ETS tests
+                Đề mô phỏng TOEIC
               </span>
               <span className="rounded-full bg-secondary-container px-4 py-2 text-label-sm font-bold text-on-secondary-container">
-                SW practice
+                Giải thích chi tiết
               </span>
               <span className="rounded-full bg-surface-container px-4 py-2 text-label-sm font-bold text-on-surface-variant">
-                Progress history
+                Ghi chú từ vựng
               </span>
             </div>
 
@@ -107,7 +103,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-5 border-t border-outline-variant pt-6 text-sm text-on-surface-variant md:flex-row md:items-center md:justify-between">
-          <p>© 2026 TOEIC Green. All rights reserved. Made for excellence.</p>
+          <p>© 2026 TOEIC Green. All rights reserved.</p>
           <div className="flex gap-8">
             <a
               className="text-label-sm text-on-tertiary-container underline opacity-80 transition hover:text-primary hover:opacity-100"

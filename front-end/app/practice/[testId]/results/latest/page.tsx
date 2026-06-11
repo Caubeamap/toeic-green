@@ -94,6 +94,247 @@ function calculateScore(questions: ToeicQuestion[], answers: Record<string, stri
   };
 }
 
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function cleanGarbledText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\uFFFD/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/-------+/g, "-------")
+    .trim();
+}
+
+function findMatchingSentenceInPassage(plainPassage: string, prefix: string): string | null {
+  if (!prefix || prefix.trim().length < 4) return null;
+  
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const cleanPrefix = clean(prefix);
+  if (!cleanPrefix) return null;
+  
+  const sentences = plainPassage.split(/(?<=[.?!])\s+/);
+  
+  let bestMatch: string | null = null;
+  let bestMatchLen = 0;
+  
+  for (const sentence of sentences) {
+    const cleanSentence = clean(sentence);
+    if (cleanSentence.includes(cleanPrefix)) {
+      return sentence.trim();
+    }
+    
+    if (cleanPrefix.length > 20) {
+      const halfPrefix = cleanPrefix.substring(0, Math.floor(cleanPrefix.length / 2));
+      if (cleanSentence.includes(halfPrefix)) {
+        if (sentence.length > bestMatchLen) {
+          bestMatch = sentence.trim();
+          bestMatchLen = sentence.length;
+        }
+      }
+    }
+  }
+  
+  if (bestMatch) return bestMatch;
+  
+  const first20 = prefix.substring(0, Math.min(20, prefix.length));
+  const idx = plainPassage.toLowerCase().indexOf(first20.toLowerCase());
+  if (idx !== -1) {
+    const sub = plainPassage.substring(idx, idx + prefix.length + 120);
+    const dotIdx = sub.indexOf('.');
+    if (dotIdx !== -1) {
+      return plainPassage.substring(idx, idx + dotIdx + 1).trim();
+    }
+    return plainPassage.substring(idx, idx + prefix.length + 30).trim() + "...";
+  }
+  
+  return null;
+}
+
+function removeTrailingTruncatedQuestions(explanation: string): string {
+  const lines = explanation.split('\n');
+  if (lines.length > 1) {
+    const lastLine = lines[lines.length - 1].trim();
+    if (
+      lastLine.toLowerCase().endsWith("gần nghĩa nhất với") ||
+      lastLine.toLowerCase().endsWith("gần nghĩa nhất với:") ||
+      lastLine.toLowerCase().startsWith("bài báo đã có thể được viết") ||
+      lastLine.toLowerCase().includes("lý do nào nhất") ||
+      lastLine.length < 5
+    ) {
+      lines.pop();
+      return lines.join('\n');
+    }
+  }
+  return explanation;
+}
+
+function getSmartExplanation(q: ToeicQuestion, passageText?: string): string {
+  let explanation = q.explanation || "";
+  
+  if (!explanation.trim()) {
+    const correctOpt = q.options.find(o => o.label === q.correctAnswer);
+    const correctText = correctOpt ? correctOpt.text : "";
+    
+    let gen = `**Phân tích câu hỏi:**\n`;
+    gen += `- Câu hỏi: "${q.stem}"\n`;
+    gen += `- Đáp án chính xác: **${q.correctAnswer}** (${correctText})\n\n`;
+    
+    if (passageText) {
+      const plainPassage = passageText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+      const clue = findMatchingSentenceInPassage(plainPassage, correctText || q.stem);
+      if (clue) {
+        gen += `**Cơ sở chọn đáp án:**\n`;
+        gen += `Thông tin tương ứng trong bài đọc:\n> *"${clue}"*\n\n`;
+      }
+    }
+    
+    gen += `**Giải thích chi tiết:**\n`;
+    const defaultDesc = EXPLANATIONS[q.partId]?.desc || EXPLANATIONS["part-5"].desc;
+    gen += `${defaultDesc}\n\n`;
+    gen += `Dựa trên phân tích ngữ cảnh, phương án **${q.correctAnswer}** là sự lựa chọn tối ưu và hoàn toàn chính xác.`;
+    
+    return gen;
+  }
+  
+  explanation = cleanGarbledText(explanation);
+  
+  if (passageText) {
+    const plainPassage = passageText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+    
+    const lastQuoteIdx = Math.max(explanation.lastIndexOf('"'), explanation.lastIndexOf('“'));
+    if (lastQuoteIdx !== -1) {
+      const afterQuote = explanation.substring(lastQuoteIdx + 1).trim();
+      const hasClosingQuote = afterQuote.includes('"') || afterQuote.includes('”');
+      
+      if (!hasClosingQuote && afterQuote.length > 5) {
+        const quotePrefix = afterQuote.replace(/\.\.\.$/, "").trim();
+        const completed = findMatchingSentenceInPassage(plainPassage, quotePrefix);
+        if (completed) {
+          explanation = explanation.substring(0, lastQuoteIdx + 1) + completed + `", do đó chọn đáp án đúng là **${q.correctAnswer}**.`;
+        }
+      }
+    }
+  }
+  
+  explanation = removeTrailingTruncatedQuestions(explanation);
+  return explanation;
+}
+
+function extractQuotesFromExplanation(explanation: string): string[] {
+  if (!explanation) return [];
+  
+  const quotes: string[] = [];
+  const regex = /["“«]([^"”»]{8,})["”»]/g;
+  let match;
+  while ((match = regex.exec(explanation)) !== null) {
+    quotes.push(match[1].trim());
+  }
+  
+  return quotes;
+}
+
+function highlightHtmlTextSafe(html: string, quote: string): string {
+  if (!quote || quote.trim().length < 5) return html;
+  
+  const cleanQuote = quote.trim().replace(/^[“"'"«„](.*)[”"'"»“]$/, '$1');
+  const words = cleanQuote.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return html;
+  
+  const escapedWords = words.map(w => escapeRegExp(w));
+  const pattern = escapedWords.join('(?:\\s+|<[^>]*>)+');
+  
+  try {
+    const tokens = html.split(/(<[^>]+>)/g);
+    const regex = new RegExp(`(${pattern})`, 'gi');
+    
+    const highlightedTokens = tokens.map((token) => {
+      if (token.startsWith('<') && token.endsWith('>')) {
+        return token;
+      }
+      return token.replace(regex, '<mark class="bg-yellow-100 text-ink font-semibold border-b-2 border-yellow-400 px-1 rounded shadow-sm">$1</mark>');
+    });
+    
+    return highlightedTokens.join('');
+  } catch (e) {
+    console.error("Highlight error:", e);
+    return html;
+  }
+}
+
+function renderExplanationText(text: string) {
+  if (!text) return null;
+  
+  const lines = text.split('\n');
+  return lines.map((line, lineIdx) => {
+    let trimmed = line.trim();
+    
+    if (trimmed === "") {
+      return <div key={lineIdx} className="h-1" />;
+    }
+    
+    if (trimmed.startsWith('-------') || trimmed === '------') {
+      return <hr key={lineIdx} className="my-3 border-t border-outline-variant/30" />;
+    }
+
+    // Check if line is blockquote (starts with >)
+    let isBlockquote = false;
+    if (trimmed.startsWith('>')) {
+      isBlockquote = true;
+      trimmed = trimmed.substring(1).trim();
+    }
+    
+    // Parse formatting helper (bold **text**, italic *text*)
+    const parseFormattedText = (rawText: string) => {
+      const boldParts = rawText.split(/\*\*([^*]+)\*\*/g);
+      return boldParts.map((bPart, bIdx) => {
+        if (bIdx % 2 === 1) {
+          return <strong key={bIdx} className="text-primary font-black">{bPart}</strong>;
+        }
+        
+        // Parse italics (*italic*) inside non-bold text
+        const italicParts = bPart.split(/\*([^*]+)\*/g);
+        return italicParts.map((iPart, iIdx) => {
+          if (iIdx % 2 === 1) {
+            return <em key={iIdx} className="font-semibold italic text-ink/80">{iPart}</em>;
+          }
+          return iPart;
+        });
+      });
+    };
+    
+    if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
+      const cleanContent = trimmed.replace(/^[-•]\s*/, "");
+      const cleanJSX = parseFormattedText(cleanContent);
+      
+      return (
+        <div key={lineIdx} className="pl-3 text-on-surface-variant flex items-start gap-2 min-h-[1.25rem] py-0.5">
+          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
+          <span className="flex-1 leading-relaxed">{cleanJSX}</span>
+        </div>
+      );
+    }
+    
+    const contentJSX = parseFormattedText(trimmed);
+    
+    if (isBlockquote) {
+      return (
+        <blockquote key={lineIdx} className="my-2 border-l-4 border-primary/40 pl-3 py-1.5 bg-primary/5 rounded-r italic text-ink/85 text-[12px] leading-relaxed">
+          {contentJSX}
+        </blockquote>
+      );
+    }
+    
+    return (
+      <p key={lineIdx} className="min-h-[1.25rem] text-ink/90 py-0.5 leading-relaxed">
+        {contentJSX}
+      </p>
+    );
+  });
+}
+
+
 /* ═══════════════════════════════════════════════════════════════
    Main Component
    ═══════════════════════════════════════════════════════════════ */
@@ -131,6 +372,7 @@ export default function LatestResultPage() {
   const [prevGroupId, setPrevGroupId] = useState<string | undefined>(undefined);
   const [showTranscriptMap, setShowTranscriptMap] = useState<Record<string, boolean>>({});
   const [leftPanelLang, setLeftPanelLang] = useState<"en" | "vi">("en");
+  const [isNavOpen, setIsNavOpen] = useState(true);
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -252,8 +494,19 @@ export default function LatestResultPage() {
     const regex = /---\s*Passage\s*(\d+):\s*([^-]+)\s*---/g;
     const matches = [...text.matchAll(regex)];
 
+    const smartExplanation = getSmartExplanation(currentQuestion, text);
+    const quotes = extractQuotesFromExplanation(smartExplanation);
+
+    const highlightText = (content: string) => {
+      let result = content;
+      for (const q of quotes) {
+        result = highlightHtmlTextSafe(result, q);
+      }
+      return result;
+    };
+
     if (matches.length === 0) {
-      return [{ title: "Văn bản đọc", content: text }];
+      return [{ title: "Văn bản đọc", content: highlightText(text) }];
     }
 
     const list: { title: string; content: string }[] = [];
@@ -264,7 +517,7 @@ export default function LatestResultPage() {
       const index = i + 1;
       list.push({
         title: `Đoạn ${match[1]}: ${match[2].trim()}`,
-        content: (splits[index] || "").trim(),
+        content: highlightText((splits[index] || "").trim()),
       });
     }
     return list;
@@ -478,7 +731,25 @@ export default function LatestResultPage() {
             </h2>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px] h-[700px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/40">
+          <div className={cn(
+            "grid gap-6 transition-all duration-300 items-start",
+            isNavOpen ? "lg:grid-cols-[1fr_220px]" : "grid-cols-1"
+          )}>
+            
+            {/* Container 1: Review Panel (Passage + Question Card) */}
+            <div className="h-[700px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/86 relative flex flex-1 transition-all duration-300">
+            
+            {!isNavOpen && (
+              <button
+                type="button"
+                onClick={() => setIsNavOpen(true)}
+                className="absolute right-4 top-4 z-20 flex h-8 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary-container px-3 py-1.5 text-xs font-bold text-on-primary-container hover:bg-primary-container/80 transition-all shadow-glass backdrop-blur-md animate-[fadeIn_0.2s_ease-out]"
+                title="Hiện điều hướng câu hỏi"
+              >
+                <Flag className="h-3.5 w-3.5" />
+                <span>Hiện điều hướng</span>
+              </button>
+            )}
             
             {/* 2-Column Split Review Panels */}
             <div className="flex flex-1 overflow-hidden h-full">
@@ -588,7 +859,17 @@ export default function LatestResultPage() {
 
                       <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[300px] overflow-y-auto text-xs leading-relaxed text-ink font-semibold whitespace-pre-line transition-colors duration-150">
                         {leftPanelLang === "en" ? (
-                          <div dangerouslySetInnerHTML={{ __html: displayEn }} />
+                          <div dangerouslySetInnerHTML={{ 
+                            __html: (() => {
+                              const smartExplanation = getSmartExplanation(currentQuestion, displayEn);
+                              const quotes = extractQuotesFromExplanation(smartExplanation);
+                              let html = displayEn;
+                              for (const q of quotes) {
+                                html = highlightHtmlTextSafe(html, q);
+                              }
+                              return html;
+                            })() 
+                          }} />
                         ) : (
                           <div className="text-muted">{vietnamese}</div>
                         )}
@@ -656,7 +937,17 @@ export default function LatestResultPage() {
                       {leftPanelLang === "en" ? (
                         <div 
                           className="text-sm font-medium text-ink passage-content"
-                          dangerouslySetInnerHTML={{ __html: getPart6HtmlReview(currentQuestion.passage || "") }}
+                          dangerouslySetInnerHTML={{ 
+                            __html: getPart6HtmlReview((() => {
+                              const smartExplanation = getSmartExplanation(currentQuestion, currentQuestion.passage || "");
+                              const quotes = extractQuotesFromExplanation(smartExplanation);
+                              let html = currentQuestion.passage || "";
+                              for (const q of quotes) {
+                                html = highlightHtmlTextSafe(html, q);
+                              }
+                              return html;
+                            })()) 
+                          }}
                         />
                       ) : (
                         <div className="text-sm font-medium text-muted whitespace-pre-line leading-relaxed">
@@ -865,10 +1156,10 @@ export default function LatestResultPage() {
                                         <p className="italic text-ink font-bold">&ldquo;{q.transcript}&rdquo;</p>
                                       </div>
                                     )}
-                                    {q.explanation && (
+                                    {getSmartExplanation(q, q.passage || q.transcript || "") && (
                                       <div>
-                                        <p className="text-[10px] font-black uppercase text-primary tracking-wider mb-0.5">Dịch nghĩa & Giải thích:</p>
-                                        <p className="text-muted whitespace-pre-line leading-relaxed">{q.explanation}</p>
+                                        <p className="text-[10px] font-black uppercase text-primary tracking-wider mb-1">Dịch nghĩa & Giải thích:</p>
+                                        <div className="text-ink/90 text-[13px] font-medium space-y-1.5">{renderExplanationText(getSmartExplanation(q, q.passage || q.transcript || ""))}</div>
                                       </div>
                                     )}
                                   </div>
@@ -974,7 +1265,7 @@ export default function LatestResultPage() {
                         {/* Explanation & Transcript box */}
                         {q.id === currentQuestion.id && (() => {
                           const isListening = ["part-3", "part-4"].includes(q.partId);
-                          const explanationText = q.explanation || EXPLANATIONS[q.partId]?.desc || EXPLANATIONS["part-5"].desc;
+                          const explanationText = getSmartExplanation(q, q.passage || q.transcript || "");
                           
                           if (isListening) {
                             const isTranscriptOpen = !!showTranscriptMap[q.id];
@@ -1008,8 +1299,8 @@ export default function LatestResultPage() {
                                     {explanationText && (
                                       <div>
                                         <p className="text-[10px] font-black uppercase text-primary tracking-wider mb-1">Dịch nghĩa & Giải thích:</p>
-                                        <div className="bg-white/50 border border-outline-variant/10 rounded-lg p-2.5 text-muted whitespace-pre-line leading-relaxed">
-                                          {explanationText}
+                                        <div className="bg-white/60 border border-outline-variant/15 rounded-lg p-3 text-ink/90 text-[13px] font-medium space-y-1.5">
+                                          {renderExplanationText(explanationText)}
                                         </div>
                                       </div>
                                     )}
@@ -1026,8 +1317,8 @@ export default function LatestResultPage() {
                                 <Lightbulb className="h-4 w-4 text-primary" />
                                 <span>Giải thích đáp án (Ngữ pháp & Vị trí)</span>
                               </div>
-                              <div className="text-[11px] leading-relaxed text-ink font-semibold whitespace-pre-line bg-white/60 border border-outline-variant/15 rounded-lg p-3">
-                                {explanationText}
+                                                            <div className="text-[13px] leading-relaxed text-ink/90 font-medium bg-white/60 border border-outline-variant/15 rounded-lg p-3 space-y-1.5">
+                                {renderExplanationText(explanationText)}
                               </div>
                             </div>
                           );
@@ -1041,109 +1332,123 @@ export default function LatestResultPage() {
               </main>
 
             </div>
+            
+            </div> {/* Container 1 End */}
 
             {/* Sidebar Jump Board on Review */}
-            <aside className="w-full shrink-0 border-l border-outline-variant/20 bg-white/60 flex flex-col h-full overflow-hidden">
-              <div className="border-b border-outline-variant/30 p-4">
-                <h3 className="text-xs font-black uppercase tracking-wider text-muted">Điều hướng câu hỏi</h3>
-                <p className="text-[10px] text-muted mt-0.5">Click vào số câu để xem lại</p>
-              </div>
-
-              {/* Grid with correct/incorrect coloring */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                
-                {/* Listening List */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
-                    <span className="text-[9px] font-black uppercase text-primary">Listening REVIEW</span>
-                    <span className="text-[8px] font-bold text-muted">1-100</span>
+            {isNavOpen && (
+              <aside className="w-full lg:w-[220px] shrink-0 border border-white bg-white/86 rounded-3xl flex flex-col h-[700px] overflow-hidden shadow-glass transition-all duration-300 animate-[fadeIn_0.2s_ease-out]">
+                <div className="border-b border-outline-variant/30 p-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-muted">Điều hướng</h3>
+                    <p className="text-[9px] text-muted mt-0.5">Nhấp số câu để xem</p>
                   </div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {questions.slice(0, 100).map((q) => {
-                      const idx = questions.indexOf(q);
-                      const isSelected = idx === reviewIndex;
-                      const selected = result.answers[q.id];
-                      const isCorrect = selected === q.correctAnswer;
+                  <button
+                    type="button"
+                    onClick={() => setIsNavOpen(false)}
+                    className="rounded-lg p-1 text-muted hover:bg-outline-variant/20 hover:text-ink transition-all"
+                    title="Thu nhỏ điều hướng"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
 
-                      return (
-                        <button
-                          key={q.id}
-                          type="button"
-                          onClick={() => goTo(idx)}
-                          className={cn(
-                            "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
-                            isSelected
-                              ? "ring-2 ring-primary ring-offset-1 text-ink"
-                              : "",
-                            selected
-                              ? isCorrect
-                                ? "bg-green-600 text-white shadow-soft"
-                                : "bg-red-500 text-white shadow-soft"
-                              : "bg-surface-container-highest/60 text-muted"
-                          )}
-                        >
-                          {q.questionNumber}
-                        </button>
-                      );
-                    })}
+                {/* Grid with correct/incorrect coloring */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                  
+                  {/* Listening List */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
+                      <span className="text-[9px] font-black uppercase text-primary">Listening</span>
+                      <span className="text-[8px] font-bold text-muted">1-100</span>
+                    </div>
+                    <div className="grid grid-cols-6 gap-1">
+                      {questions.slice(0, 100).map((q) => {
+                        const idx = questions.indexOf(q);
+                        const isSelected = idx === reviewIndex;
+                        const selected = result.answers[q.id];
+                        const isCorrect = selected === q.correctAnswer;
+
+                        return (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={() => goTo(idx)}
+                            className={cn(
+                              "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
+                              isSelected
+                                ? "ring-2 ring-primary ring-offset-1 text-ink"
+                                : "",
+                              selected
+                                ? isCorrect
+                                  ? "bg-green-600 text-white shadow-soft"
+                                  : "bg-red-500 text-white shadow-soft"
+                                : "bg-surface-container-highest/60 text-muted"
+                            )}
+                          >
+                            {q.questionNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Reading List */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
+                      <span className="text-[9px] font-black uppercase text-secondary">Reading</span>
+                      <span className="text-[8px] font-bold text-muted">101-200</span>
+                    </div>
+                    <div className="grid grid-cols-6 gap-1">
+                      {questions.slice(100).map((q) => {
+                        const idx = questions.indexOf(q);
+                        const isSelected = idx === reviewIndex;
+                        const selected = result.answers[q.id];
+                        const isCorrect = selected === q.correctAnswer;
+
+                        return (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={() => goTo(idx)}
+                            className={cn(
+                              "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
+                              isSelected
+                                ? "ring-2 ring-primary ring-offset-1 text-ink"
+                                : "",
+                              selected
+                                ? isCorrect
+                                  ? "bg-green-600 text-white shadow-soft"
+                                  : "bg-red-500 text-white shadow-soft"
+                                : "bg-surface-container-highest/60 text-muted"
+                            )}
+                          >
+                            {q.questionNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Sidebar Legend for Review */}
+                <div className="border-t border-outline-variant/30 p-3 bg-white/40 space-y-2 text-[9px] font-black text-muted shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded bg-green-600" />
+                    <span>Đúng ({result.correct})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded bg-red-500" />
+                    <span>Sai ({result.answered - result.correct})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded bg-surface-container-highest" />
+                    <span>Chưa làm ({result.total - result.answered})</span>
                   </div>
                 </div>
-
-                {/* Reading List */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
-                    <span className="text-[9px] font-black uppercase text-secondary">Reading REVIEW</span>
-                    <span className="text-[8px] font-bold text-muted">101-200</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {questions.slice(100).map((q) => {
-                      const idx = questions.indexOf(q);
-                      const isSelected = idx === reviewIndex;
-                      const selected = result.answers[q.id];
-                      const isCorrect = selected === q.correctAnswer;
-
-                      return (
-                        <button
-                          key={q.id}
-                          type="button"
-                          onClick={() => goTo(idx)}
-                          className={cn(
-                            "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
-                            isSelected
-                              ? "ring-2 ring-primary ring-offset-1 text-ink"
-                              : "",
-                            selected
-                              ? isCorrect
-                                ? "bg-green-600 text-white shadow-soft"
-                                : "bg-red-500 text-white shadow-soft"
-                              : "bg-surface-container-highest/60 text-muted"
-                          )}
-                        >
-                          {q.questionNumber}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Sidebar Legend for Review */}
-              <div className="border-t border-outline-variant/30 p-4 bg-white/40 space-y-2 text-[10px] font-black text-muted">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded bg-green-600" />
-                  <span>Correct ({result.correct})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded bg-red-500" />
-                  <span>Incorrect ({result.answered - result.correct})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded bg-surface-container-highest" />
-                  <span>Unanswered ({result.total - result.answered})</span>
-                </div>
-              </div>
-            </aside>
+              </aside>
+            )}
 
           </div>
         </section>

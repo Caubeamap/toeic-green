@@ -69,9 +69,20 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
 
   const pageTitle = `${currentTest.title} ${currentTest.subtitle}`;
   const { isAuthenticated } = useAuth();
-  const testHref = isAuthenticated
-    ? `/practice/${currentTest.id}/test`
-    : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start`)}`;
+
+  const queryParams = new URLSearchParams();
+  if (selectedPartIds.length > 0) {
+    queryParams.set("parts", selectedPartIds.join(","));
+  }
+  queryParams.set("time", String(timeLimit));
+
+  const practiceHref = isAuthenticated
+    ? `/practice/${currentTest.id}/test?${queryParams.toString()}`
+    : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start?${queryParams.toString()}`)}`;
+
+  const fullTestHref = isAuthenticated
+    ? `/practice/${currentTest.id}/test?mode=full`
+    : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start?mode=full`)}`;
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
@@ -134,14 +145,14 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                     test={currentTest}
                     timeLimit={timeLimit}
                     timeOptions={timeOptions}
-                    actionHref={testHref}
+                    actionHref={practiceHref}
                     onSelectAll={selectAllParts}
                     onTimeLimitChange={setTimeLimit}
                     onTogglePart={togglePart}
                   />
                 ) : null}
 
-                {activeTab === "full-test" ? <FullTestTab actionHref={testHref} test={currentTest} /> : null}
+                {activeTab === "full-test" ? <FullTestTab actionHref={fullTestHref} test={currentTest} /> : null}
 
                 {activeTab === "discussion" ? <DiscussionTab /> : null}
               </div>
@@ -338,7 +349,7 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
             <Trophy className="h-3.5 w-3.5" />
             Attempt history
           </div>
-          <h2 className="text-xl font-bold text-on-surface">Kết quả 3 lần gần nhất</h2>
+          <h2 className="text-xl font-bold text-on-surface">Kết quả 5 lần gần nhất</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
             Lưu lại các lần luyện gần nhất để người học so sánh tiến bộ trước khi làm lại đề.
           </p>
@@ -360,7 +371,7 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
         </div>
 
         <div className="divide-y divide-outline-variant/70 bg-white/45">
-          {attempts.slice(0, 3).map((attempt) => (
+          {attempts.slice(0, 5).map((attempt) => (
             <article
               key={attempt.id}
               className="grid gap-4 px-4 py-4 md:grid-cols-[1fr_1fr_1fr_120px] md:items-center"
@@ -374,19 +385,44 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
                   <span
                     className={cn(
                       "rounded-md px-2 py-1 text-[10px] font-extrabold uppercase text-white",
-                      attempt.mode === "Full test" ? "bg-primary" : "bg-secondary"
+                      attempt.mode === "Full test" ? "bg-green-600" : "bg-amber-600"
                     )}
                   >
-                    {attempt.mode}
+                    {attempt.mode === "Full test" ? "Full test" : "Luyện tập"}
                   </span>
-                  {attempt.scopeLabels.map((label) => (
-                    <span
-                      key={`${attempt.id}-${label}`}
-                      className="rounded-md bg-primary-container/70 px-2 py-1 text-[10px] font-extrabold uppercase text-on-primary-container"
-                    >
-                      {label}
-                    </span>
-                  ))}
+                  {(() => {
+                    if (attempt.mode === "Full test") return null;
+                    
+                    const storedAttempt = attempt as { result?: { parts?: string[]; answers?: Record<string, string> } };
+                    const resultObj = storedAttempt.result;
+                    let labels: string[] = [];
+                    
+                    if (resultObj) {
+                      if (resultObj.parts && resultObj.parts.length > 0) {
+                        labels = resultObj.parts.map((p: string) => {
+                          const num = p.replace("part-", "");
+                          return `Part ${num}`;
+                        });
+                      } else if (resultObj.answers) {
+                        labels = getPartsFromAnswers(resultObj.answers);
+                      }
+                    }
+                    
+                    if (labels.length === 0) {
+                      labels = attempt.scopeLabels || [];
+                    }
+                    
+                    labels.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+                    return labels.map((label) => (
+                      <span
+                        key={`${attempt.id}-${label}`}
+                        className="rounded-md bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 text-[10px] font-extrabold uppercase"
+                      >
+                        {label}
+                      </span>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -557,4 +593,25 @@ function Comment({ author, body }: { author: string; body: string }) {
       <p className="text-sm leading-relaxed text-on-surface-variant">{body}</p>
     </div>
   );
+}
+
+function getPartsFromAnswers(answers: Record<string, string>): string[] {
+  if (!answers) return [];
+  const partIds = new Set<string>();
+  
+  Object.keys(answers).forEach((qId) => {
+    const match = qId.match(/-q(\d+)$/i);
+    if (match) {
+      const qNum = parseInt(match[1], 10);
+      if (qNum >= 1 && qNum <= 6) partIds.add("Part 1");
+      else if (qNum >= 7 && qNum <= 31) partIds.add("Part 2");
+      else if (qNum >= 32 && qNum <= 70) partIds.add("Part 3");
+      else if (qNum >= 71 && qNum <= 100) partIds.add("Part 4");
+      else if (qNum >= 101 && qNum <= 130) partIds.add("Part 5");
+      else if (qNum >= 131 && qNum <= 146) partIds.add("Part 6");
+      else if (qNum >= 147 && qNum <= 200) partIds.add("Part 7");
+    }
+  });
+  
+  return Array.from(partIds);
 }

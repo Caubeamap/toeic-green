@@ -71,22 +71,27 @@ const PART1_IMAGES: Record<number, string> = {
    ═══════════════════════════════════════════════════════════════ */
 
 function useCountdown(totalMinutes: number) {
-  const [remaining, setRemaining] = useState(totalMinutes * 60);
+  const isCountUp = totalMinutes === 0;
+  const [remaining, setRemaining] = useState(isCountUp ? 0 : totalMinutes * 60);
   const [running, setRunning] = useState(true);
 
   useEffect(() => {
     if (!running) return;
     const id = setInterval(() => {
       setRemaining((seconds) => {
-        if (seconds <= 1) {
-          setRunning(false);
-          return 0;
+        if (isCountUp) {
+          return seconds + 1;
+        } else {
+          if (seconds <= 1) {
+            setRunning(false);
+            return 0;
+          }
+          return seconds - 1;
         }
-        return seconds - 1;
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [running]);
+  }, [running, isCountUp]);
 
   const hours = Math.floor(remaining / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);
@@ -98,7 +103,7 @@ function useCountdown(totalMinutes: number) {
 
   const percentage = totalMinutes > 0 ? ((totalMinutes * 60 - remaining) / (totalMinutes * 60)) * 100 : 0;
 
-  return { remaining, display, percentage, running, setRunning };
+  return { remaining, display, percentage, running, setRunning, isCountUp };
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -108,9 +113,11 @@ function useCountdown(totalMinutes: number) {
 export function PracticeExamSession({
   test,
   questions,
+  customTimeLimit,
 }: {
   test: PracticeTest;
   questions: ToeicQuestion[];
+  customTimeLimit?: number;
 }) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -138,7 +145,10 @@ export function PracticeExamSession({
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
 
   // Real/Simulated audio states (Part 1, 2, 3, 4)
-  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(() => {
+    const firstQ = questions[0];
+    return firstQ ? ["part-1", "part-2", "part-3", "part-4"].includes(firstQ.partId) : false;
+  });
   const [audioTime, setAudioTime] = useState(0);
   const audioSpeed = 1.0;
   const [audioDuration, setAudioDuration] = useState(90);
@@ -157,7 +167,8 @@ export function PracticeExamSession({
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
-  const timer = useCountdown(test.minutes);
+  const examMinutes = customTimeLimit !== undefined ? customTimeLimit : test.minutes;
+  const timer = useCountdown(examMinutes);
   const answeredCount = Object.keys(answers).length;
   const progressPercent = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
 
@@ -256,6 +267,17 @@ export function PracticeExamSession({
       audio.pause();
     }
   }, [audioPlaying, activeAudioUrl]);
+
+  // Autoplay audio when switching to a listening question
+  useEffect(() => {
+    const isCurrentListening = currentQuestion ? ["part-1", "part-2", "part-3", "part-4"].includes(currentQuestion.partId) : false;
+    if (isCurrentListening && activeAudioUrl) {
+      const timerId = setTimeout(() => {
+        setAudioPlaying(true);
+      }, 0);
+      return () => clearTimeout(timerId);
+    }
+  }, [activeAudioUrl, currentQuestion]);
 
   // Sync playback speed
   useEffect(() => {
@@ -494,6 +516,8 @@ export function PracticeExamSession({
       if (answers[q.id] === q.correctAnswer) correctCount++;
     });
 
+    const examMinutes = customTimeLimit !== undefined ? customTimeLimit : test.minutes;
+
     const result: SavedPracticeResult = {
       testId: test.id,
       testTitle: `${test.title} ${test.subtitle}`,
@@ -502,25 +526,26 @@ export function PracticeExamSession({
       answered: answeredCount,
       flagged: flags.size,
       flaggedIds: Array.from(flags),
-      duration: test.minutes * 60 - timer.remaining,
+      duration: timer.isCountUp ? timer.remaining : examMinutes * 60 - timer.remaining,
       answers,
       timestamp: new Date().toISOString(),
+      parts: Array.from(new Set(questions.map((q) => q.partId))),
     };
 
     sessionStorage.setItem(LATEST_PRACTICE_RESULT_KEY, JSON.stringify(result));
     savePracticeAttemptResult(test, result);
     router.push(`/practice/${test.id}/results/latest`);
-  }, [test, questions, answers, answeredCount, flags, timer, router, totalQuestions]);
+  }, [test, questions, answers, answeredCount, flags, timer, router, totalQuestions, customTimeLimit]);
 
   // Time-out submit
   useEffect(() => {
-    if (timer.remaining === 0 && !submitted) {
+    if (!timer.isCountUp && timer.remaining === 0 && !submitted) {
       const id = setTimeout(() => {
         handleSubmit();
       }, 0);
       return () => clearTimeout(id);
     }
-  }, [timer.remaining, submitted, handleSubmit]);
+  }, [timer.remaining, timer.isCountUp, submitted, handleSubmit]);
 
   /* ═══════════════════════════════════════════════════════════════
      Helper Renders & Parsers
@@ -589,6 +614,11 @@ export function PracticeExamSession({
         <audio
           ref={audioRef}
           src={activeAudioUrl}
+          onCanPlay={() => {
+            if (audioPlaying && audioRef.current) {
+              audioRef.current.play().catch((err) => console.log("onCanPlay play error:", err));
+            }
+          }}
           onTimeUpdate={() => {
             if (audioRef.current) {
               const wholeSeconds = Math.floor(audioRef.current.currentTime);
@@ -658,7 +688,7 @@ export function PracticeExamSession({
           <div
             className={cn(
               "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black tabular-nums transition-colors",
-              timer.remaining <= 300
+              (!timer.isCountUp && timer.remaining <= 300)
                 ? "bg-red-50 text-red-600 border-red-200"
                 : "border-outline-variant/40 bg-primary-container/20 text-on-primary-container"
             )}

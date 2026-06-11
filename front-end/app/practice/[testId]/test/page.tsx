@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { getPracticeTestById } from "@/lib/practice-tests";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
@@ -10,12 +10,35 @@ import { PracticeExamSession } from "@/components/practice/PracticeExamSession";
 export default function TestPage() {
   const params = useParams<{ testId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
 
   const test = getPracticeTestById(params.testId);
   
   const [questions, setQuestions] = useState<ToeicQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
+
+  const partsParam = searchParams.get("parts");
+  const timeParam = searchParams.get("time");
+  const modeParam = searchParams.get("mode");
+
+  const filteredQuestions = useMemo(() => {
+    if (modeParam === "full" || !partsParam) {
+      return questions;
+    }
+    const selectedParts = partsParam.split(",");
+    return questions.filter((q) => selectedParts.includes(q.partId));
+  }, [questions, partsParam, modeParam]);
+
+  const customTimeLimit = useMemo(() => {
+    if (modeParam === "full") {
+      return test?.minutes;
+    }
+    if (timeParam !== null) {
+      return Number(timeParam);
+    }
+    return test?.minutes;
+  }, [test, timeParam, modeParam]);
 
   useEffect(() => {
     async function loadQuestions() {
@@ -94,6 +117,12 @@ export default function TestPage() {
     );
   }
 
-  return <PracticeExamSession test={test} questions={questions} />;
+  return (
+    <PracticeExamSession
+      test={test}
+      questions={filteredQuestions}
+      customTimeLimit={customTimeLimit}
+    />
+  );
 }
 

@@ -16,6 +16,7 @@ export type SavedPracticeResult = {
   duration: number;
   answers: Record<string, string>;
   timestamp: string;
+  parts?: string[];
 };
 
 export type StoredPracticeAttempt = PracticeAttempt & {
@@ -47,9 +48,41 @@ function getAttemptMode(test: PracticeTest, result: SavedPracticeResult): Practi
   return result.total >= test.questions ? "Full test" : "Practice";
 }
 
+function getPartsFromAnswers(answers: Record<string, string>): string[] {
+  if (!answers) return [];
+  const partIds = new Set<string>();
+  
+  Object.keys(answers).forEach((qId) => {
+    const match = qId.match(/-q(\d+)$/i);
+    if (match) {
+      const qNum = parseInt(match[1], 10);
+      if (qNum >= 1 && qNum <= 6) partIds.add("part-1");
+      else if (qNum >= 7 && qNum <= 31) partIds.add("part-2");
+      else if (qNum >= 32 && qNum <= 70) partIds.add("part-3");
+      else if (qNum >= 71 && qNum <= 100) partIds.add("part-4");
+      else if (qNum >= 101 && qNum <= 130) partIds.add("part-5");
+      else if (qNum >= 131 && qNum <= 146) partIds.add("part-6");
+      else if (qNum >= 147 && qNum <= 200) partIds.add("part-7");
+    }
+  });
+  
+  return Array.from(partIds);
+}
+
 function getAttemptScopeLabels(test: PracticeTest, result: SavedPracticeResult) {
   if (result.total >= test.questions) {
-    return ["Full test"];
+    return [];
+  }
+
+  const parts = result.parts || getPartsFromAnswers(result.answers);
+
+  if (parts && parts.length > 0) {
+    return parts
+      .map((p) => {
+        const num = p.replace("part-", "");
+        return `Part ${num}`;
+      })
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }
 
   return [test.shortType];

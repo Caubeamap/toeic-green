@@ -74,7 +74,7 @@ export const study4Tests: PracticeTest[] = Array.from({ length: 10 }, (_, index)
   return {
     id,
     title: `Practice Toeic Test ${testNum}`,
-    subtitle: `Study4 Simulation`,
+    subtitle: `Toeic Green Practice`,
     type: "Listening & Reading",
     shortType: "L & R",
     minutes: 120,

@@ -276,7 +276,7 @@ function PasswordStrength({ password }: { password: string }) {
             <span
               key={level}
               className={cn(
-                "h-1.5 flex-1 rounded-full transition-all duration-300",
+                "h-1.5 flex-1 rounded-full transition-colors duration-150",
                 hasInput && score >= level
                   ? color
                   : "bg-surface-container-highest"
@@ -326,7 +326,7 @@ function SubmitButton({
       type="submit"
       disabled={loading}
       className={cn(
-        "flex h-[56px] w-full items-center justify-center gap-2 rounded-2xl text-[16px] font-extrabold text-white shadow-glow transition active:scale-[0.98]",
+        "flex h-[56px] w-full items-center justify-center gap-2 rounded-2xl text-[16px] font-extrabold text-white shadow-glow transition-colors",
         loading
           ? "cursor-not-allowed bg-primary/60"
           : "bg-primary hover:bg-primary/90"

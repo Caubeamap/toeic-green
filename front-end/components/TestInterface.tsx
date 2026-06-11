@@ -102,7 +102,7 @@ export function TestInterface() {
               <button
                 key={number}
                 className={cn(
-                  "aspect-square rounded-xl text-sm font-bold transition hover:scale-105",
+                  "aspect-square rounded-xl text-sm font-bold transition-colors",
                   number <= 41 && "bg-growth text-growth-dark",
                   number === 42 && "bg-white text-ink shadow-soft ring-2 ring-growth-dark",
                   number > 42 && "bg-zinc-100 text-muted"

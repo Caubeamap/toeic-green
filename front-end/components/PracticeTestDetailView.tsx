@@ -435,7 +435,7 @@ function FullTestTab({ actionHref, test }: { actionHref: string; test: PracticeT
         </p>
         <Link
           href={actionHref}
-          className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition hover:bg-primary/90 active:scale-[0.99]"
+          className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition-colors hover:bg-primary/90"
         >
           <Play className="h-5 w-5" />
           Bắt đầu thi

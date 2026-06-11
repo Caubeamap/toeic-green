@@ -22,16 +22,16 @@ export function Header() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/30 bg-white/45 shadow-glass backdrop-blur-lg">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/70 bg-white/92 shadow-glass">
       <div className="container-shell flex h-20 items-center justify-between">
         <Link
           href="/"
-          className="text-display-lg-mobile font-extrabold tracking-tight text-primary md:text-display-lg"
+          className="shrink-0 text-headline-md font-extrabold tracking-tight text-primary md:text-headline-lg"
         >
           TOEIC Green
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden shrink-0 items-center gap-4 lg:gap-8 md:flex">
           {navItems.map((item) => (
             <Link
               key={`${item.href}-${item.label}`}
@@ -47,13 +47,13 @@ export function Header() {
         </nav>
 
         {/* Desktop auth area */}
-        <div className="hidden items-center gap-4 sm:flex">
+        <div className="hidden shrink-0 items-center gap-4 sm:flex">
           {isAuthenticated && user ? (
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowUserDropdown((prev) => !prev)}
-                className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5 transition hover:bg-black/5 active:scale-98 focus:outline-none"
+                className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5 transition-colors hover:bg-black/5 focus:outline-none"
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary shadow-sm">
                   {user.avatar}
@@ -72,7 +72,7 @@ export function Header() {
                     onClick={() => setShowUserDropdown(false)}
                   />
                   {/* Dropdown Menu */}
-                  <div className="absolute right-0 mt-2 z-20 w-44 rounded-2xl border border-white/40 bg-white/90 p-1.5 shadow-glass backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute right-0 z-20 mt-2 w-44 rounded-2xl border border-white/40 bg-white/95 p-1.5 shadow-glass">
                     <button
                       type="button"
                       onClick={() => {
@@ -98,7 +98,7 @@ export function Header() {
               </Link>
               <Link
                 href="/login?mode=signup"
-                className="rounded-xl bg-primary px-6 py-2.5 text-label-md font-bold text-on-primary transition hover:scale-95 active:scale-90"
+                className="rounded-xl bg-primary px-6 py-2.5 text-label-md font-bold text-on-primary transition-colors hover:bg-primary/90"
               >
                 Đăng ký
               </Link>
@@ -179,4 +179,3 @@ export function Header() {
     </header>
   );
 }
-

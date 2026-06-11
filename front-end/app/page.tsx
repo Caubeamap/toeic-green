@@ -82,7 +82,7 @@ function FeatureBento() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
         <Link
           href="/practice"
-          className="glass-card group relative overflow-hidden rounded-[28px] p-8 transition duration-300 hover:shadow-2xl md:col-span-8"
+          className="glass-card interactive-surface group relative overflow-hidden rounded-[28px] p-8 md:col-span-8"
         >
           <div className="relative z-10 flex min-h-[230px] flex-col justify-between">
             <div className="space-y-4">
@@ -111,13 +111,13 @@ function FeatureBento() {
             alt="Listening focus"
             width={360}
             height={360}
-            className="absolute -right-10 bottom-0 hidden h-64 w-64 rounded-tl-[100px] object-cover opacity-20 transition duration-500 group-hover:opacity-100 md:block"
+            className="absolute -right-10 bottom-0 hidden h-64 w-64 rounded-tl-[100px] object-cover opacity-35 md:block"
           />
         </Link>
 
         <Link
           href="/practice"
-          className="glass-card rounded-[28px] p-8 transition duration-300 hover:shadow-2xl md:col-span-4"
+          className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-4"
         >
           <div className="space-y-4">
             <IconTile tone="secondary">
@@ -132,7 +132,7 @@ function FeatureBento() {
 
         <Link
           href="/practice"
-          className="glass-card rounded-[28px] p-8 transition duration-300 hover:shadow-2xl md:col-span-4"
+          className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-4"
         >
           <div className="space-y-4">
             <IconTile tone="tertiary">
@@ -147,7 +147,7 @@ function FeatureBento() {
 
         <Link
           href="/vocabulary"
-          className="glass-card flex flex-col gap-8 rounded-[28px] p-8 transition duration-300 hover:shadow-2xl md:col-span-8 md:flex-row md:items-center"
+          className="glass-card interactive-surface flex flex-col gap-8 rounded-[28px] p-8 md:col-span-8 md:flex-row md:items-center"
         >
           <div className="flex-1 space-y-4">
             <IconTile tone="fixed">
@@ -227,7 +227,7 @@ function PersonalizedPath() {
           </div>
 
           <div className="relative md:w-1/2">
-            <div className="glass-card rounded-[32px] p-4 shadow-2xl">
+            <div className="glass-card interactive-surface rounded-[32px] p-4 shadow-soft">
               <Image
                 src={roadmapImage}
                 alt="Study Roadmap Interface"
@@ -235,7 +235,7 @@ function PersonalizedPath() {
                 height={540}
                 className="aspect-[4/4] w-full rounded-[24px] object-cover grayscale-[0.2]"
               />
-              <div className="glass-card absolute -bottom-6 -right-6 max-w-[240px] rounded-2xl border-primary/20 p-6 shadow-xl">
+              <div className="glass-card interactive-surface absolute -bottom-6 -right-6 max-w-[240px] rounded-2xl border-primary/20 p-6 shadow-soft">
                 <div className="mb-3 flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary-container text-secondary">
                     <MaterialIcon name="verified" className="h-6 w-6" />
@@ -273,7 +273,7 @@ function Testimonials() {
           {avatars.map((testimonial) => (
             <article
               key={testimonial.name}
-              className="glass-card flex flex-col justify-between rounded-3xl p-8 transition duration-300 hover:-translate-y-2"
+              className="glass-card interactive-surface flex flex-col justify-between rounded-3xl p-8"
             >
               <div className="space-y-4">
                 <div className="flex text-primary">
@@ -311,9 +311,9 @@ function Testimonials() {
 function HomeCta() {
   return (
     <section className="container-shell my-32">
-      <div className="relative overflow-hidden rounded-[40px] bg-primary p-12 text-center shadow-2xl md:p-24">
-        <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-white/10 blur-[80px]" />
-        <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-primary-fixed/20 blur-[80px]" />
+      <div className="relative overflow-hidden rounded-[40px] bg-primary p-12 text-center shadow-soft md:p-24">
+        <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-white/10" />
+        <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-primary-fixed/15" />
         <div className="relative z-10 mx-auto max-w-3xl space-y-8">
           <h2 className="text-display-lg-mobile font-extrabold leading-tight text-on-primary md:text-display-lg">
             Sẵn sàng để chinh phục chứng chỉ TOEIC?
@@ -324,7 +324,7 @@ function HomeCta() {
           </p>
           <Link
             href="/practice"
-            className="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-12 py-5 text-headline-md font-bold text-primary shadow-xl transition hover:scale-105"
+            className="button-sheen inline-flex min-h-14 items-center justify-center rounded-full bg-white px-12 py-5 text-headline-md font-bold text-primary shadow-soft hover:bg-primary-container"
           >
             Bắt đầu hoàn toàn miễn phí
           </Link>

@@ -1,0 +1,99 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import { getPracticeTestById } from "@/lib/practice-tests";
+import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
+import { TestTakingView } from "@/components/TestTakingView";
+
+export default function TestPage() {
+  const params = useParams<{ testId: string }>();
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  const test = getPracticeTestById(params.testId);
+  
+  const [questions, setQuestions] = useState<ToeicQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+
+  useEffect(() => {
+    async function loadQuestions() {
+      try {
+        if (params.testId.startsWith("practice-toeic-test-")) {
+          const res = await fetch(`/data/toeic-questions/${params.testId}.json`);
+          if (res.ok) {
+            const data = await res.json();
+            setQuestions(data);
+            setLoadingQuestions(false);
+            return;
+          }
+        }
+        // Fallback to static mock data
+        const staticQs = getQuestionsForTest(params.testId);
+        setQuestions(staticQs);
+      } catch (err) {
+        console.error("Failed to load questions", err);
+      } finally {
+        setLoadingQuestions(false);
+      }
+    }
+    
+    if (isAuthenticated) {
+      loadQuestions();
+    }
+  }, [params.testId, isAuthenticated]);
+
+  /* Redirect to login if not authenticated */
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace(
+        `/login?next=${encodeURIComponent(`/practice/${params.testId}/start`)}`
+      );
+    }
+  }, [isLoading, isAuthenticated, params.testId, router]);
+
+  const showLoading = isLoading || (isAuthenticated && loadingQuestions);
+
+  if (showLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-bold text-on-surface-variant">
+            Đang tải bài thi...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (!test || questions.length === 0) {
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="max-w-md rounded-3xl border border-white/70 bg-white/60 p-10 text-center shadow-glass backdrop-blur-xl">
+          <h1 className="text-2xl font-extrabold text-on-surface">
+            Bài thi không tồn tại
+          </h1>
+          <p className="mt-3 text-sm text-on-surface-variant">
+            Không tìm thấy bài thi hoặc dữ liệu câu hỏi chưa sẵn sàng.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/practice")}
+            className="mt-6 rounded-2xl bg-primary px-6 py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-primary/90"
+          >
+            Quay về danh sách
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <TestTakingView test={test} questions={questions} />;
+}
+

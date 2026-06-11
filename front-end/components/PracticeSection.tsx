@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -48,6 +48,21 @@ export function PracticeSection() {
       );
     });
   }, [activeFilter, historyTests, query]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
+
+  // Reset page to 1 when filters or query change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, query]);
+
+  const totalPages = Math.ceil(visibleTests.length / ITEMS_PER_PAGE);
+
+  const paginatedTests = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return visibleTests.slice(start, start + ITEMS_PER_PAGE);
+  }, [visibleTests, currentPage]);
 
   const isHistoryView = activeFilter === "Test History";
   const isCompletedView = activeFilter === "Completed";
@@ -113,32 +128,60 @@ export function PracticeSection() {
         </div>
 
         {isHistoryView ? (
-          <HistoryList tests={visibleTests} />
+          <HistoryList tests={paginatedTests} />
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {visibleTests.map((test) => (
+            {paginatedTests.map((test) => (
               <PracticeTestCard key={test.id} test={test} />
             ))}
           </div>
         )}
 
-        {!isHistoryView && !isCompletedView ? (
+        {totalPages > 1 && (
           <div className="mt-12 flex items-center justify-center gap-2">
-            <PaginationButton label="Previous">
+            <button
+              aria-label="Previous"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+              )}
+              type="button"
+            >
               <ChevronLeft className="h-5 w-5" />
-            </PaginationButton>
-            <PaginationButton active label="Page 1">
-              1
-            </PaginationButton>
-            <PaginationButton label="Page 2">2</PaginationButton>
-            <PaginationButton label="Page 3">3</PaginationButton>
-            <span className="px-2 text-on-surface-variant">...</span>
-            <PaginationButton label="Page 12">12</PaginationButton>
-            <PaginationButton label="Next">
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => {
+              const pageNum = i + 1;
+              return (
+                <button
+                  key={pageNum}
+                  aria-label={`Page ${pageNum}`}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white",
+                    currentPage === pageNum && "border-primary bg-primary text-white hover:bg-primary"
+                  )}
+                  type="button"
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            <button
+              aria-label="Next"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+              )}
+              type="button"
+            >
               <ChevronRight className="h-5 w-5" />
-            </PaginationButton>
+            </button>
           </div>
-        ) : null}
+        )}
       </div>
 
       <button

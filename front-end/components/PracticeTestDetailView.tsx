@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import {
   Calculator,
   CalendarDays,
@@ -64,7 +65,10 @@ export function PracticeTestDetailView({ test }: { test: PracticeTest }) {
   }
 
   const pageTitle = `${test.title} ${test.subtitle}`;
-  const loginHref = `/login?next=${encodeURIComponent(`/practice/${test.id}/start`)}`;
+  const { isAuthenticated } = useAuth();
+  const testHref = isAuthenticated
+    ? `/practice/${test.id}/test`
+    : `/login?next=${encodeURIComponent(`/practice/${test.id}/start`)}`;
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
@@ -127,14 +131,14 @@ export function PracticeTestDetailView({ test }: { test: PracticeTest }) {
                     test={test}
                     timeLimit={timeLimit}
                     timeOptions={timeOptions}
-                    loginHref={loginHref}
+                    actionHref={testHref}
                     onSelectAll={selectAllParts}
                     onTimeLimitChange={setTimeLimit}
                     onTogglePart={togglePart}
                   />
                 ) : null}
 
-                {activeTab === "full-test" ? <FullTestTab loginHref={loginHref} test={test} /> : null}
+                {activeTab === "full-test" ? <FullTestTab actionHref={testHref} test={test} /> : null}
 
                 {activeTab === "discussion" ? <DiscussionTab /> : null}
               </div>
@@ -190,7 +194,7 @@ function PracticeTab({
   test,
   timeLimit,
   timeOptions,
-  loginHref,
+  actionHref,
   onSelectAll,
   onTimeLimitChange,
   onTogglePart
@@ -200,7 +204,7 @@ function PracticeTab({
   test: PracticeTest;
   timeLimit: number;
   timeOptions: number[];
-  loginHref: string;
+  actionHref: string;
   onSelectAll: () => void;
   onTimeLimitChange: (value: number) => void;
   onTogglePart: (partId: string) => void;
@@ -302,7 +306,7 @@ function PracticeTab({
       </div>
 
       <Link
-        href={selectedPartIds.length === 0 ? "#" : loginHref}
+        href={selectedPartIds.length === 0 ? "#" : actionHref}
         aria-disabled={selectedPartIds.length === 0}
         className={cn(
           "inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 text-base font-extrabold shadow-glow transition",
@@ -416,7 +420,7 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
   );
 }
 
-function FullTestTab({ loginHref, test }: { loginHref: string; test: PracticeTest }) {
+function FullTestTab({ actionHref, test }: { actionHref: string; test: PracticeTest }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
       <div className="rounded-[28px] border border-primary/15 bg-primary-container/18 p-7">
@@ -430,7 +434,7 @@ function FullTestTab({ loginHref, test }: { loginHref: string; test: PracticeTes
           Full test sẽ khóa cấu trúc bài, tính giờ liên tục và lưu lại kết quả vào Test History sau khi nộp bài.
         </p>
         <Link
-          href={loginHref}
+          href={actionHref}
           className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition hover:bg-primary/90 active:scale-[0.99]"
         >
           <Play className="h-5 w-5" />

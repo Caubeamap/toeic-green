@@ -157,33 +157,33 @@ function buildSpeakingWritingAttempts(
   ];
 }
 
-export const listeningReadingTests: PracticeTest[] = [
-  ...[1, 2, 3].map((test) => ({ year: 2022, test })),
-  ...[1, 2, 3].map((test) => ({ year: 2023, test })),
-  ...[1, 2, 3].map((test) => ({ year: 2024, test })),
-  ...[1, 2, 3].map((test) => ({ year: 2025, test })),
-  ...[1, 2, 3, 4].map((test) => ({ year: 2026, test }))
-].map((item, index) => {
+export const study4Tests: PracticeTest[] = Array.from({ length: 10 }, (_, index) => {
+  const testNum = index + 1;
+  const id = `practice-toeic-test-${testNum}`;
   const completed = index === 2 || index === 8;
-  const id = `lr-${item.year}-${item.test}`;
 
   return {
     id,
-    title: `ETS TOEIC ${item.year}`,
-    subtitle: `Test ${item.test}`,
+    title: `Practice Toeic Test ${testNum}`,
+    subtitle: `Study4 Simulation`,
     type: "Listening & Reading",
     shortType: "L & R",
     minutes: 120,
     questions: 200,
     access: "Free",
     status: completed ? "Completed" : "New",
-    attempts: 12450 - index * 329,
+    attempts: 15420 - index * 650,
     parts: listeningReadingParts,
     recentAttempts: buildListeningReadingAttempts(id, index),
     score: completed ? (index === 2 ? "890/990" : "845/990") : undefined,
     completedAt: completed ? (index === 2 ? "18/05/2026" : "24/05/2026") : undefined
   } satisfies PracticeTest;
 });
+
+export const listeningReadingTests: PracticeTest[] = [
+  ...study4Tests
+];
+
 
 export const speakingWritingTests: PracticeTest[] = Array.from({ length: 8 }, (_, index) => {
   const testNumber = index + 1;

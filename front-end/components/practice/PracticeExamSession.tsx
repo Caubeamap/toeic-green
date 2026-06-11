@@ -530,6 +530,7 @@ export function PracticeExamSession({
       answers,
       timestamp: new Date().toISOString(),
       parts: Array.from(new Set(questions.map((q) => q.partId))),
+      timeLimit: examMinutes,
     };
 
     sessionStorage.setItem(LATEST_PRACTICE_RESULT_KEY, JSON.stringify(result));
@@ -913,12 +914,12 @@ export function PracticeExamSession({
             {/* 1. PHOTOGRAPHS (PART 1) */}
             {currentQuestion.partId === "part-1" && (
               <div className="space-y-4">
-                <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass max-h-[450px]">
+                <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass max-h-[580px]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
-                    className="w-full h-[360px] object-cover"
+                    className="w-full h-[480px] object-contain bg-zinc-50"
                   />
                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
                     <button

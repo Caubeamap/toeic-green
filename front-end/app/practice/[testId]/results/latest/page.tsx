@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useMemo, useRef, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Award,
   CheckCircle2,
@@ -17,6 +17,7 @@ import { getPracticeTestById } from "@/lib/practice-tests";
 import {
   getLatestPracticeResult,
   LATEST_PRACTICE_RESULT_KEY,
+  loadPracticeAttempts,
   type SavedPracticeResult
 } from "@/lib/practice-progress";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
@@ -361,9 +362,32 @@ function splitTranscript(text?: string | null) {
   return { english: text.trim(), vietnamese: "" };
 }
 
-export default function LatestResultPage() {
+function getPartsFromAnswers(answers: Record<string, string>): string[] {
+  if (!answers) return [];
+  const partIds = new Set<string>();
+  
+  Object.keys(answers).forEach((qId) => {
+    const match = qId.match(/-q(\d+)$/i);
+    if (match) {
+      const qNum = parseInt(match[1], 10);
+      if (qNum >= 1 && qNum <= 6) partIds.add("part-1");
+      else if (qNum >= 7 && qNum <= 31) partIds.add("part-2");
+      else if (qNum >= 32 && qNum <= 70) partIds.add("part-3");
+      else if (qNum >= 71 && qNum <= 100) partIds.add("part-4");
+      else if (qNum >= 101 && qNum <= 130) partIds.add("part-5");
+      else if (qNum >= 131 && qNum <= 146) partIds.add("part-6");
+      else if (qNum >= 147 && qNum <= 200) partIds.add("part-7");
+    }
+  });
+  
+  return Array.from(partIds);
+}
+
+function LatestResultPageContent() {
   const params = useParams<{ testId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const attemptId = searchParams.get("attemptId");
 
   const [result, setResult] = useState<SavedPracticeResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -381,22 +405,63 @@ export default function LatestResultPage() {
   const [questions, setQuestions] = useState<ToeicQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
 
-  // Load results from SessionStorage
+  // Derive active parts, active questions
+  const activeParts = useMemo(() => {
+    if (!result) return [];
+    if (result.parts && result.parts.length > 0) return result.parts;
+    return getPartsFromAnswers(result.answers);
+  }, [result]);
+
+  const isFullTest = useMemo(() => {
+    if (!result) return false;
+    return result.total >= 200 || activeParts.length === 7;
+  }, [result, activeParts]);
+
+  const activeQuestions = useMemo(() => {
+    if (isFullTest || activeParts.length === 0) {
+      return questions;
+    }
+    return questions.filter((q) => activeParts.includes(q.partId));
+  }, [questions, activeParts, isFullTest]);
+
+  const activeListeningQuestions = useMemo(() => {
+    return activeQuestions.filter((q) => ["part-1", "part-2", "part-3", "part-4"].includes(q.partId));
+  }, [activeQuestions]);
+
+  const activeReadingQuestions = useMemo(() => {
+    return activeQuestions.filter((q) => ["part-5", "part-6", "part-7"].includes(q.partId));
+  }, [activeQuestions]);
+
+  // Load results from SessionStorage or URL query attemptId
   useEffect(() => {
     let cancelled = false;
 
     queueMicrotask(() => {
-      const raw = sessionStorage.getItem(LATEST_PRACTICE_RESULT_KEY);
       let nextResult: SavedPracticeResult | null = null;
 
-      if (raw) {
+      if (attemptId) {
         try {
-          const parsed = JSON.parse(raw) as SavedPracticeResult;
-          if (parsed.testId === params.testId) {
-            nextResult = parsed;
+          const attempts = loadPracticeAttempts();
+          const found = attempts.find((a) => a.id === attemptId);
+          if (found && found.testId === params.testId) {
+            nextResult = found.result;
           }
-        } catch (e) {
-          console.error("Failed to parse saved TOEIC result", e);
+        } catch (err) {
+          console.error("Failed to load attempt by ID", err);
+        }
+      }
+
+      if (!nextResult) {
+        const raw = sessionStorage.getItem(LATEST_PRACTICE_RESULT_KEY);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as SavedPracticeResult;
+            if (parsed.testId === params.testId) {
+              nextResult = parsed;
+            }
+          } catch (e) {
+            console.error("Failed to parse saved TOEIC result", e);
+          }
         }
       }
 
@@ -411,7 +476,7 @@ export default function LatestResultPage() {
     return () => {
       cancelled = true;
     };
-  }, [params.testId]);
+  }, [params.testId, attemptId]);
 
   // Load questions asynchronously
   useEffect(() => {
@@ -439,26 +504,26 @@ export default function LatestResultPage() {
 
   // Compute stats
   const stats = useMemo(() => {
-    if (!result || questions.length === 0) return null;
-    return calculateScore(questions, result.answers);
-  }, [result, questions]);
+    if (!result || activeQuestions.length === 0) return null;
+    return calculateScore(activeQuestions, result.answers);
+  }, [result, activeQuestions]);
 
   // Selected review question
-  const currentQuestion = questions[reviewIndex];
-  const totalQuestions = questions.length;
+  const currentQuestion = activeQuestions[reviewIndex];
+  const totalQuestions = activeQuestions.length;
 
   // Resolve audio URL for the current active question/group
   const currentQuestionAudioUrl = useMemo(() => {
     if (!currentQuestion) return null;
     if (currentQuestion.audio_url) return currentQuestion.audio_url;
     if (currentQuestion.passageGroupId) {
-      const groupFirst = questions.find(
+      const groupFirst = activeQuestions.find(
         (q) => q.passageGroupId === currentQuestion.passageGroupId && q.audio_url
       );
       return groupFirst?.audio_url || null;
     }
     return null;
-  }, [currentQuestion, questions]);
+  }, [currentQuestion, activeQuestions]);
 
   // Track prevGroupId for render-phase resets
   if (currentQuestion?.passageGroupId !== prevGroupId) {
@@ -479,13 +544,13 @@ export default function LatestResultPage() {
       currentQuestion.partId === "part-2" ||
       currentQuestion.partId === "part-5"
     ) {
-      return questions.filter((q) => q.partId === currentQuestion.partId);
+      return activeQuestions.filter((q) => q.partId === currentQuestion.partId);
     }
     if (currentQuestion.passageGroupId) {
-      return questions.filter((q) => q.passageGroupId === currentQuestion.passageGroupId);
+      return activeQuestions.filter((q) => q.passageGroupId === currentQuestion.passageGroupId);
     }
     return [currentQuestion];
-  }, [currentQuestion, questions]);
+  }, [currentQuestion, activeQuestions]);
 
   // Split multi-passages string by "--- Passage X: Title ---" (review view)
   const passagesList = useMemo(() => {
@@ -528,7 +593,7 @@ export default function LatestResultPage() {
     if (index >= 0 && index < totalQuestions) {
       setReviewIndex(index);
       
-      const qNum = questions[index].questionNumber;
+      const qNum = activeQuestions[index].questionNumber;
       setTimeout(() => {
         const element = document.getElementById(`review-card-${qNum}`);
         if (element) {
@@ -550,7 +615,7 @@ export default function LatestResultPage() {
     if (!text) return "";
     return text.replace(/_{2,}\((\d+)\)/g, (match, qNumStr) => {
       const qNum = parseInt(qNumStr, 10);
-      const correspondingQ = questions.find((q) => q.questionNumber === qNum);
+      const correspondingQ = activeQuestions.find((q) => q.questionNumber === qNum);
       if (!correspondingQ) return match;
 
       const isCurrent = correspondingQ.id === currentQuestion.id;
@@ -585,9 +650,9 @@ export default function LatestResultPage() {
     const button = target.closest("button[data-qnum]");
     if (button) {
       const qNum = parseInt(button.getAttribute("data-qnum") || "", 10);
-      const correspondingQ = questions.find((q) => q.questionNumber === qNum);
+      const correspondingQ = activeQuestions.find((q) => q.questionNumber === qNum);
       if (correspondingQ) {
-        goTo(questions.indexOf(correspondingQ));
+        goTo(activeQuestions.indexOf(correspondingQ));
       }
     }
   };
@@ -667,8 +732,20 @@ export default function LatestResultPage() {
                     </div>
                   </div>
                 </div>
-                <h3 className="mt-4 text-lg font-black text-ink">KẾT QUẢ BÀI THI</h3>
-                <p className="text-xs text-muted mt-1 font-semibold">{test.title} {test.subtitle}</p>
+                <h3 className="mt-4 text-lg font-black text-ink uppercase">
+                  {isFullTest ? "KẾT QUẢ THI FULL TEST" : "KẾT QUẢ LUYỆN TẬP"}
+                </h3>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 justify-center">
+                  <span className="text-xs text-muted font-bold">{test.title} {test.subtitle}</span>
+                  {!isFullTest && activeParts.map((p) => {
+                    const num = p.replace("part-", "");
+                    return (
+                      <span key={p} className="rounded bg-amber-100 text-amber-850 border border-amber-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
+                        Part {num}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Grid Metrics */}
@@ -690,15 +767,15 @@ export default function LatestResultPage() {
                   <ResultMetricCard
                     icon={<Headphones className="h-4 w-4" />}
                     title="Nghe (LC)"
-                    value={`${stats.lcCorrect}/${stats.lcTotal} câu`}
-                    subValue={`~ ${stats.lcScaled} điểm`}
+                    value={stats.lcTotal > 0 ? `${stats.lcCorrect}/${stats.lcTotal} câu` : "Không chọn"}
+                    subValue={stats.lcTotal > 0 ? `~ ${stats.lcScaled} điểm` : "0 điểm"}
                     tone="green"
                   />
                   <ResultMetricCard
                     icon={<BookOpen className="h-4 w-4" />}
                     title="Đọc (RC)"
-                    value={`${stats.rcCorrect}/${stats.rcTotal} câu`}
-                    subValue={`~ ${stats.rcScaled} điểm`}
+                    value={stats.rcTotal > 0 ? `${stats.rcCorrect}/${stats.rcTotal} câu` : "Không chọn"}
+                    subValue={stats.rcTotal > 0 ? `~ ${stats.rcScaled} điểm` : "0 điểm"}
                     tone="blue"
                   />
                   <ResultMetricCard
@@ -712,7 +789,11 @@ export default function LatestResultPage() {
                     icon={<Clock className="h-4 w-4" />}
                     title="Thời gian làm"
                     value={formatTime(result.duration)}
-                    subValue={`Hạn 120 phút`}
+                    subValue={
+                      result.timeLimit !== undefined
+                        ? (result.timeLimit === 0 ? "Không giới hạn" : `Hạn ${result.timeLimit} phút`)
+                        : (isFullTest ? "Hạn 120 phút" : "Không giới hạn")
+                    }
                     tone="purple"
                   />
                 </div>
@@ -776,12 +857,12 @@ export default function LatestResultPage() {
                 {currentQuestion.partId === "part-1" && (
                   <div className="space-y-4">
                     <span className="text-xs font-black uppercase text-primary">Ảnh mô tả Q{currentQuestion.questionNumber}</span>
-                    <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[350px]">
+                    <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[480px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
                         alt="Question Visual"
-                        className="w-full h-[260px] object-cover"
+                        className="w-full h-[380px] object-contain bg-zinc-50"
                       />
                     </div>
                   </div>
@@ -1357,78 +1438,86 @@ export default function LatestResultPage() {
                 <div className="flex-1 overflow-y-auto p-3 space-y-4">
                   
                   {/* Listening List */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
-                      <span className="text-[9px] font-black uppercase text-primary">Listening</span>
-                      <span className="text-[8px] font-bold text-muted">1-100</span>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1">
-                      {questions.slice(0, 100).map((q) => {
-                        const idx = questions.indexOf(q);
-                        const isSelected = idx === reviewIndex;
-                        const selected = result.answers[q.id];
-                        const isCorrect = selected === q.correctAnswer;
+                  {activeListeningQuestions.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
+                        <span className="text-[9px] font-black uppercase text-primary">Listening</span>
+                        <span className="text-[8px] font-bold text-muted">
+                          {activeListeningQuestions[0].questionNumber}-{activeListeningQuestions[activeListeningQuestions.length - 1].questionNumber}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-6 gap-1">
+                        {activeListeningQuestions.map((q) => {
+                          const idx = activeQuestions.indexOf(q);
+                          const isSelected = idx === reviewIndex;
+                          const selected = result.answers[q.id];
+                          const isCorrect = selected === q.correctAnswer;
 
-                        return (
-                          <button
-                            key={q.id}
-                            type="button"
-                            onClick={() => goTo(idx)}
-                            className={cn(
-                              "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
-                              isSelected
-                                ? "ring-2 ring-primary ring-offset-1 text-ink"
-                                : "",
-                              selected
-                                ? isCorrect
-                                  ? "bg-green-600 text-white shadow-soft"
-                                  : "bg-red-500 text-white shadow-soft"
-                                : "bg-surface-container-highest/60 text-muted"
-                            )}
-                          >
-                            {q.questionNumber}
-                          </button>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={q.id}
+                              type="button"
+                              onClick={() => goTo(idx)}
+                              className={cn(
+                                "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
+                                isSelected
+                                  ? "ring-2 ring-primary ring-offset-1 text-ink"
+                                  : "",
+                                selected
+                                  ? isCorrect
+                                    ? "bg-green-600 text-white shadow-soft"
+                                    : "bg-red-500 text-white shadow-soft"
+                                  : "bg-surface-container-highest/60 text-muted"
+                              )}
+                            >
+                              {q.questionNumber}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Reading List */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
-                      <span className="text-[9px] font-black uppercase text-secondary">Reading</span>
-                      <span className="text-[8px] font-bold text-muted">101-200</span>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1">
-                      {questions.slice(100).map((q) => {
-                        const idx = questions.indexOf(q);
-                        const isSelected = idx === reviewIndex;
-                        const selected = result.answers[q.id];
-                        const isCorrect = selected === q.correctAnswer;
+                  {activeReadingQuestions.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
+                        <span className="text-[9px] font-black uppercase text-secondary">Reading</span>
+                        <span className="text-[8px] font-bold text-muted">
+                          {activeReadingQuestions[0].questionNumber}-{activeReadingQuestions[activeReadingQuestions.length - 1].questionNumber}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-6 gap-1">
+                        {activeReadingQuestions.map((q) => {
+                          const idx = activeQuestions.indexOf(q);
+                          const isSelected = idx === reviewIndex;
+                          const selected = result.answers[q.id];
+                          const isCorrect = selected === q.correctAnswer;
 
-                        return (
-                          <button
-                            key={q.id}
-                            type="button"
-                            onClick={() => goTo(idx)}
-                            className={cn(
-                              "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
-                              isSelected
-                                ? "ring-2 ring-primary ring-offset-1 text-ink"
-                                : "",
-                              selected
-                                ? isCorrect
-                                  ? "bg-green-600 text-white shadow-soft"
-                                  : "bg-red-500 text-white shadow-soft"
-                                : "bg-surface-container-highest/60 text-muted"
-                            )}
-                          >
-                            {q.questionNumber}
-                          </button>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={q.id}
+                              type="button"
+                              onClick={() => goTo(idx)}
+                              className={cn(
+                                "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
+                                isSelected
+                                  ? "ring-2 ring-primary ring-offset-1 text-ink"
+                                  : "",
+                                selected
+                                  ? isCorrect
+                                    ? "bg-green-600 text-white shadow-soft"
+                                    : "bg-red-500 text-white shadow-soft"
+                                  : "bg-surface-container-highest/60 text-muted"
+                              )}
+                            >
+                              {q.questionNumber}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                 </div>
 
@@ -1458,6 +1547,22 @@ export default function LatestResultPage() {
     </>
   );
 }
+
+export default function LatestResultPage() {
+  return (
+    <Suspense fallback={
+      <div className="grid min-h-screen place-items-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-bold text-muted">Đang tải kết quả thi...</p>
+        </div>
+      </div>
+    }>
+      <LatestResultPageContent />
+    </Suspense>
+  );
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    Helper Card components

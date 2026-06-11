@@ -17,6 +17,7 @@ export type SavedPracticeResult = {
   answers: Record<string, string>;
   timestamp: string;
   parts?: string[];
+  timeLimit?: number;
 };
 
 export type StoredPracticeAttempt = PracticeAttempt & {
@@ -27,7 +28,21 @@ export type StoredPracticeAttempt = PracticeAttempt & {
 };
 
 function canUseBrowserStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+}
+
+// Clear legacy localStorage data on initialization if it exists
+if (typeof window !== "undefined") {
+  try {
+    if (window.localStorage.getItem(PRACTICE_ATTEMPTS_KEY)) {
+      window.localStorage.removeItem(PRACTICE_ATTEMPTS_KEY);
+    }
+    if (window.localStorage.getItem(LATEST_PRACTICE_RESULT_KEY)) {
+      window.localStorage.removeItem(LATEST_PRACTICE_RESULT_KEY);
+    }
+  } catch (e) {
+    console.error("Failed to clear legacy localStorage data", e);
+  }
 }
 
 function formatAttemptDate(timestamp: string) {
@@ -103,7 +118,7 @@ function toPracticeAttempt(test: PracticeTest, result: SavedPracticeResult): Sto
     correct: result.correct,
     total: result.total,
     durationSeconds: result.duration,
-    detailHref: `/practice/${test.id}/results/latest`,
+    detailHref: `/practice/${test.id}/results/latest?attemptId=${attemptId}`,
     timestamp,
     result
   };
@@ -115,7 +130,7 @@ export function loadPracticeAttempts(): StoredPracticeAttempt[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(PRACTICE_ATTEMPTS_KEY);
+    const raw = window.sessionStorage.getItem(PRACTICE_ATTEMPTS_KEY);
     if (!raw) {
       return [];
     }
@@ -154,7 +169,7 @@ export function savePracticeAttemptResult(test: PracticeTest, result: SavedPract
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, MAX_STORED_ATTEMPTS);
 
-    window.localStorage.setItem(PRACTICE_ATTEMPTS_KEY, JSON.stringify(nextAttempts));
+    window.sessionStorage.setItem(PRACTICE_ATTEMPTS_KEY, JSON.stringify(nextAttempts));
   } catch (error) {
     console.error("Failed to save practice attempt", error);
   }

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { getPracticeTestById } from "@/lib/practice-tests";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
 import { PracticeExamSession } from "@/components/practice/PracticeExamSession";
 
-export default function TestPage() {
+function TestPageContent() {
   const params = useParams<{ testId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -126,3 +126,19 @@ export default function TestPage() {
   );
 }
 
+export default function TestPage() {
+  return (
+    <Suspense fallback={
+      <div className="grid min-h-screen place-items-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-bold text-on-surface-variant">
+            Đang tải cấu hình bài thi...
+          </p>
+        </div>
+      </div>
+    }>
+      <TestPageContent />
+    </Suspense>
+  );
+}

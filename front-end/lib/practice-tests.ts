@@ -40,6 +40,7 @@ export type PracticeTest = {
 
 export const practiceFilters: PracticeFilter[] = [
   "Listening & Reading",
+  "Speaking & Writing",
   "Completed",
   "Test History"
 ];
@@ -90,44 +91,36 @@ export const listeningReadingTests: PracticeTest[] = [
 ];
 
 
-export const speakingWritingTests: PracticeTest[] = Array.from({ length: 8 }, (_, index) => {
-  const testNumber = index + 1;
+export const speakingWritingTests: PracticeTest[] = [
+  {
+    id: "sw-1-speaking",
+    title: "TOEIC SW TEST 1 SPEAKING",
+    subtitle: "Speaking Practice",
+    type: "Speaking & Writing",
+    shortType: "Speaking",
+    minutes: 20,
+    questions: 2,
+    access: "Free",
+    status: "New",
+    attempts: 5800,
+    parts: speakingParts
+  },
+  {
+    id: "sw-1-writing",
+    title: "TOEIC SW TEST 1 WRITING",
+    subtitle: "Writing Practice",
+    type: "Speaking & Writing",
+    shortType: "Writing",
+    minutes: 60,
+    questions: 2,
+    access: "Free",
+    status: "New",
+    attempts: 4200,
+    parts: writingParts
+  }
+];
 
-  return [
-    {
-      section: "SPEAKING",
-      subtitle: "Speaking Practice",
-      minutes: 20,
-      questions: 7,
-      parts: speakingParts
-    },
-    {
-      section: "WRITING",
-      subtitle: "Writing Practice",
-      minutes: 60,
-      questions: 8,
-      parts: writingParts
-    }
-  ].map<PracticeTest>((part, partIndex) => {
-    const id = `sw-${testNumber}-${part.section.toLowerCase()}`;
-
-    return {
-      id,
-      title: `TOEIC SW TEST ${testNumber} ${part.section}`,
-      subtitle: part.subtitle,
-      type: "Speaking & Writing",
-      shortType: part.section === "SPEAKING" ? "Speaking" : "Writing",
-      minutes: part.minutes,
-      questions: part.questions,
-      access: testNumber <= 3 ? "Free" : "Pro",
-      status: "New",
-      attempts: 6200 - testNumber * 215 - partIndex * 78,
-      parts: part.parts
-    };
-  });
-}).flat();
-
-export const allPracticeTests = [...listeningReadingTests];
+export const allPracticeTests = [...listeningReadingTests, ...speakingWritingTests];
 
 export function getPracticeTestById(testId: string) {
   return allPracticeTests.find((test) => test.id === testId);

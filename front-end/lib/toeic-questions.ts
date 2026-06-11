@@ -3034,8 +3034,48 @@ const allQuestions: ToeicQuestion[] = [
   ...part7Questions
 ];
 
+const sw1SpeakingQuestions: ToeicQuestion[] = [
+  {
+    id: "sw-1-speaking-q1",
+    partId: "speak-1",
+    questionNumber: 1,
+    stem: "Read the text aloud: 'Thank you for calling Summit Airlines. Our office is currently closed. Our normal business hours are Monday through Friday, 9 A.M. to 5 P.M.'",
+    options: [],
+    correctAnswer: "A"
+  },
+  {
+    id: "sw-1-speaking-q2",
+    partId: "speak-1",
+    questionNumber: 2,
+    stem: "Read the text aloud: 'Attention passengers of flight 402 to Chicago. Due to inclement weather, our departure time has been delayed by approximately 45 minutes.'",
+    options: [],
+    correctAnswer: "A"
+  }
+];
+
+const sw1WritingQuestions: ToeicQuestion[] = [
+  {
+    id: "sw-1-writing-q1",
+    partId: "write-1",
+    questionNumber: 1,
+    stem: "Write a sentence about the picture using the keywords: 'working / laptop'.",
+    options: [],
+    correctAnswer: "A"
+  },
+  {
+    id: "sw-1-writing-q2",
+    partId: "write-1",
+    questionNumber: 2,
+    stem: "Write a sentence about the picture using the keywords: 'meeting / conference room'.",
+    options: [],
+    correctAnswer: "A"
+  }
+];
+
 const questionsByTest: Record<string, ToeicQuestion[]> = {
-  "lr-2022-1": allQuestions
+  "lr-2022-1": allQuestions,
+  "sw-1-speaking": sw1SpeakingQuestions,
+  "sw-1-writing": sw1WritingQuestions
 };
 
 export function getQuestionsForTest(testId: string): ToeicQuestion[] {

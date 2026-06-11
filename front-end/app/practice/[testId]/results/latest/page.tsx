@@ -793,11 +793,22 @@ function LatestResultPageContent() {
 
         {/* SECTION 2: INTERACTIVE REVIEW & LEARNING VIEW */}
         <section className="container-shell">
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-lg font-black text-ink flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
               <span>Xem lại đáp án & Giải thích chi tiết</span>
             </h2>
+            {!isNavOpen && (
+              <button
+                type="button"
+                onClick={() => setIsNavOpen(true)}
+                className="flex h-9 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary-container px-4 py-2 text-xs font-bold text-on-primary-container hover:bg-primary-container/80 transition-all shadow-glass backdrop-blur-md"
+                title="Hiện điều hướng câu hỏi"
+              >
+                <Flag className="h-3.5 w-3.5" />
+                <span>Hiện điều hướng</span>
+              </button>
+            )}
           </div>
 
           <div className={cn(
@@ -807,18 +818,6 @@ function LatestResultPageContent() {
             
             {/* Container 1: Review Panel (Passage + Question Card) */}
             <div className="h-[700px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/86 relative flex flex-1 transition-all duration-300">
-            
-            {!isNavOpen && (
-              <button
-                type="button"
-                onClick={() => setIsNavOpen(true)}
-                className="absolute right-4 top-4 z-20 flex h-8 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary-container px-3 py-1.5 text-xs font-bold text-on-primary-container hover:bg-primary-container/80 transition-all shadow-glass backdrop-blur-md animate-[fadeIn_0.2s_ease-out]"
-                title="Hiện điều hướng câu hỏi"
-              >
-                <Flag className="h-3.5 w-3.5" />
-                <span>Hiện điều hướng</span>
-              </button>
-            )}
             
             {/* 2-Column Split Review Panels */}
             <div className="flex flex-1 overflow-hidden h-full">
@@ -1406,7 +1405,7 @@ function LatestResultPageContent() {
 
             {/* Sidebar Jump Board on Review */}
             {isNavOpen && (
-              <aside className="w-full lg:w-[220px] shrink-0 border border-white bg-white/86 rounded-3xl flex flex-col h-[700px] overflow-hidden shadow-glass transition-all duration-300 animate-[fadeIn_0.2s_ease-out]">
+              <aside className="w-full lg:w-[220px] shrink-0 border border-white bg-white/86 rounded-3xl flex flex-col h-fit max-h-[700px] overflow-hidden shadow-glass transition-all duration-300 animate-[fadeIn_0.2s_ease-out]">
                 <div className="border-b border-outline-variant/30 p-3 flex items-center justify-between">
                   <div>
                     <h3 className="text-xs font-black uppercase tracking-wider text-muted">Điều hướng</h3>

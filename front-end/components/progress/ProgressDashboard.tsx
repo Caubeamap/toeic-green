@@ -1,7 +1,7 @@
 import { ArrowRight, PlayCircle, TrendingUp } from "lucide-react";
 import { nextLessons, progressStats } from "@/lib/data";
 import { Button } from "@/components/ui/Button";
-import { SectionHeading } from "@/components/SectionHeading";
+import { SectionHeading } from "@/components/common/SectionHeading";
 
 export function ProgressDashboard() {
   return (

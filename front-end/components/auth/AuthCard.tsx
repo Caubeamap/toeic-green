@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoginForm, SignupForm } from "@/components/AuthForms";
+import { LoginForm, SignupForm } from "@/components/auth/AuthForms";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 

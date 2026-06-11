@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MaterialIcon } from "@/components/MaterialIcon";
+import { MaterialIcon } from "@/components/common/MaterialIcon";
 
 const heroImage = "/images/toeic-hero-workspace.png";
 

@@ -1,6 +1,6 @@
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { ProgressDashboard } from "@/components/ProgressDashboard";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { ProgressDashboard } from "@/components/progress/ProgressDashboard";
 
 export default function ProgressPage() {
   return (

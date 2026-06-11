@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { getPracticeTestById } from "@/lib/practice-tests";
 import { getQuestionsForTest, type ToeicQuestion } from "@/lib/toeic-questions";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════

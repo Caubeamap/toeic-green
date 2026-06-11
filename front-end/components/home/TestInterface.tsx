@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { SectionHeading } from "@/components/SectionHeading";
+import { SectionHeading } from "@/components/common/SectionHeading";
 
 const modes = ["Listening & Reading", "Speaking & Writing"];
 

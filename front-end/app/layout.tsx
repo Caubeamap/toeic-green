@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
-import { AtmosphericBackground } from "@/components/AtmosphericBackground";
-import { Providers } from "@/components/Providers";
+import { AtmosphericBackground } from "@/components/layout/AtmosphericBackground";
+import { Providers } from "@/components/layout/Providers";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({

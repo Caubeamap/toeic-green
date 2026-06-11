@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { HeroSection } from "@/components/HeroSection";
-import { MaterialIcon } from "@/components/MaterialIcon";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { HeroSection } from "@/components/home/HeroSection";
+import { MaterialIcon } from "@/components/common/MaterialIcon";
 
 const listeningImage =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuCMHV78H5eQKd9Po-Zu8VqTG_r8xA5VALXx0N_Qoov4TMyhsNZ4depEEYjeneNmBGiG7tfzpjXfudOwNJ2DyOvx60C3N9v3t1tdXH8Vn6BWW7i3e6noY9Quk0urq8dw5rAXVTNvAw1CueGaEImG7aUjCeVpLMhTIEcIWsIqi1JFCjFtc2l8I9B3xBwu6eC7h4xwXDgKGdrCKW6_gDW3ICt9hCQhKAK6ijvlXE9pJNwMeaph4elRhP48bbSYWwZnR_ZwVy5fPxguvJQ";

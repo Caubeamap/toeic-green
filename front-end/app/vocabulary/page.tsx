@@ -1,6 +1,6 @@
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { VocabularyNotes } from "@/components/VocabularyNotes";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { VocabularyNotes } from "@/components/vocabulary/VocabularyNotes";
 
 export default function VocabularyPage() {
   return (

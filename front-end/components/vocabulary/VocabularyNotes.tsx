@@ -5,7 +5,7 @@ import { Heart, Plus, Search, Volume2 } from "lucide-react";
 import { vocabWords } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { SectionHeading } from "@/components/SectionHeading";
+import { SectionHeading } from "@/components/common/SectionHeading";
 
 const tags = ["All", "Business", "Travel", "Office", "Contract", "Meeting", "Email"];
 const statuses = ["All", "New", "Learning", "Mastered"];

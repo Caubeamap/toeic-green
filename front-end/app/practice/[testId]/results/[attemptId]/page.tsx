@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, FileQuestion } from "lucide-react";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
 import { allPracticeTests, getPracticeAttemptById } from "@/lib/practice-tests";
 
 type AttemptResultPageProps = {

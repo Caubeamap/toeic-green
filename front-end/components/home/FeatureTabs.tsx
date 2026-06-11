@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { featureTabs } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { SectionHeading } from "@/components/SectionHeading";
+import { SectionHeading } from "@/components/common/SectionHeading";
 
 export function FeatureTabs() {
   const [activeId, setActiveId] = useState(featureTabs[0].id);

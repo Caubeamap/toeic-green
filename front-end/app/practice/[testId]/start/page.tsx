@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { PracticeTestDetailView } from "@/components/PracticeTestDetailView";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { PracticeTestDetailView } from "@/components/practice/PracticeTestDetailView";
 import { allPracticeTests, getPracticeTestById } from "@/lib/practice-tests";
 
 type TestStartPageProps = {

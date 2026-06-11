@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, CalendarCheck, CheckCircle2, Clock3, Target } from "lucide-react";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { SectionHeading } from "@/components/SectionHeading";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { SectionHeading } from "@/components/common/SectionHeading";
 
 const weeks = [
   {

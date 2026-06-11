@@ -6,9 +6,9 @@ import {
   ShieldCheck,
   Sparkles
 } from "lucide-react";
-import { AuthCard } from "@/components/AuthCard";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
+import { AuthCard } from "@/components/auth/AuthCard";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
 
 /* ─────────────────────────── Types ─────────────────────────── */
 

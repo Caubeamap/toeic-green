@@ -1,6 +1,6 @@
 import { BookOpen, CheckCircle2, Lightbulb, XCircle } from "lucide-react";
 import { resultCards } from "@/lib/data";
-import { SectionHeading } from "@/components/SectionHeading";
+import { SectionHeading } from "@/components/common/SectionHeading";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 

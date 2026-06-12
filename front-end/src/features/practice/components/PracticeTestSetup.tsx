@@ -6,7 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/features/auth";
 import {
-  Calculator,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -14,7 +13,6 @@ import {
   FileQuestion,
   Lightbulb,
   Lock,
-  MessageCircle,
   Play,
   ShieldCheck,
   Timer,
@@ -519,58 +517,11 @@ function StatChip({ icon, label }: { icon: ReactNode; label: string }) {
   );
 }
 
-function SidebarWidget({
-  action,
-  copy,
-  icon,
-  title
-}: {
-  action: string;
-  copy: string;
-  icon: ReactNode;
-  title: string;
-}) {
-  return (
-    <div className="rounded-[28px] border border-white/70 bg-white/65 p-5 shadow-soft backdrop-blur-xl">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
-          {icon}
-        </div>
-        <h2 className="text-lg font-bold text-on-surface">{title}</h2>
-      </div>
-      <p className="text-sm leading-relaxed text-on-surface-variant">{copy}</p>
-      <button
-        type="button"
-        className="mt-5 w-full rounded-xl border border-primary/30 px-4 py-3 text-sm font-bold text-primary transition hover:bg-primary/10"
-      >
-        {action}
-      </button>
-    </div>
-  );
-}
-
 function ReadinessRow({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-outline-variant/70 bg-white/45 p-4">
       <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
       <span className="text-sm font-semibold text-on-surface">{label}</span>
-    </div>
-  );
-}
-
-function Comment({ author, body }: { author: string; body: string }) {
-  return (
-    <div className="rounded-2xl border border-outline-variant/70 bg-white/45 p-5">
-      <div className="mb-2 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-          {author.charAt(0)}
-        </div>
-        <div>
-          <p className="text-sm font-bold text-on-surface">{author}</p>
-          <p className="text-xs text-on-surface-variant">2 giờ trước</p>
-        </div>
-      </div>
-      <p className="text-sm leading-relaxed text-on-surface-variant">{body}</p>
     </div>
   );
 }

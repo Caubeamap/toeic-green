@@ -40,19 +40,6 @@ const PART1_IMAGES: Record<number, string> = {
   6: "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=800&q=80",
 };
 
-// Grammar explanations mock database matching the practice test
-const EXPLANATIONS: Record<string, { desc: string; translation?: string }> = {
-  "part-5": {
-    desc: "Căn cứ vào cấu trúc ngữ pháp và nghĩa của câu để chọn đáp án đúng nhất. Ví dụ như hòa hợp chủ vị, các thì, từ loại danh/động/tính/trạng từ hoặc các giới từ đi kèm động từ.",
-  },
-  "part-6": {
-    desc: "Điền từ hoặc câu vào đoạn văn cần chú ý tính mạch lạc của văn bản, sử dụng các từ nối logic (however, therefore, in addition) và chọn từ loại thích hợp dựa theo từ đứng trước và đứng sau chỗ trống.",
-  },
-  "part-7": {
-    desc: "Đọc kỹ từ khóa trong câu hỏi để quét (scanning) nhanh thông tin trong văn bản đọc. Với câu hỏi ý chính, hãy chú ý phần mở đầu và kết thúc của các bức thư, email, thông báo.",
-  }
-};
-
 /* ═══════════════════════════════════════════════════════════════
    Scoring Logic Helpers
    ═══════════════════════════════════════════════════════════════ */

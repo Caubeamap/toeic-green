@@ -6,9 +6,7 @@ import {
   ChevronRight,
   Flag,
   Headphones,
-  Mic2,
   Send,
-  SquarePen,
   Volume2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -161,5 +159,4 @@ function ListeningReadingPanel() {
     </>
   );
 }
-
 

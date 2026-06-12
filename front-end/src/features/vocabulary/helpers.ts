@@ -3,7 +3,6 @@ import type { SortOption, StatusFilter, VocabularyWord } from "./types";
 export function filterWords(
   words: VocabularyWord[],
   query: string,
-  tag: string,
   statusFilter: StatusFilter
 ): VocabularyWord[] {
   const q = query.toLowerCase().trim();
@@ -17,13 +16,11 @@ export function filterWords(
       w.example.toLowerCase().includes(q) ||
       w.tags.some((t) => t.toLowerCase().includes(q));
 
-    const matchesTag = tag === "All" || w.tags.includes(tag);
-
     const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "favorites" ? w.isFavorite : w.status === statusFilter);
 
-    return matchesQuery && matchesTag && matchesStatus;
+    return matchesQuery && matchesStatus;
   });
 }
 

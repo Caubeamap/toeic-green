@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Plus, RotateCcw, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SortOption, StatusFilter, VocabularyWord } from "../types";
-import { MOCK_VOCABULARY } from "../data";
 import { computeStats, filterWords, sortWords } from "../helpers";
+import { loadWords, saveWords } from "../services/storage";
 
 import { VocabularyStats } from "./VocabularyStats";
 import { VocabularyToolbar } from "./VocabularyToolbar";
@@ -15,22 +15,39 @@ import { AddVocabularyModal } from "./AddVocabularyModal";
 
 export function VocabularyNotebook() {
   // ── State ──────────────────────────────────────────────────────
-  const [words, setWords] = useState<VocabularyWord[]>(MOCK_VOCABULARY);
+  const [words, setWords] = useState<VocabularyWord[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [query, setQuery] = useState("");
-  const [tag, setTag] = useState("All");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortOption>("recent");
   const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
+  // Load words from storage on client mount
+  useEffect(() => {
+    const loaded = loadWords();
+    const timer = setTimeout(() => {
+      setWords(loaded);
+      setIsLoaded(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Save words to storage whenever they change (only after initial load)
+  useEffect(() => {
+    if (isLoaded) {
+      saveWords(words);
+    }
+  }, [words, isLoaded]);
+
   // ── Derived data ───────────────────────────────────────────────
   const stats = useMemo(() => computeStats(words), [words]);
   const displayedWords = useMemo(
-    () => sortWords(filterWords(words, query, tag, statusFilter), sort),
-    [words, query, tag, statusFilter, sort]
+    () => sortWords(filterWords(words, query, statusFilter), sort),
+    [words, query, statusFilter, sort]
   );
 
-  const hasActiveFilters = !!query || tag !== "All" || statusFilter !== "all";
+  const hasActiveFilters = !!query || statusFilter !== "all";
 
   // ── Handlers ───────────────────────────────────────────────────
   const toggleFavorite = useCallback((id: string) => {
@@ -70,9 +87,15 @@ export function VocabularyNotebook() {
     setWords((prev) => [word, ...prev]);
   }, []);
 
+  const updateWord = useCallback((updatedWord: VocabularyWord) => {
+    setWords((prev) =>
+      prev.map((w) => (w.id === updatedWord.id ? updatedWord : w))
+    );
+    setSelectedWord((sw) => (sw?.id === updatedWord.id ? updatedWord : sw));
+  }, []);
+
   const resetFilters = useCallback(() => {
     setQuery("");
-    setTag("All");
     setStatusFilter("all");
     setSort("recent");
   }, []);
@@ -115,8 +138,6 @@ export function VocabularyNotebook() {
           <VocabularyToolbar
             query={query}
             onQueryChange={setQuery}
-            tag={tag}
-            onTagChange={setTag}
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
             sort={sort}
@@ -143,7 +164,7 @@ export function VocabularyNotebook() {
 
           {/* Word list */}
           {displayedWords.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
               {displayedWords.map((w) => (
                 <VocabularyCard
                   key={w.id}
@@ -170,6 +191,7 @@ export function VocabularyNotebook() {
         onClose={() => setSelectedWord(null)}
         onToggleFavorite={toggleFavorite}
         onToggleMastered={toggleMastered}
+        onUpdate={updateWord}
       />
 
       {/* ── Add Word Modal ─────────────────────────────────────────── */}

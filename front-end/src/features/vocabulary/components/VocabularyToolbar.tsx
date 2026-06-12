@@ -1,13 +1,11 @@
 import { ArrowDownUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SortOption, StatusFilter } from "../types";
-import { TOEIC_TAGS, SORT_OPTIONS } from "../types";
+import { SORT_OPTIONS } from "../types";
 
 type ToolbarProps = {
   query: string;
   onQueryChange: (q: string) => void;
-  tag: string;
-  onTagChange: (t: string) => void;
   statusFilter: StatusFilter;
   onStatusChange: (s: StatusFilter) => void;
   sort: SortOption;
@@ -24,8 +22,6 @@ const STATUS_TABS: { value: StatusFilter; label: string }[] = [
 export function VocabularyToolbar({
   query,
   onQueryChange,
-  tag,
-  onTagChange,
   statusFilter,
   onStatusChange,
   sort,
@@ -82,26 +78,6 @@ export function VocabularyToolbar({
             {item.label}
           </button>
         ))}
-      </div>
-
-      {/* Topic chips — horizontal scroll on mobile */}
-      <div className="-mx-4 overflow-x-auto px-4 lg:-mx-5 lg:px-5">
-        <div className="flex gap-2 pb-0.5">
-          {TOEIC_TAGS.map((t) => (
-            <button
-              key={t}
-              onClick={() => onTagChange(t)}
-              className={cn(
-                "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition",
-                tag === t
-                  ? "border-academic-blue bg-academic-blue text-white"
-                  : "border-zinc-200 bg-white text-muted hover:border-zinc-300 hover:bg-zinc-50"
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );

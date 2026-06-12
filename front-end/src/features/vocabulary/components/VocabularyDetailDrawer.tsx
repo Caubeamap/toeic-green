@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Heart, Volume2, X, StickyNote, Clock, Edit2, AlertCircle } from "lucide-react";
+import { Heart, Volume2, X, Clock, Edit2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PartOfSpeech, VocabularyWord } from "../types";
-import { STATUS_CONFIG, POS_LABELS, TOEIC_TAGS } from "../types";
+import { STATUS_CONFIG, POS_LABELS } from "../types";
 import { playAudio } from "../services/storage";
 
 type DrawerProps = {
@@ -66,16 +66,6 @@ export function VocabularyDetailDrawer({
     }
   }
 
-  function toggleTag(t: string) {
-    if (t === "All") return;
-    setForm((prev) => {
-      if (!prev) return null;
-      const tags = prev.tags.includes(t)
-        ? prev.tags.filter((x) => x !== t)
-        : [...prev.tags, t];
-      return { ...prev, tags };
-    });
-  }
 
   function validate(): boolean {
     const newErrors: Partial<Record<keyof VocabularyWord, string>> = {};
@@ -209,37 +199,6 @@ export function VocabularyDetailDrawer({
               />
             </FieldGroup>
 
-            {/* Tags/Topics */}
-            <FieldGroup label="Topics">
-              <div className="flex flex-wrap gap-1.5">
-                {TOEIC_TAGS.filter((t) => t !== "All").map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => toggleTag(t)}
-                    className={cn(
-                      "rounded-lg border px-2.5 py-1 text-xs font-bold transition",
-                      form.tags.includes(t)
-                        ? "border-academic-blue bg-academic-blue text-white"
-                        : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </FieldGroup>
-
-            <FieldGroup label="Personal Note">
-              <textarea
-                value={form.note || ""}
-                onChange={(e) => handleFieldChange("note", e.target.value)}
-                className={cn(fieldClass(false), "min-h-[56px] resize-none")}
-                placeholder="Mnemonics or usage notes..."
-                rows={2}
-              />
-            </FieldGroup>
-
             {/* Actions for editing */}
             <div className="absolute bottom-0 left-0 right-0 border-t border-zinc-100 bg-white p-5 flex gap-2.5">
               <button
@@ -360,39 +319,7 @@ export function VocabularyDetailDrawer({
               </section>
             )}
 
-            {/* Tags */}
-            {word.tags.length > 0 && (
-              <section>
-                <SectionLabel>Topics</SectionLabel>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {word.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded-lg bg-academic-blue/8 px-2.5 py-1 text-xs font-semibold text-academic-blue"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
 
-            {/* Personal Note */}
-            <section>
-              <SectionLabel>
-                <StickyNote size={14} className="inline mr-1 -mt-0.5" />
-                Personal Note
-              </SectionLabel>
-              {word.note ? (
-                <p className="mt-1.5 rounded-xl border border-zinc-100 bg-zinc-50/50 px-4 py-3 text-sm leading-relaxed text-zinc-600">
-                  {word.note}
-                </p>
-              ) : (
-                <p className="mt-1.5 text-sm italic text-zinc-300">
-                  No notes yet.
-                </p>
-              )}
-            </section>
 
             {/* Meta info */}
             <section className="rounded-xl bg-zinc-50 px-4 py-3">

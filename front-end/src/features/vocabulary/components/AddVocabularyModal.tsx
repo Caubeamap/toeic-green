@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Loader2, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PartOfSpeech, VocabularyWord } from "../types";
-import { TOEIC_TAGS } from "../types";
 import { lookupWord } from "../services/dictionary";
 
 type AddModalProps = {
@@ -126,15 +125,6 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
     onClose();
   }
 
-  function toggleTag(t: string) {
-    if (t === "All") return;
-    setForm((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(t)
-        ? prev.tags.filter((x) => x !== t)
-        : [...prev.tags, t],
-    }));
-  }
 
   function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -276,36 +266,7 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
               />
             </FieldGroup>
 
-            {/* Tags */}
-            <FieldGroup label="Topics">
-              <div className="flex flex-wrap gap-1.5">
-                {TOEIC_TAGS.filter((t) => t !== "All").map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => toggleTag(t)}
-                    className={cn(
-                      "rounded-lg border px-2.5 py-1 text-xs font-bold transition",
-                      form.tags.includes(t)
-                        ? "border-academic-blue bg-academic-blue text-white"
-                        : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </FieldGroup>
 
-            <FieldGroup label="Personal Note">
-              <textarea
-                value={form.note}
-                onChange={(e) => updateField("note", e.target.value)}
-                className={cn(fieldClass(false), "min-h-[56px] resize-none")}
-                placeholder="Your personal mnemonic or usage note..."
-                rows={2}
-              />
-            </FieldGroup>
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">

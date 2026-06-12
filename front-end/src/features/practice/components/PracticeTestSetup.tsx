@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Timer,
   Trophy,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import type { PracticeAttempt, PracticeTest } from "../lib/practice-tests";
 import { mergePracticeProgress } from "../lib/practice-progress";
@@ -35,6 +36,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const [activeTab, setActiveTab] = useState<TabId>("practice");
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState(test.minutes);
+  const [showDevelopmentNotice, setShowDevelopmentNotice] = useState(false);
 
   const currentTest = useMemo(() => mergePracticeProgress([test])[0], [test]);
 
@@ -81,6 +83,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const fullTestHref = isAuthenticated
     ? `/practice/${currentTest.id}/test?mode=full`
     : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start?mode=full`)}`;
+  const isSpeakingWriting = currentTest.type === "Speaking & Writing";
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
@@ -144,13 +147,22 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                     timeLimit={timeLimit}
                     timeOptions={timeOptions}
                     actionHref={practiceHref}
+                    isUnavailable={isSpeakingWriting}
+                    onUnavailableClick={() => setShowDevelopmentNotice(true)}
                     onSelectAll={selectAllParts}
                     onTimeLimitChange={setTimeLimit}
                     onTogglePart={togglePart}
                   />
                 ) : null}
 
-                {activeTab === "full-test" ? <FullTestTab actionHref={fullTestHref} test={currentTest} /> : null}
+                {activeTab === "full-test" ? (
+                  <FullTestTab
+                    actionHref={fullTestHref}
+                    isUnavailable={isSpeakingWriting}
+                    onUnavailableClick={() => setShowDevelopmentNotice(true)}
+                    test={currentTest}
+                  />
+                ) : null}
 
                 {activeTab === "discussion" ? <DiscussionTab /> : null}
               </div>
@@ -185,6 +197,10 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
           </aside>
         </div>
       </div>
+
+      {showDevelopmentNotice ? (
+        <DevelopmentNoticeDialog onClose={() => setShowDevelopmentNotice(false)} />
+      ) : null}
     </section>
   );
 }
@@ -196,6 +212,8 @@ function PracticeTab({
   timeLimit,
   timeOptions,
   actionHref,
+  isUnavailable,
+  onUnavailableClick,
   onSelectAll,
   onTimeLimitChange,
   onTogglePart
@@ -206,11 +224,20 @@ function PracticeTab({
   timeLimit: number;
   timeOptions: number[];
   actionHref: string;
+  isUnavailable?: boolean;
+  onUnavailableClick?: () => void;
   onSelectAll: () => void;
   onTimeLimitChange: (value: number) => void;
   onTogglePart: (partId: string) => void;
 }) {
   const allPartsSelected = selectedPartIds.length === test.parts.length;
+  const canPractice = selectedPartIds.length > 0;
+  const actionClassName = cn(
+    "inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 text-base font-extrabold shadow-glow transition",
+    !canPractice
+      ? "pointer-events-none cursor-not-allowed bg-surface-container-highest text-on-surface-variant"
+      : "bg-primary text-white hover:bg-primary/90"
+  );
 
   return (
     <div className="space-y-7">
@@ -306,19 +333,26 @@ function PracticeTab({
         </select>
       </div>
 
-      <Link
-        href={selectedPartIds.length === 0 ? "#" : actionHref}
-        aria-disabled={selectedPartIds.length === 0}
-        className={cn(
-          "inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 text-base font-extrabold shadow-glow transition",
-          selectedPartIds.length === 0
-            ? "pointer-events-none cursor-not-allowed bg-surface-container-highest text-on-surface-variant"
-            : "bg-primary text-white hover:bg-primary/90"
-        )}
-      >
-        <Play className="h-5 w-5" />
-        Luyện tập
-      </Link>
+      {isUnavailable ? (
+        <button
+          type="button"
+          disabled={!canPractice}
+          onClick={onUnavailableClick}
+          className={actionClassName}
+        >
+          <Play className="h-5 w-5" />
+          Luyện tập
+        </button>
+      ) : (
+        <Link
+          href={canPractice ? actionHref : "#"}
+          aria-disabled={!canPractice}
+          className={actionClassName}
+        >
+          <Play className="h-5 w-5" />
+          Luyện tập
+        </Link>
+      )}
     </div>
   );
 }
@@ -446,7 +480,17 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
   );
 }
 
-function FullTestTab({ actionHref, test }: { actionHref: string; test: PracticeTest }) {
+function FullTestTab({
+  actionHref,
+  isUnavailable,
+  onUnavailableClick,
+  test
+}: {
+  actionHref: string;
+  isUnavailable?: boolean;
+  onUnavailableClick?: () => void;
+  test: PracticeTest;
+}) {
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
       <div className="rounded-[28px] border border-primary/15 bg-primary-container/18 p-7">
@@ -459,13 +503,24 @@ function FullTestTab({ actionHref, test }: { actionHref: string; test: PracticeT
         <p className="mt-3 text-body-md text-on-surface-variant">
           Full test sẽ khóa cấu trúc bài, tính giờ liên tục và lưu lại kết quả vào Test History sau khi nộp bài.
         </p>
-        <Link
-          href={actionHref}
-          className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition-colors hover:bg-primary/90"
-        >
-          <Play className="h-5 w-5" />
-          Bắt đầu thi
-        </Link>
+        {isUnavailable ? (
+          <button
+            type="button"
+            onClick={onUnavailableClick}
+            className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition-colors hover:bg-primary/90"
+          >
+            <Play className="h-5 w-5" />
+            Bắt đầu thi
+          </button>
+        ) : (
+          <Link
+            href={actionHref}
+            className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition-colors hover:bg-primary/90"
+          >
+            <Play className="h-5 w-5" />
+            Bắt đầu thi
+          </Link>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -473,6 +528,51 @@ function FullTestTab({ actionHref, test }: { actionHref: string; test: PracticeT
         <ReadinessRow label="Hiển thị bộ đếm giờ rõ ràng" />
         <ReadinessRow label="Giữ cấu trúc part đúng định dạng TOEIC" />
         <ReadinessRow label="Tổng kết điểm và câu sai sau khi nộp" />
+      </div>
+    </div>
+  );
+}
+
+function DevelopmentNoticeDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4 backdrop-blur-sm">
+      <div
+        className="w-full max-w-md rounded-3xl border border-white/70 bg-white p-6 shadow-glass"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="development-notice-title"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-container text-primary">
+              <Clock3 className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 id="development-notice-title" className="text-xl font-extrabold text-on-surface">
+                Chức năng đang phát triển
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                Phần thi Speaking & Writing đang được chuẩn bị và sẽ được cập nhật trong phiên bản sau.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng thông báo"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-on-surface-variant transition hover:bg-surface-container-low hover:text-on-surface"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-primary px-5 text-sm font-extrabold text-white shadow-glow transition hover:bg-primary/90"
+        >
+          Đã hiểu
+        </button>
       </div>
     </div>
   );

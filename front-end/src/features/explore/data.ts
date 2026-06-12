@@ -57,7 +57,7 @@ const businessWords = [
     example: "Please forward the invoice to the accounting department.",
     exampleTranslation: "Vui lòng chuyển hóa đơn đến phòng kế toán.",
     imageUrl:
-      "https://images.unsplash.com/photo-1554224154-26032fced8bd?auto=format&fit=crop&w=640&q=80"
+      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=640&q=80"
   },
   {
     id: "business-refund",

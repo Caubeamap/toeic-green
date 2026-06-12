@@ -1,166 +1,231 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Heart, Plus, Search, Volume2 } from "lucide-react";
-import { vocabWords } from "@/lib/data";
+import { useCallback, useMemo, useState } from "react";
+import { BookOpen, Plus, RotateCcw, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/Button";
-import { SectionHeader } from "@/components/common/SectionHeader";
+import type { SortOption, StatusFilter, VocabularyWord } from "../types";
+import { MOCK_VOCABULARY } from "../data";
+import { computeStats, filterWords, sortWords } from "../helpers";
 
-const tags = ["All", "Business", "Travel", "Office", "Contract", "Meeting", "Email"];
-const statuses = ["All", "New", "Learning", "Mastered"];
+import { VocabularyStats } from "./VocabularyStats";
+import { VocabularyToolbar } from "./VocabularyToolbar";
+import { VocabularyCard } from "./VocabularyCard";
+import { VocabularyDetailDrawer } from "./VocabularyDetailDrawer";
+import { AddVocabularyModal } from "./AddVocabularyModal";
 
 export function VocabularyNotebook() {
+  // ── State ──────────────────────────────────────────────────────
+  const [words, setWords] = useState<VocabularyWord[]>(MOCK_VOCABULARY);
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState("All");
-  const [status, setStatus] = useState("All");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<SortOption>("recent");
+  const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  const filteredWords = useMemo(() => {
-    return vocabWords.filter((item) => {
-      const matchesQuery =
-        item.word.toLowerCase().includes(query.toLowerCase()) ||
-        item.meaning.toLowerCase().includes(query.toLowerCase());
-      const matchesTag = tag === "All" || item.tags.includes(tag);
-      const matchesStatus = status === "All" || item.status === status;
-      return matchesQuery && matchesTag && matchesStatus;
-    });
-  }, [query, tag, status]);
+  // ── Derived data ───────────────────────────────────────────────
+  const stats = useMemo(() => computeStats(words), [words]);
+  const displayedWords = useMemo(
+    () => sortWords(filterWords(words, query, tag, statusFilter), sort),
+    [words, query, tag, statusFilter, sort]
+  );
+
+  const hasActiveFilters = !!query || tag !== "All" || statusFilter !== "all";
+
+  // ── Handlers ───────────────────────────────────────────────────
+  const toggleFavorite = useCallback((id: string) => {
+    setWords((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, isFavorite: !w.isFavorite } : w))
+    );
+    // Also update selectedWord if it's open
+    setSelectedWord((sw) =>
+      sw?.id === id ? { ...sw, isFavorite: !sw.isFavorite } : sw
+    );
+  }, []);
+
+  const toggleMastered = useCallback((id: string) => {
+    setWords((prev) =>
+      prev.map((w) =>
+        w.id === id
+          ? {
+              ...w,
+              status: w.status === "mastered" ? "learning" : "mastered",
+              lastReviewedAt: new Date().toISOString(),
+            }
+          : w
+      )
+    );
+    setSelectedWord((sw) =>
+      sw?.id === id
+        ? {
+            ...sw,
+            status: sw.status === "mastered" ? "learning" : "mastered",
+            lastReviewedAt: new Date().toISOString(),
+          }
+        : sw
+    );
+  }, []);
+
+  const addWord = useCallback((word: VocabularyWord) => {
+    setWords((prev) => [word, ...prev]);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setQuery("");
+    setTag("All");
+    setStatusFilter("all");
+    setSort("recent");
+  }, []);
 
   return (
-    <section id="vocabulary" className="bg-white py-20">
-      <div className="container-shell">
-        <SectionHeader
-          eyebrow="Vocabulary notes"
-          title="Ghi chú từ vựng hằng ngày theo đúng ngữ cảnh TOEIC"
-          description="Thiết kế dạng thẻ giúp đọc nhanh nghĩa, phiên âm, ví dụ, tag chủ đề và trạng thái học của từng từ."
-          action={
-            <Button variant="dark">
-              <Plus size={18} /> Add New Word
-            </Button>
-          }
-        />
-
-        <div className="soft-panel mb-8 p-5">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-            <label className="relative block">
-              <Search
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                size={20}
-              />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="h-14 w-full rounded-2xl border border-zinc-200 bg-white/80 pl-12 pr-4 font-semibold outline-none transition focus:border-growth-dark focus:ring-4 focus:ring-growth/20"
-                placeholder="Search words, meanings..."
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {statuses.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setStatus(item)}
-                  className={cn(
-                    "rounded-full border px-4 py-2 text-sm font-bold transition",
-                    status === item
-                      ? "border-growth bg-growth text-academic-blue"
-                      : "border-zinc-200 bg-white/70 text-muted"
-                  )}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {tags.map((item) => (
-              <button
-                key={item}
-                onClick={() => setTag(item)}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-sm font-bold transition",
-                  tag === item
-                    ? "border-academic-blue bg-academic-blue text-white"
-                    : "border-zinc-200 bg-white/70 text-muted"
-                )}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {filteredWords.map((word) => (
-            <article key={word.word} className="soft-panel p-6">
-              <div className="flex items-center justify-between">
-                <span
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-black",
-                    word.status === "Mastered"
-                      ? "bg-zinc-700 text-white"
-                      : word.status === "Learning"
-                        ? "bg-growth text-academic-blue"
-                        : "bg-mist-blue text-academic-blue"
-                  )}
-                >
-                  {word.status}
-                </span>
-                <div className="flex gap-3 text-growth-dark">
-                  <Volume2 size={20} />
-                  <Heart size={20} />
-                </div>
-              </div>
-              <h3 className="mt-6 text-2xl font-black text-growth-dark">{word.word}</h3>
-              <p className="mt-1 text-sm font-semibold text-muted">
-                {word.phonetic} · {word.type}
-              </p>
-              <div className="mt-5 space-y-4">
-                <InfoBlock label="Meaning (VN)" value={word.meaning} />
-                <InfoBlock label="Example" value={`"${word.example}"`} italic />
-                <InfoBlock label="Personal note" value={word.note} />
-              </div>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {word.tags.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-muted"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
-
-          <button className="grid min-h-[360px] place-items-center rounded-[28px] border border-dashed border-growth-dark/32 bg-growth/8 p-8 text-center transition hover:bg-growth/14">
-            <div>
-              <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white text-3xl text-growth-dark shadow-soft">
-                +
+    <section className="min-h-screen bg-surface pb-20">
+      <div className="container-shell pt-8">
+        {/* ── Page Header ────────────────────────────────────────── */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-growth/15">
+                <BookOpen size={18} className="text-growth-dark" />
               </span>
-              <h3 className="mt-5 text-2xl font-black text-ink">Add Word</h3>
-              <p className="mt-3 text-muted">Found a new word in a test? Save it here.</p>
+              <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
+                Vocabulary Notes
+              </h1>
             </div>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+              Sổ tay từ vựng TOEIC cá nhân — lưu, tra cứu, ôn tập và theo dõi
+              trạng thái ghi nhớ từng từ.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-growth-dark px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#005d16]"
+          >
+            <Plus size={16} />
+            Add New Word
           </button>
         </div>
+
+        {/* ── Stats ──────────────────────────────────────────────── */}
+        <div className="mt-6">
+          <VocabularyStats {...stats} />
+        </div>
+
+        {/* ── Main content area ─────────────────────── */}
+        <div className="mt-6 space-y-5">
+          <VocabularyToolbar
+            query={query}
+            onQueryChange={setQuery}
+            tag={tag}
+            onTagChange={setTag}
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+            sort={sort}
+            onSortChange={setSort}
+          />
+
+          {/* Word count */}
+          <div className="flex items-center justify-between px-0.5">
+            <p className="text-xs font-semibold text-zinc-400">
+              {displayedWords.length} word
+              {displayedWords.length !== 1 && "s"}
+              {hasActiveFilters && " found"}
+            </p>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1 text-xs font-bold text-academic-blue transition hover:text-growth-dark"
+              >
+                <RotateCcw size={12} />
+                Reset filters
+              </button>
+            )}
+          </div>
+
+          {/* Word list */}
+          {displayedWords.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {displayedWords.map((w) => (
+                <VocabularyCard
+                  key={w.id}
+                  word={w}
+                  onToggleFavorite={toggleFavorite}
+                  onToggleMastered={toggleMastered}
+                  onViewDetail={setSelectedWord}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              hasFilters={hasActiveFilters}
+              onReset={resetFilters}
+              onAddWord={() => setShowAddModal(true)}
+            />
+          )}
+        </div>
       </div>
+
+      {/* ── Detail Drawer ──────────────────────────────────────────── */}
+      <VocabularyDetailDrawer
+        word={selectedWord}
+        onClose={() => setSelectedWord(null)}
+        onToggleFavorite={toggleFavorite}
+        onToggleMastered={toggleMastered}
+      />
+
+      {/* ── Add Word Modal ─────────────────────────────────────────── */}
+      <AddVocabularyModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={addWord}
+      />
     </section>
   );
 }
 
-function InfoBlock({
-  label,
-  value,
-  italic
+/* ── Empty State ──────────────────────────────────────────────────── */
+
+function EmptyState({
+  hasFilters,
+  onReset,
+  onAddWord,
 }: {
-  label: string;
-  value: string;
-  italic?: boolean;
+  hasFilters: boolean;
+  onReset: () => void;
+  onAddWord: () => void;
 }) {
   return (
-    <div>
-      <p className="text-xs font-black uppercase tracking-[0.12em] text-muted">{label}</p>
-      <p className={cn("mt-1 leading-7 text-ink", italic && "italic")}>{value}</p>
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-6 py-16 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
+        <SearchX size={24} className="text-zinc-300" />
+      </span>
+      <h3 className="mt-4 text-lg font-extrabold text-ink">
+        {hasFilters ? "No words match your filters" : "No words saved yet"}
+      </h3>
+      <p className="mt-2 max-w-xs text-sm text-zinc-400">
+        {hasFilters
+          ? "Try adjusting your search or filters to find what you're looking for."
+          : "Start building your vocabulary notebook by adding words from TOEIC practice tests."}
+      </p>
+      <div className="mt-5 flex gap-2">
+        {hasFilters && (
+          <button
+            onClick={onReset}
+            className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100"
+          >
+            Reset Filters
+          </button>
+        )}
+        <button
+          onClick={onAddWord}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold transition",
+            "bg-growth-dark text-white hover:bg-[#005d16]"
+          )}
+        >
+          <Plus size={14} />
+          Add Word
+        </button>
+      </div>
     </div>
   );
 }

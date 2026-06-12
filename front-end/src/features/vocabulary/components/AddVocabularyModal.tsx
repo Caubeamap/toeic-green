@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Loader2, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PartOfSpeech, VocabularyWord } from "../types";
 import { TOEIC_TAGS } from "../types";
+import { lookupWord } from "../services/dictionary";
 
 type AddModalProps = {
   open: boolean;
@@ -19,6 +20,7 @@ type FormData = {
   exampleTranslation: string;
   tags: string[];
   note: string;
+  audioUrl: string;
 };
 
 const INITIAL_FORM: FormData = {
@@ -30,6 +32,7 @@ const INITIAL_FORM: FormData = {
   exampleTranslation: "",
   tags: [],
   note: "",
+  audioUrl: "",
 };
 
 const POS_OPTIONS: { value: PartOfSpeech; label: string }[] = [
@@ -43,14 +46,54 @@ const POS_OPTIONS: { value: PartOfSpeech; label: string }[] = [
 export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [isLooking, setIsLooking] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<"idle" | "success" | "not-found">("idle");
 
   if (!open) return null;
+
+  // ── Dictionary lookup ────────────────────────────────────────────
+
+  async function handleLookup() {
+    const word = form.word.trim();
+    if (!word) {
+      setErrors((prev) => ({ ...prev, word: "Enter a word first" }));
+      return;
+    }
+
+    setIsLooking(true);
+    setLookupStatus("idle");
+
+    const result = await lookupWord(word);
+
+    if (result) {
+      setForm((prev) => ({
+        ...prev,
+        phonetic: result.phonetic || prev.phonetic,
+        partOfSpeech: result.partOfSpeech,
+        example: result.example || prev.example,
+        audioUrl: result.audioUrl,
+      }));
+      setLookupStatus("success");
+      // Clear errors on successfully looked-up fields
+      setErrors((prev) => {
+        const copy = { ...prev };
+        delete copy.word;
+        if (result.example) delete copy.example;
+        return copy;
+      });
+    } else {
+      setLookupStatus("not-found");
+    }
+
+    setIsLooking(false);
+  }
+
+  // ── Form helpers ─────────────────────────────────────────────────
 
   function validate(): boolean {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
     if (!form.word.trim()) newErrors.word = "Word is required";
     if (!form.meaning.trim()) newErrors.meaning = "Meaning is required";
-    if (!form.example.trim()) newErrors.example = "Example is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -71,6 +114,7 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
       status: "learning",
       isFavorite: false,
       note: form.note.trim() || undefined,
+      audioUrl: form.audioUrl || undefined,
       addedAt: new Date().toISOString(),
       reviewCount: 0,
     };
@@ -78,6 +122,7 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
     onAdd(newWord);
     setForm(INITIAL_FORM);
     setErrors({});
+    setLookupStatus("idle");
     onClose();
   }
 
@@ -100,7 +145,11 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
         return copy;
       });
     }
+    // Reset lookup status when word changes
+    if (key === "word") setLookupStatus("idle");
   }
+
+  // ── Render ───────────────────────────────────────────────────────
 
   return (
     <>
@@ -129,13 +178,46 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4 p-5">
+            {/* Word input + Lookup button */}
             <FieldGroup label="Word *" error={errors.word}>
-              <input
-                value={form.word}
-                onChange={(e) => updateField("word", e.target.value)}
-                className={fieldClass(!!errors.word)}
-                placeholder="e.g., negotiate"
-              />
+              <div className="flex gap-2">
+                <input
+                  value={form.word}
+                  onChange={(e) => updateField("word", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleLookup();
+                    }
+                  }}
+                  className={cn(fieldClass(!!errors.word), "flex-1")}
+                  placeholder="e.g., negotiate"
+                />
+                <button
+                  type="button"
+                  onClick={handleLookup}
+                  disabled={isLooking || !form.word.trim()}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-academic-blue px-3 py-2 text-xs font-bold text-white transition hover:bg-academic-blue/90 disabled:opacity-50"
+                >
+                  {isLooking ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Search size={14} />
+                  )}
+                  Lookup
+                </button>
+              </div>
+              {/* Lookup status feedback */}
+              {lookupStatus === "success" && (
+                <p className="mt-1 text-xs font-semibold text-emerald-600">
+                  ✓ Found — phonetic, part of speech & example auto-filled.
+                </p>
+              )}
+              {lookupStatus === "not-found" && (
+                <p className="mt-1 text-xs font-semibold text-amber-600">
+                  Word not found in dictionary. Please fill in manually.
+                </p>
+              )}
             </FieldGroup>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -173,11 +255,11 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
               />
             </FieldGroup>
 
-            <FieldGroup label="Example Sentence *" error={errors.example}>
+            <FieldGroup label="Example Sentence">
               <textarea
                 value={form.example}
                 onChange={(e) => updateField("example", e.target.value)}
-                className={cn(fieldClass(!!errors.example), "min-h-[64px] resize-none")}
+                className={cn(fieldClass(false), "min-h-[64px] resize-none")}
                 placeholder="We need to negotiate a better contract."
                 rows={2}
               />

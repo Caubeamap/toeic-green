@@ -13,8 +13,8 @@ export function filterWords(
       !q ||
       w.word.toLowerCase().includes(q) ||
       w.meaning.toLowerCase().includes(q) ||
-      w.example.toLowerCase().includes(q) ||
-      w.tags.some((t) => t.toLowerCase().includes(q));
+      w.example?.toLowerCase().includes(q) ||
+      w.tags?.some((t) => t.toLowerCase().includes(q));
 
     const matchesStatus =
       statusFilter === "all" ||

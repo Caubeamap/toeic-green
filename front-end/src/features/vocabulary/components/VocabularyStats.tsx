@@ -1,4 +1,4 @@
-import { BookOpen, Heart, RotateCcw, Star } from "lucide-react";
+import { BookOpen, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type StatsProps = {

@@ -18,6 +18,7 @@ export type VocabularyWord = {
   status: VocabularyStatus;
   isFavorite: boolean;
   note?: string;
+  audioUrl?: string;
   addedAt: string;
   lastReviewedAt?: string;
   reviewCount: number;

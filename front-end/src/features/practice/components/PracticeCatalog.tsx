@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Clock3,
   FileQuestion,
-  Plus,
   Search
 } from "lucide-react";
 import Link from "next/link";

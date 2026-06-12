@@ -3,20 +3,19 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Clock3,
+  Compass,
   FileText,
   Headphones,
   History,
-  PenLine,
   Sparkles,
-  Target,
-  TrendingUp
+  Target
 } from "lucide-react";
 
 export const navItems = [
   { label: "Home", href: "/" },
   { label: "Practice Tests", href: "/practice" },
+  { label: "Explore", href: "/explore" },
   { label: "Vocabulary Notes", href: "/vocabulary" },
-  { label: "Study Plan", href: "/study-plan" },
   { label: "Progress", href: "/progress" }
 ];
 
@@ -195,6 +194,6 @@ export const heroStats = [
   { label: "Listening & Reading", value: "Đề mô phỏng", icon: Headphones },
   { label: "Vocabulary Notes", value: "Ghi chú từ vựng", icon: BookOpen },
   { label: "Detailed Explanation", value: "Giải thích đáp án", icon: BriefcaseBusiness },
-  { label: "Study Plan", value: "Lộ trình gợi ý", icon: TrendingUp },
+  { label: "Explore", value: "Flashcards theo bộ", icon: Compass },
   { label: "Study streak", value: "Theo dõi tiến trình", icon: Clock3 }
 ];

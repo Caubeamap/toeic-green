@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 const benefits = [
   { icon: BookOpen, text: "Truy cập bộ đề luyện thi" },
   { icon: CheckCircle2, text: "Lưu kết quả & lịch sử" },
-  { icon: ShieldCheck, text: "Lộ trình học gợi ý" }
+  { icon: ShieldCheck, text: "Học flashcards theo bộ" }
 ];
 
 /* ─────────────────────── Page Component ─────────────────────── */

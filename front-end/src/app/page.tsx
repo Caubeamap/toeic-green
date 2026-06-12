@@ -131,16 +131,16 @@ function FeatureBento() {
         </Link>
 
         <Link
-          href="/study-plan"
+          href="/explore"
           className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-4"
         >
           <div className="space-y-4">
             <IconTile tone="tertiary">
-              <MaterialSymbolIcon name="route" className="h-6 w-6" />
+              <MaterialSymbolIcon name="style" className="h-6 w-6" />
             </IconTile>
-            <h3 className="text-headline-md font-bold">Lộ trình 4 tuần</h3>
+            <h3 className="text-headline-md font-bold">Explore Flashcards</h3>
             <p className="text-body-md text-on-surface-variant">
-              Kế hoạch học gợi ý theo tuần, giúp bạn ôn tập có hệ thống trước ngày thi.
+              Khám phá các bộ từ TOEIC, xem danh sách từ và luyện flashcard theo mức độ ghi nhớ.
             </p>
           </div>
         </Link>
@@ -240,11 +240,11 @@ function PersonalizedPath() {
                     <MaterialSymbolIcon name="verified" className="h-6 w-6" />
                   </div>
                   <div className="text-label-md font-semibold text-on-surface">
-                    Lộ trình gợi ý
+                    Explore Flashcards
                   </div>
                 </div>
                 <p className="text-[12px] text-on-surface-variant">
-                  Học 45 phút mỗi ngày, ôn đều 4 tuần.
+                  Học từ vựng theo bộ và luyện lại bằng flashcard.
                 </p>
               </div>
             </div>

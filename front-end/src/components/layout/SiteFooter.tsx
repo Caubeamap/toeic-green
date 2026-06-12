@@ -14,7 +14,7 @@ const columns = [
   {
     title: "Công cụ",
     links: [
-      ["Lộ trình gợi ý", "/study-plan"],
+      ["Explore Flashcards", "/explore"],
       ["Tiến trình học", "/progress"]
     ]
   },
@@ -39,7 +39,8 @@ export function SiteFooter() {
           <div className="glass-card rounded-[28px] bg-white/70 p-8">
             <div className="text-2xl font-bold text-primary">TOEIC Green</div>
             <p className="mt-4 max-w-xl text-body-md leading-relaxed text-on-surface-variant">
-              Luyện đề TOEIC, ghi chú từ vựng và xem giải thích đáp án.
+              Luyện đề TOEIC, học flashcards, ghi chú từ vựng và xem giải thích
+              đáp án.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -47,7 +48,7 @@ export function SiteFooter() {
                 Đề mô phỏng TOEIC
               </span>
               <span className="rounded-full bg-secondary-container px-4 py-2 text-label-sm font-bold text-on-secondary-container">
-                Giải thích chi tiết
+                Flashcards theo bộ
               </span>
               <span className="rounded-full bg-surface-container px-4 py-2 text-label-sm font-bold text-on-surface-variant">
                 Ghi chú từ vựng

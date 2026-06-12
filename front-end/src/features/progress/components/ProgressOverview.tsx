@@ -1,141 +1,729 @@
-import { ArrowRight, PlayCircle, TrendingUp } from "lucide-react";
-import { nextLessons, progressStats } from "@/lib/data";
-import { Button } from "@/components/ui/Button";
-import { SectionHeader } from "@/components/common/SectionHeader";
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpenCheck,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  History,
+  ListChecks,
+  PlayCircle,
+  Target,
+  Timer,
+  Trophy
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  loadPracticeAttempts,
+  type StoredPracticeAttempt
+} from "@/features/practice/lib/practice-progress";
+import { loadWords } from "@/features/vocabulary/services/storage";
+import type { VocabularyWord } from "@/features/vocabulary/types";
+import { cn } from "@/lib/utils";
+
+type ProgressSnapshot = {
+  attempts: StoredPracticeAttempt[];
+  words: VocabularyWord[];
+};
+
+type ActivityDay = {
+  key: string;
+  label: string;
+  attempts: number;
+  vocabulary: number;
+  total: number;
+};
+
+const emptySnapshot: ProgressSnapshot = {
+  attempts: [],
+  words: []
+};
+
+function getAccuracy(attempt: StoredPracticeAttempt) {
+  return attempt.total > 0 ? Math.round((attempt.correct / attempt.total) * 100) : 0;
+}
+
+function getCompletion(attempt: StoredPracticeAttempt) {
+  const answered = attempt.result?.answered ?? 0;
+  const total = attempt.result?.total ?? attempt.total;
+  return total > 0 ? Math.round((answered / total) * 100) : 0;
+}
+
+function formatDuration(totalSeconds: number) {
+  const totalMinutes = Math.max(0, Math.round(totalSeconds / 60));
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes} phút`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return minutes > 0 ? `${hours}h ${minutes}p` : `${hours}h`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("vi-VN").format(value);
+}
+
+function dateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function toValidDate(value?: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function timestampValue(value?: string) {
+  return toValidDate(value)?.getTime() ?? 0;
+}
+
+function buildActivityDays(
+  attempts: StoredPracticeAttempt[],
+  words: VocabularyWord[]
+): ActivityDay[] {
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+
+    return {
+      date,
+      key: dateKey(date),
+      label: date.toLocaleDateString("vi-VN", { weekday: "short" })
+    };
+  });
+
+  return days.map((day) => {
+    const attemptsOnDay = attempts.filter((attempt) => {
+      const date = toValidDate(attempt.timestamp);
+      return date ? dateKey(date) === day.key : false;
+    }).length;
+
+    const vocabularyOnDay = words.filter((word) => {
+      const addedAt = toValidDate(word.addedAt);
+      const reviewedAt = toValidDate(word.lastReviewedAt);
+
+      return (
+        (addedAt ? dateKey(addedAt) === day.key : false) ||
+        (reviewedAt ? dateKey(reviewedAt) === day.key : false)
+      );
+    }).length;
+
+    return {
+      key: day.key,
+      label: day.label,
+      attempts: attemptsOnDay,
+      vocabulary: vocabularyOnDay,
+      total: attemptsOnDay + vocabularyOnDay
+    };
+  });
+}
+
+function getStatusMessage({
+  attempts,
+  averageAccuracy,
+  learningWords
+}: {
+  attempts: number;
+  averageAccuracy: number | null;
+  learningWords: number;
+}) {
+  if (attempts === 0) {
+    return {
+      title: "Chưa có dữ liệu luyện đề",
+      copy: "Làm một bài practice để dashboard bắt đầu ghi nhận tiến độ."
+    };
+  }
+
+  if (averageAccuracy !== null && averageAccuracy < 60) {
+    return {
+      title: "Ưu tiên độ chính xác",
+      copy: "Nên làm bài ngắn, xem lại câu sai và ghi chú từ vựng mới sau mỗi lượt."
+    };
+  }
+
+  if (learningWords > 0) {
+    return {
+      title: "Duy trì nhịp ôn từ",
+      copy: `Bạn còn ${learningWords} từ đang học trong Vocabulary Notes.`
+    };
+  }
+
+  return {
+    title: "Tiến độ đang ổn định",
+    copy: "Tiếp tục luyện đều và làm bài mô phỏng định kỳ để kiểm tra điểm số."
+  };
+}
 
 export function ProgressOverview() {
+  const [snapshot, setSnapshot] = useState<ProgressSnapshot>(emptySnapshot);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    function refreshProgress() {
+      setSnapshot({
+        attempts: loadPracticeAttempts(),
+        words: loadWords()
+      });
+      setIsLoaded(true);
+    }
+
+    const timer = window.setTimeout(refreshProgress, 0);
+    window.addEventListener("storage", refreshProgress);
+    window.addEventListener("focus", refreshProgress);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", refreshProgress);
+      window.removeEventListener("focus", refreshProgress);
+    };
+  }, []);
+
+  const progress = useMemo(() => {
+    const attempts = [...snapshot.attempts].sort(
+      (a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp)
+    );
+    const words = snapshot.words;
+    const accuracies = attempts.map(getAccuracy);
+    const completions = attempts.map(getCompletion);
+    const averageAccuracy =
+      accuracies.length > 0
+        ? Math.round(accuracies.reduce((sum, value) => sum + value, 0) / accuracies.length)
+        : null;
+    const bestAccuracy = accuracies.length > 0 ? Math.max(...accuracies) : null;
+    const averageCompletion =
+      completions.length > 0
+        ? Math.round(completions.reduce((sum, value) => sum + value, 0) / completions.length)
+        : null;
+    const totalSeconds = attempts.reduce(
+      (sum, attempt) => sum + attempt.durationSeconds,
+      0
+    );
+    const masteredWords = words.filter((word) => word.status === "mastered").length;
+    const learningWords = words.filter((word) => word.status === "learning").length;
+    const favoriteWords = words.filter((word) => word.isFavorite).length;
+    const activityDays = buildActivityDays(attempts, words);
+    const activeDays = activityDays.filter((day) => day.total > 0).length;
+    const status = getStatusMessage({
+      attempts: attempts.length,
+      averageAccuracy,
+      learningWords
+    });
+
+    return {
+      activeDays,
+      activityDays,
+      attempts,
+      averageAccuracy,
+      averageCompletion,
+      bestAccuracy,
+      favoriteWords,
+      learningWords,
+      masteredWords,
+      recentAttempts: attempts.slice(0, 5),
+      status,
+      totalSeconds,
+      words
+    };
+  }, [snapshot]);
+
+  const maxActivity = Math.max(
+    1,
+    ...progress.activityDays.map((day) => day.total)
+  );
+
   return (
-    <section id="dashboard" className="bg-gradient-to-b from-white to-soft-mint/40 py-20">
-      <div className="container-shell">
-        <SectionHeader
-          eyebrow="Your performance"
-          title="Study Progress Dashboard"
-          description="Dashboard tập trung vào số liệu học tập quan trọng: số bài đã làm, điểm trung bình, từ vựng đã lưu, streak và gợi ý bài học tiếp theo."
-          action={
-            <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 font-bold text-ink shadow-soft">
-              <span className="h-3 w-3 rounded-full bg-growth-dark" /> Live Study Session
-            </span>
-          }
-        />
-
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {progressStats.map((stat) => (
-            <article
-              key={stat.label}
-              className="rounded-[28px] border border-white/80 bg-white/82 p-6 shadow-soft"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-growth text-academic-blue">
-                  <stat.icon size={25} />
+    <section className="min-h-screen bg-[#f5f7f9] pb-20">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="container-shell py-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary-container text-primary">
+                  <BarChart3 size={22} />
                 </span>
-                <span className="font-bold text-growth-dark">{stat.delta}</span>
+                <div>
+                  <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-primary">
+                    Progress
+                  </p>
+                  <h1 className="mt-1 text-3xl font-extrabold leading-tight text-ink md:text-4xl">
+                    Tổng quan tiến độ học tập
+                  </h1>
+                </div>
               </div>
-              <p className="mt-8 text-sm font-bold text-muted">{stat.label}</p>
-              <p className="mt-1 text-3xl font-black text-ink">{stat.value}</p>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
-          <div className="soft-panel p-6 md:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-black text-ink">Weekly Progress</h3>
-                <p className="mt-1 text-muted">Score consistency over the last 7 days</p>
-              </div>
-              <div className="flex rounded-2xl bg-zinc-100 p-1">
-                <button className="rounded-xl bg-white px-4 py-2 font-bold text-ink shadow-soft">
-                  Listening
-                </button>
-                <button className="rounded-xl px-4 py-2 font-bold text-muted">Reading</button>
-              </div>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted md:text-base">
+                Theo dõi bài luyện, độ chính xác, thời gian học và tình trạng từ vựng.
+              </p>
             </div>
 
-            <div className="mt-8 grid h-64 grid-cols-7 items-end gap-4 border-b border-zinc-200 pb-4">
-              {[36, 58, 48, 64, 71, 56, 80].map((height, index) => (
-                <div key={index} className="flex h-full flex-col items-center justify-end gap-3">
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/practice"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
+              >
+                <PlayCircle size={17} />
+                Luyện đề
+              </Link>
+              <Link
+                href="/vocabulary"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-primary shadow-soft transition hover:border-primary/35"
+              >
+                <BookOpenCheck size={17} />
+                Sổ từ vựng
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-shell pt-7">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            icon={ListChecks}
+            label="Lượt luyện"
+            value={formatNumber(progress.attempts.length)}
+            helper={progress.attempts.length > 0 ? "Bài đã ghi nhận" : "Chưa có bài luyện"}
+            tone="green"
+          />
+          <MetricCard
+            icon={Target}
+            label="Accuracy trung bình"
+            value={
+              progress.averageAccuracy === null
+                ? "Chưa có"
+                : `${progress.averageAccuracy}%`
+            }
+            helper={
+              progress.bestAccuracy === null
+                ? "Cần ít nhất một bài luyện"
+                : `Tốt nhất ${progress.bestAccuracy}%`
+            }
+            tone="blue"
+          />
+          <MetricCard
+            icon={BookOpenCheck}
+            label="Từ vựng đã lưu"
+            value={formatNumber(progress.words.length)}
+            helper={`${progress.masteredWords} đã thuộc · ${progress.learningWords} đang học`}
+            tone="amber"
+          />
+          <MetricCard
+            icon={Timer}
+            label="Thời gian luyện"
+            value={formatDuration(progress.totalSeconds)}
+            helper={`${progress.activeDays}/7 ngày có hoạt động`}
+            tone="slate"
+          />
+        </div>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-xl font-extrabold text-ink">
+                  Hoạt động 7 ngày
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  Gồm lượt luyện đề và thao tác từ vựng đã ghi nhận.
+                </p>
+              </div>
+              <span className="inline-flex w-fit items-center gap-2 rounded-lg bg-primary-container/45 px-3 py-2 text-sm font-extrabold text-primary">
+                <CalendarDays size={16} />
+                {progress.activeDays} ngày hoạt động
+              </span>
+            </div>
+
+            <div className="mt-6 grid h-64 grid-cols-7 items-end gap-3 border-b border-slate-200 pb-4">
+              {progress.activityDays.map((day) => (
+                <div
+                  key={day.key}
+                  className="flex h-full flex-col items-center justify-end gap-3"
+                >
                   <div className="relative flex h-44 w-full items-end justify-center">
-                    <span className="absolute bottom-0 h-full w-2 rounded-full bg-growth-dark/10" />
+                    <span className="absolute bottom-0 h-full w-2 rounded-full bg-slate-100" />
                     <span
-                      className="relative w-5 rounded-full bg-growth-dark"
-                      style={{ height }}
+                      className={cn(
+                        "relative w-5 rounded-t-full",
+                        day.total > 0 ? "bg-primary" : "bg-slate-200"
+                      )}
+                      style={{
+                        height: `${Math.max(8, Math.round((day.total / maxActivity) * 176))}px`
+                      }}
+                      title={`${day.total} hoạt động`}
                     />
                   </div>
-                  <span className="text-sm font-bold text-muted">
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index]}
-                  </span>
+                  <div className="text-center">
+                    <span className="block text-xs font-extrabold text-ink">
+                      {day.label}
+                    </span>
+                    <span className="mt-1 block text-[11px] font-bold text-muted">
+                      {day.total}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
 
-          <aside className="rounded-[28px] bg-growth-dark p-7 text-white shadow-soft">
-            <TrendingUp size={28} />
-            <h3 className="mt-5 text-2xl font-black">Focus Required</h3>
-            <p className="mt-3 leading-7 text-white/82">
-              Bạn đang yếu Part 5: Incomplete Sentences. Hôm nay nên ưu tiên
-              luyện grammar và bẫy đáp án.
-            </p>
-            <div className="mt-6 space-y-3">
-              <div className="rounded-2xl bg-white/12 p-4">
-                <div className="flex justify-between font-bold">
-                  <span>Tenses Mastery</span>
-                  <span className="text-growth">45%</span>
-                </div>
-              </div>
-              <div className="rounded-2xl bg-white/12 p-4">
-                <div className="flex justify-between font-bold">
-                  <span>Phonetics</span>
-                  <span className="text-growth">62%</span>
-                </div>
-              </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <MiniPanel
+                icon={CheckCircle2}
+                label="Hoàn thành trung bình"
+                value={
+                  progress.averageCompletion === null
+                    ? "Chưa có"
+                    : `${progress.averageCompletion}%`
+                }
+              />
+              <MiniPanel
+                icon={Trophy}
+                label="Best accuracy"
+                value={progress.bestAccuracy === null ? "Chưa có" : `${progress.bestAccuracy}%`}
+              />
+              <MiniPanel
+                icon={Clock3}
+                label="Tổng thời lượng"
+                value={formatDuration(progress.totalSeconds)}
+              />
             </div>
-            <Button className="mt-6 w-full">Improve Now</Button>
+          </section>
+
+          <aside className="space-y-6">
+            <section className="rounded-xl bg-[#123f2a] p-5 text-white shadow-soft md:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/12 text-growth">
+                  <Target size={21} />
+                </span>
+                <span className="rounded-lg bg-white/12 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-growth">
+                  Trạng thái
+                </span>
+              </div>
+              <h2 className="mt-5 text-2xl font-extrabold">
+                {progress.status.title}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-white/78">
+                {progress.status.copy}
+              </p>
+              <div className="mt-6 grid gap-3">
+                <StatusLine
+                  label="Bài luyện"
+                  value={formatNumber(progress.attempts.length)}
+                />
+                <StatusLine
+                  label="Từ yêu thích"
+                  value={formatNumber(progress.favoriteWords)}
+                />
+                <StatusLine
+                  label="Từ đã thuộc"
+                  value={formatNumber(progress.masteredWords)}
+                />
+              </div>
+            </section>
+
+            <ActionPanel
+              hasAttempts={progress.attempts.length > 0}
+              learningWords={progress.learningWords}
+            />
           </aside>
         </div>
 
-        <div className="mt-14 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h3 className="text-2xl font-black text-ink">Gợi ý bài học tiếp theo</h3>
-            <p className="mt-2 text-muted">Personalized learning path based on your score</p>
-          </div>
-          <a
-            href="#practice"
-            className="inline-flex items-center gap-2 font-bold text-growth-dark"
-          >
-            View all lessons <ArrowRight size={18} />
-          </a>
-        </div>
-
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
-          {nextLessons.map((lesson) => (
-            <article
-              key={lesson.title}
-              className="overflow-hidden rounded-[28px] border border-white/80 bg-white/82 shadow-soft"
-            >
-              <div
-                className="h-48 bg-cover bg-center"
-                style={{ backgroundImage: `url('${lesson.image}')` }}
-              />
-              <div className="p-6">
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-growth px-3 py-1 text-xs font-black text-academic-blue">
-                    {lesson.category}
-                  </span>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-muted">
-                    {lesson.duration}
-                  </span>
-                </div>
-                <h3 className="mt-4 text-xl font-black text-ink">{lesson.title}</h3>
-                <p className="mt-2 leading-7 text-muted">{lesson.copy}</p>
-                <button className="mt-5 inline-flex items-center gap-2 font-bold text-growth-dark">
-                  Start lesson <PlayCircle size={18} />
-                </button>
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-extrabold text-ink">
+                  Lịch sử gần đây
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  Các lượt luyện trong phiên học hiện tại, sắp xếp theo thời gian mới nhất.
+                </p>
               </div>
-            </article>
-          ))}
+              <Link
+                href="/practice"
+                className="inline-flex w-fit items-center gap-2 text-sm font-extrabold text-primary"
+              >
+                Mở Practice
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {isLoaded && progress.recentAttempts.length > 0 ? (
+                progress.recentAttempts.map((attempt) => (
+                  <RecentAttemptRow key={attempt.id} attempt={attempt} />
+                ))
+              ) : (
+                <EmptyState
+                  icon={History}
+                  title="Chưa có lịch sử luyện đề"
+                  copy="Khi bạn hoàn thành bài practice, kết quả sẽ xuất hiện tại đây."
+                />
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-ink">
+                  Vocabulary Notes
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  Tình trạng ghi nhớ từ vựng.
+                </p>
+              </div>
+              <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-50 text-amber-700">
+                <BookOpenCheck size={19} />
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <VocabularyRatio
+                label="Đã thuộc"
+                value={progress.masteredWords}
+                total={progress.words.length}
+                color="bg-emerald-500"
+              />
+              <VocabularyRatio
+                label="Đang học"
+                value={progress.learningWords}
+                total={progress.words.length}
+                color="bg-amber-500"
+              />
+              <VocabularyRatio
+                label="Yêu thích"
+                value={progress.favoriteWords}
+                total={progress.words.length}
+                color="bg-blue-500"
+              />
+            </div>
+
+            <Link
+              href="/vocabulary"
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-4 text-sm font-extrabold text-on-primary-container transition hover:bg-primary-fixed-dim"
+            >
+              Mở sổ từ vựng
+              <ArrowRight size={16} />
+            </Link>
+          </section>
         </div>
       </div>
     </section>
+  );
+}
+
+function MetricCard({
+  helper,
+  icon: Icon,
+  label,
+  tone,
+  value
+}: {
+  helper: string;
+  icon: LucideIcon;
+  label: string;
+  tone: "green" | "blue" | "amber" | "slate";
+  value: string;
+}) {
+  const toneClass = {
+    green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    amber: "bg-amber-50 text-amber-700",
+    slate: "bg-slate-100 text-slate-700"
+  }[tone];
+
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
+      <div className="flex items-start justify-between gap-4">
+        <span className={cn("grid h-11 w-11 place-items-center rounded-xl", toneClass)}>
+          <Icon size={21} />
+        </span>
+      </div>
+      <p className="mt-5 text-sm font-bold text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-extrabold text-ink">{value}</p>
+      <p className="mt-2 text-xs font-semibold leading-5 text-muted">{helper}</p>
+    </article>
+  );
+}
+
+function MiniPanel({
+  icon: Icon,
+  label,
+  value
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <Icon className="h-5 w-5 text-primary" />
+      <p className="mt-3 text-xs font-bold uppercase text-muted">{label}</p>
+      <p className="mt-1 text-lg font-extrabold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function StatusLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-white/12 pb-3 last:border-0 last:pb-0">
+      <span className="text-sm font-bold text-white/72">{label}</span>
+      <span className="font-extrabold text-growth">{value}</span>
+    </div>
+  );
+}
+
+function ActionPanel({
+  hasAttempts,
+  learningWords
+}: {
+  hasAttempts: boolean;
+  learningWords: number;
+}) {
+  const action = !hasAttempts
+    ? {
+        copy: "Bắt đầu bằng một bài practice ngắn để có dữ liệu theo dõi.",
+        href: "/practice",
+        label: "Làm bài luyện",
+        title: "Bước tiếp theo"
+      }
+    : learningWords > 0
+      ? {
+          copy: "Ôn nhóm từ đang học trước khi làm lượt practice kế tiếp.",
+          href: "/vocabulary",
+          label: "Ôn từ vựng",
+          title: "Bước tiếp theo"
+        }
+      : {
+          copy: "Làm thêm một lượt practice để kiểm tra độ ổn định.",
+          href: "/practice",
+          label: "Tiếp tục luyện",
+          title: "Bước tiếp theo"
+        };
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
+      <h2 className="text-lg font-extrabold text-ink">{action.title}</h2>
+      <p className="mt-2 text-sm leading-6 text-muted">{action.copy}</p>
+      <Link
+        href={action.href}
+        className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
+      >
+        {action.label}
+        <ArrowRight size={16} />
+      </Link>
+    </section>
+  );
+}
+
+function RecentAttemptRow({ attempt }: { attempt: StoredPracticeAttempt }) {
+  const accuracy = getAccuracy(attempt);
+  const completion = getCompletion(attempt);
+
+  return (
+    <article className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary/30 md:flex-row md:items-center md:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700">
+          <FileText size={18} />
+        </span>
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-extrabold text-ink">
+            {attempt.testTitle}
+          </h3>
+          <p className="mt-1 text-xs font-bold text-muted">
+            {attempt.attemptedAt || "Chưa rõ ngày"} · {attempt.mode}
+          </p>
+          {attempt.scopeLabels.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {attempt.scopeLabels.map((scope) => (
+                <span
+                  key={scope}
+                  className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600"
+                >
+                  {scope}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center md:w-[280px]">
+        <AttemptStat label="Đúng" value={`${attempt.correct}/${attempt.total}`} />
+        <AttemptStat label="Accuracy" value={`${accuracy}%`} />
+        <AttemptStat label="Hoàn thành" value={`${completion}%`} />
+      </div>
+    </article>
+  );
+}
+
+function AttemptStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-2 py-2">
+      <p className="text-sm font-extrabold text-ink">{value}</p>
+      <p className="mt-1 text-[11px] font-bold text-muted">{label}</p>
+    </div>
+  );
+}
+
+function VocabularyRatio({
+  color,
+  label,
+  total,
+  value
+}: {
+  color: string;
+  label: string;
+  total: number;
+  value: number;
+}) {
+  const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 text-sm font-bold">
+        <span className="text-muted">{label}</span>
+        <span className="text-ink">
+          {value}/{total}
+        </span>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-slate-100">
+        <div
+          className={cn("h-2 rounded-full", color)}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({
+  copy,
+  icon: Icon,
+  title
+}: {
+  copy: string;
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+      <Icon className="mx-auto h-10 w-10 text-slate-300" />
+      <h3 className="mt-4 text-lg font-extrabold text-ink">{title}</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">{copy}</p>
+    </div>
   );
 }

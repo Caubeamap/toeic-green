@@ -27,22 +27,99 @@ export type StoredPracticeAttempt = PracticeAttempt & {
   result: SavedPracticeResult;
 };
 
-function canUseBrowserStorage() {
-  return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+function getSessionStorage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }
 
-// Clear legacy localStorage data on initialization if it exists
-if (typeof window !== "undefined") {
-  try {
-    if (window.localStorage.getItem(PRACTICE_ATTEMPTS_KEY)) {
-      window.localStorage.removeItem(PRACTICE_ATTEMPTS_KEY);
-    }
-    if (window.localStorage.getItem(LATEST_PRACTICE_RESULT_KEY)) {
-      window.localStorage.removeItem(LATEST_PRACTICE_RESULT_KEY);
-    }
-  } catch (e) {
-    console.error("Failed to clear legacy localStorage data", e);
+function canUseBrowserStorage() {
+  return Boolean(getSessionStorage());
+}
+
+function getTimestampValue(timestamp: string) {
+  const time = new Date(timestamp).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function isStoredPracticeAttempt(attempt: unknown): attempt is StoredPracticeAttempt {
+  if (!attempt || typeof attempt !== "object") {
+    return false;
   }
+
+  const item = attempt as Partial<StoredPracticeAttempt>;
+
+  return (
+    typeof item.id === "string" &&
+    typeof item.testId === "string" &&
+    typeof item.testTitle === "string" &&
+    typeof item.timestamp === "string" &&
+    typeof item.attemptedAt === "string" &&
+    typeof item.mode === "string" &&
+    Array.isArray(item.scopeLabels) &&
+    typeof item.correct === "number" &&
+    typeof item.total === "number" &&
+    typeof item.durationSeconds === "number" &&
+    typeof item.detailHref === "string" &&
+    typeof item.result === "object" &&
+    item.result !== null
+  );
+}
+
+function clearPersistentPracticeHistory() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(PRACTICE_ATTEMPTS_KEY);
+    window.localStorage.removeItem(LATEST_PRACTICE_RESULT_KEY);
+  } catch (error) {
+    console.error("Failed to clear persistent practice history", error);
+  }
+}
+
+function readPracticeAttempts() {
+  const storage = getSessionStorage();
+
+  if (!storage) {
+    return [];
+  }
+
+  try {
+    const raw = storage.getItem(PRACTICE_ATTEMPTS_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isStoredPracticeAttempt) : [];
+  } catch (error) {
+    console.error("Failed to load practice attempts", error);
+    return [];
+  }
+}
+
+function sortPracticeAttempts(attempts: StoredPracticeAttempt[]) {
+  return [...attempts].sort(
+    (a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp)
+  );
+}
+
+function writePracticeAttempts(attempts: StoredPracticeAttempt[]) {
+  const storage = getSessionStorage();
+
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(PRACTICE_ATTEMPTS_KEY, JSON.stringify(attempts));
 }
 
 function formatAttemptDate(timestamp: string) {
@@ -130,24 +207,8 @@ export function loadPracticeAttempts(): StoredPracticeAttempt[] {
   }
 
   try {
-    const raw = window.sessionStorage.getItem(PRACTICE_ATTEMPTS_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter((attempt): attempt is StoredPracticeAttempt => {
-      return (
-        typeof attempt?.id === "string" &&
-        typeof attempt?.testId === "string" &&
-        typeof attempt?.timestamp === "string" &&
-        typeof attempt?.result === "object"
-      );
-    });
+    clearPersistentPracticeHistory();
+    return sortPracticeAttempts(readPracticeAttempts()).slice(0, MAX_STORED_ATTEMPTS);
   } catch (error) {
     console.error("Failed to load practice attempts", error);
     return [];
@@ -165,11 +226,9 @@ export function savePracticeAttemptResult(test: PracticeTest, result: SavedPract
     const nextAttempts = [
       attempt,
       ...storedAttempts.filter((item) => item.id !== attempt.id)
-    ]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, MAX_STORED_ATTEMPTS);
+    ];
 
-    window.sessionStorage.setItem(PRACTICE_ATTEMPTS_KEY, JSON.stringify(nextAttempts));
+    writePracticeAttempts(sortPracticeAttempts(nextAttempts).slice(0, MAX_STORED_ATTEMPTS));
   } catch (error) {
     console.error("Failed to save practice attempt", error);
   }
@@ -201,7 +260,7 @@ export function mergePracticeProgress(tests: PracticeTest[]): PracticeTest[] {
     }
 
     const sortedAttempts = [...testAttempts].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      (a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp)
     );
     const latestAttempt = sortedAttempts[0];
 

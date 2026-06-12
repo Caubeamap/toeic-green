@@ -32,6 +32,7 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (username: string, password: string) => { ok: boolean; error?: string };
   logout: () => void;
+  updateUser: (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => void;
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -100,6 +101,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: "unauthenticated" });
   }, []);
 
+  const updateUser = useCallback(
+    (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => {
+      if (state.status !== "authenticated") {
+        return;
+      }
+
+      const nextUser = {
+        ...state.user,
+        ...updates
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+      setState({ status: "authenticated", user: nextUser });
+    },
+    [state]
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       state,
@@ -108,8 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: state.status === "loading",
       login,
       logout,
+      updateUser,
     }),
-    [state, login, logout]
+    [state, login, logout, updateUser]
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

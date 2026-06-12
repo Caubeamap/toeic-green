@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, ChevronDown } from "lucide-react";
+import { ChevronDown, LogOut, Menu, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -72,7 +72,15 @@ export function SiteHeader() {
                     onClick={() => setShowUserDropdown(false)}
                   />
                   {/* Dropdown Menu */}
-                  <div className="absolute right-0 z-20 mt-2 w-44 rounded-2xl border border-white/40 bg-white/95 p-1.5 shadow-glass">
+                  <div className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-white/40 bg-white/95 p-1.5 shadow-glass">
+                    <Link
+                      href="/profile"
+                      onClick={() => setShowUserDropdown(false)}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-label-md font-bold text-on-surface transition hover:bg-primary-container/25 hover:text-primary"
+                    >
+                      <UserRound className="h-4 w-4" />
+                      Trang cá nhân
+                    </Link>
                     <button
                       type="button"
                       onClick={() => {
@@ -145,6 +153,14 @@ export function SiteHeader() {
                       {user.displayName}
                     </span>
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setOpen(false)}
+                    className="mt-1 flex w-full items-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-on-surface hover:bg-primary-container/30 hover:text-primary"
+                  >
+                    <UserRound className="h-4 w-4" />
+                    Trang cá nhân
+                  </Link>
                   <button
                     type="button"
                     onClick={handleLogout}

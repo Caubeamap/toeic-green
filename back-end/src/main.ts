@@ -5,7 +5,9 @@ import { AppModule } from './app.module';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn'],
+  });
 
   // Enable cookie parser middleware
   app.use(cookieParser());
@@ -33,7 +35,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/api`);
+  console.log(`\n✅ Application is running on: http://localhost:${port}/api\n`);
 }
 bootstrap().catch((err) => {
   console.error('Error during bootstrap:', err);

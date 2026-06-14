@@ -1,12 +1,17 @@
 {
-  "name": "back-end-temp",
+  "name": "toeic-green-api",
   "version": "0.0.1",
   "description": "",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "prisma:generate": "prisma generate --no-hints",
+    "prebuild": "npm run prisma:generate",
+    "predev": "npm run prisma:generate",
+    "prestart:dev": "npm run prisma:generate",
     "build": "nest build",
+    "dev": "nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

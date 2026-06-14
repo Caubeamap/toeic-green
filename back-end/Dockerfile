@@ -41,7 +41,7 @@ RUN npx prisma generate
 COPY --from=builder /usr/src/app/dist ./dist
 
 # Expose backend API port
-EXPOSE 3001
+EXPOSE 2409
 
 # Start the NestJS application
 CMD ["node", "dist/src/main.js"]

@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 async function bootstrap() {
+  const startedAt = performance.now();
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn'],
   });
@@ -28,14 +29,27 @@ async function bootstrap() {
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
   // Enable CORS
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:6868';
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: frontendUrl,
     credentials: true,
   });
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 2409;
   await app.listen(port);
-  console.log(`\n✅ Application is running on: http://localhost:${port}/api\n`);
+
+  const readyInMs = Math.round(performance.now() - startedAt);
+  console.log(
+    [
+      '',
+      '▲ NestJS 11 (SWC)',
+      `- Local:    http://localhost:${port}/api`,
+      `- Frontend: ${frontendUrl}`,
+      '',
+      `✓ Ready in ${readyInMs}ms`,
+      '',
+    ].join('\n'),
+  );
 }
 bootstrap().catch((err) => {
   console.error('Error during bootstrap:', err);

@@ -1,15 +1,6 @@
 import type { MockUser } from "@/features/auth";
 import type { UserProfile } from "../types";
-
-const PROFILE_STORAGE_PREFIX = "toeic-green-profile";
-
-function getStorageKey(accountId: string) {
-  return `${PROFILE_STORAGE_PREFIX}:${accountId}`;
-}
-
-function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
+import { api } from "@/lib/api";
 
 function normalizeAvatar(value: string) {
   const normalized = value.trim().slice(0, 3).toUpperCase();
@@ -18,68 +9,55 @@ function normalizeAvatar(value: string) {
 
 export function getDefaultUserProfile(user: MockUser): UserProfile {
   return {
-    accountId: user.username,
+    accountId: user.id,
     avatar: normalizeAvatar(user.avatar || user.displayName.slice(0, 2)),
     bannerTone: "mint",
     bio: "",
     displayName: user.displayName,
-    email: "",
+    email: user.email,
     updatedAt: new Date().toISOString(),
-    username: user.username
+    username: user.username,
   };
 }
 
-export function loadUserProfile(user: MockUser): UserProfile {
-  const fallback = getDefaultUserProfile(user);
-
-  if (!canUseStorage()) {
-    return fallback;
-  }
-
+export async function loadUserProfile(user: MockUser): Promise<UserProfile> {
   try {
-    const raw = window.localStorage.getItem(getStorageKey(user.username));
-
-    if (!raw) {
-      return fallback;
-    }
-
-    const parsed = JSON.parse(raw) as Partial<UserProfile>;
-
+    const data = await api.get("/profile");
     return {
-      ...fallback,
-      ...parsed,
-      accountId: user.username,
-      avatar: normalizeAvatar(parsed.avatar ?? fallback.avatar),
-      displayName: parsed.displayName?.trim() || fallback.displayName,
-      username: parsed.username?.trim() || fallback.username
+      accountId: data.userId,
+      avatar: normalizeAvatar(data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG"),
+      bannerTone: data.bannerTone || "mint",
+      bio: data.bio || "",
+      displayName: data.user.displayName || "",
+      email: data.user.email,
+      updatedAt: data.updatedAt,
+      username: data.username || "",
     };
   } catch (error) {
-    console.error("Failed to load user profile", error);
-    return fallback;
+    console.error("Failed to load user profile from api, using default", error);
+    return getDefaultUserProfile(user);
   }
 }
 
-export function saveUserProfile(profile: UserProfile): UserProfile {
-  const nextProfile = {
-    ...profile,
-    avatar: normalizeAvatar(profile.avatar),
+export async function saveUserProfile(profile: UserProfile): Promise<UserProfile> {
+  const updateData = {
+    username: profile.username.trim(),
+    bio: profile.bio.trim(),
+    bannerTone: profile.bannerTone,
     displayName: profile.displayName.trim(),
-    updatedAt: new Date().toISOString(),
-    username: profile.username.trim()
+    avatarUrl: profile.avatar,
   };
 
-  if (!canUseStorage()) {
-    return nextProfile;
-  }
+  const data = await api.patch("/profile", updateData);
 
-  try {
-    window.localStorage.setItem(
-      getStorageKey(nextProfile.accountId),
-      JSON.stringify(nextProfile)
-    );
-  } catch (error) {
-    console.error("Failed to save user profile", error);
-  }
-
-  return nextProfile;
+  return {
+    accountId: data.userId,
+    avatar: normalizeAvatar(data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG"),
+    bannerTone: data.bannerTone || "mint",
+    bio: data.bio || "",
+    displayName: data.user.displayName || "",
+    email: data.user.email,
+    updatedAt: data.updatedAt,
+    username: data.username || "",
+  };
 }

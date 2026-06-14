@@ -14,6 +14,7 @@ import {
   UserRound
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../hooks/auth";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -349,13 +350,13 @@ function SubmitButton({
    ═══════════════════════════════════════════════════════════════ */
 
 export function LoginForm() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ username: FieldError; password: FieldError }>({
-    username: null,
+  const [errors, setErrors] = useState<{ email: FieldError; password: FieldError }>({
+    email: null,
     password: null
   });
-  const [touched, setTouched] = useState({ username: false, password: false });
+  const [touched, setTouched] = useState({ email: false, password: false });
   const [status, setStatus] = useState<FormStatus>({ type: "idle" });
 
   /* Listen for auth error response from AuthPanel */
@@ -369,11 +370,11 @@ export function LoginForm() {
   }, []);
 
   function validateAll(): boolean {
-    const usernameErr = validateRequired(username, "tên đăng nhập");
+    const emailErr = validateEmail(email);
     const passwordErr = !password ? "Vui lòng nhập mật khẩu." : null;
-    setErrors({ username: usernameErr, password: passwordErr });
-    setTouched({ username: true, password: true });
-    return !usernameErr && !passwordErr;
+    setErrors({ email: emailErr, password: passwordErr });
+    setTouched({ email: true, password: true });
+    return !emailErr && !passwordErr;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -381,11 +382,11 @@ export function LoginForm() {
     if (!validateAll()) return;
 
     setStatus({ type: "submitting" });
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     /* Dispatch a custom event so the page-level component can call useAuth().login */
     const event = new CustomEvent("toeic-login-attempt", {
-      detail: { username: username.trim(), password }
+      detail: { email: email.trim(), password }
     });
     window.dispatchEvent(event);
   }
@@ -397,23 +398,23 @@ export function LoginForm() {
       <FormAlert status={status} />
 
       <Field
-        id="login-username"
-        label="Tên đăng nhập"
-        icon={<UserRound className="h-[18px] w-[18px]" />}
-        placeholder="hoangusuk"
-        type="text"
-        autoComplete="username"
+        id="login-email"
+        label="Email"
+        icon={<Mail className="h-[18px] w-[18px]" />}
+        placeholder="name@example.com"
+        type="email"
+        autoComplete="email"
         required
-        value={username}
+        value={email}
         onChange={(v) => {
-          setUsername(v);
-          if (touched.username) setErrors((prev) => ({ ...prev, username: validateRequired(v, "tên đăng nhập") }));
+          setEmail(v);
+          if (touched.email) setErrors((prev) => ({ ...prev, email: validateEmail(v) }));
         }}
         onBlur={() => {
-          setTouched((prev) => ({ ...prev, username: true }));
-          setErrors((prev) => ({ ...prev, username: validateRequired(username, "tên đăng nhập") }));
+          setTouched((prev) => ({ ...prev, email: true }));
+          setErrors((prev) => ({ ...prev, email: validateEmail(email) }));
         }}
-        error={touched.username ? errors.username : null}
+        error={touched.email ? errors.email : null}
       />
       <Field
         id="login-password"
@@ -513,20 +514,36 @@ export function SignupForm() {
     return !Object.values(result).some(Boolean);
   }
 
+  const { register } = useAuth();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validateAll()) return;
 
     setStatus({ type: "submitting" });
 
-    // TODO: Thay bằng API call thực tế khi có backend
-    // Ví dụ: const res = await fetch("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, password }) });
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setStatus({
-      type: "error",
-      message: "Chức năng đăng ký đang được phát triển. Hệ thống sẽ sẵn sàng khi backend được tích hợp."
-    });
+    try {
+      const result = await register(name, email, password);
+      if (result.ok) {
+        setStatus({
+          type: "success",
+          message: "Đăng ký tài khoản thành công! Đang chuyển hướng sang đăng nhập..."
+        });
+        setTimeout(() => {
+          window.location.search = "?mode=login";
+        }, 1500);
+      } else {
+        setStatus({
+          type: "error",
+          message: result.error || "Đăng ký không thành công."
+        });
+      }
+    } catch (err: any) {
+      setStatus({
+        type: "error",
+        message: err.message || "Đăng ký không thành công."
+      });
+    }
   }
 
   const isSubmitting = status.type === "submitting";

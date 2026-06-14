@@ -44,16 +44,18 @@ export function EditProfileForm() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (!user) {
-        setProfile(null);
-        return;
-      }
+    if (!user) {
+      setProfile(null);
+      return;
+    }
 
-      setProfile(loadUserProfile(user));
-    }, 0);
-
-    return () => window.clearTimeout(timer);
+    loadUserProfile(user)
+      .then((nextProfile) => {
+        setProfile(nextProfile);
+      })
+      .catch(() => {
+        setProfile(getDefaultUserProfile(user));
+      });
   }, [user]);
 
   function updateField<Key extends keyof UserProfile>(key: Key, value: UserProfile[Key]) {
@@ -62,7 +64,7 @@ export function EditProfileForm() {
     setError("");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!profile) {
@@ -79,14 +81,20 @@ export function EditProfileForm() {
       return;
     }
 
-    const nextProfile = saveUserProfile(profile);
-    updateUser({
-      avatar: nextProfile.avatar,
-      displayName: nextProfile.displayName
-    });
-    setProfile(nextProfile);
-    setSaved(true);
-    router.push("/profile");
+    try {
+      setError("");
+      const nextProfile = await saveUserProfile(profile);
+      updateUser({
+        avatar: nextProfile.avatar,
+        displayName: nextProfile.displayName,
+        username: nextProfile.username
+      });
+      setProfile(nextProfile);
+      setSaved(true);
+      router.push("/profile");
+    } catch (err: any) {
+      setError(err.message || "Không thể cập nhật hồ sơ cá nhân.");
+    }
   }
 
   if (isLoading) {

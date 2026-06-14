@@ -9,14 +9,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { api, setAccessToken } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
    ═══════════════════════════════════════════════════════════════ */
 
 export type MockUser = {
-  username: string;
+  id: string;
+  email: string;
   displayName: string;
+  avatarUrl?: string;
+  role: string;
+  // Kiểu tương thích với giao diện mock cũ
+  username: string;
   avatar: string;
 };
 
@@ -30,24 +36,10 @@ type AuthContextValue = {
   user: MockUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => { ok: boolean; error?: string };
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  register: (displayName: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
-  updateUser: (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => void;
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   Mock credentials
-   ═══════════════════════════════════════════════════════════════ */
-
-const MOCK_ACCOUNTS: Record<string, { password: string; user: MockUser }> = {
-  hoangusuk: {
-    password: "123",
-    user: {
-      username: "hoangusuk",
-      displayName: "Hoàng Usuk",
-      avatar: "HU",
-    },
-  },
+  updateUser: (updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>) => void;
 };
 
 const STORAGE_KEY = "toeic-green-auth";
@@ -58,58 +50,117 @@ const STORAGE_KEY = "toeic-green-auth";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function mapUser(backendUser: any): MockUser {
+  return {
+    id: backendUser.id,
+    email: backendUser.email,
+    displayName: backendUser.displayName,
+    avatarUrl: backendUser.avatarUrl,
+    role: backendUser.role,
+    username: backendUser.username || backendUser.email.split("@")[0],
+    avatar: backendUser.avatarUrl || backendUser.displayName?.trim().slice(0, 2).toUpperCase() || "TG",
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
-  /* Hydrate from localStorage on mount */
+  /* Tự động khôi phục phiên (Hydration) bằng Refresh Token khi mở trang web */
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const user: MockUser = JSON.parse(stored);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+    async function hydrate() {
+      try {
+        // Thử refresh token ngầm
+        const data = await api.post("/auth/refresh");
+        setAccessToken(data.accessToken);
+
+        // Lấy thông tin cá nhân hiện tại
+        const profileData = await api.get("/profile");
+        const user = {
+          id: profileData.userId,
+          email: profileData.user.email,
+          displayName: profileData.user.displayName,
+          avatarUrl: profileData.user.avatarUrl,
+          role: profileData.user.role,
+          username: profileData.username || profileData.user.email.split("@")[0],
+          avatar: profileData.user.avatarUrl || profileData.user.displayName?.trim().slice(0, 2).toUpperCase() || "TG",
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
         setState({ status: "authenticated", user });
-      } else {
+      } catch (err) {
+        // Không tìm thấy phiên hoặc refresh token đã hết hạn
+        localStorage.removeItem(STORAGE_KEY);
         setState({ status: "unauthenticated" });
       }
-    } catch {
+    }
+
+    hydrate();
+  }, []);
+
+  /* Lắng nghe sự kiện khi refresh token thất bại để tự động logout */
+  useEffect(() => {
+    function handleAuthFailure() {
+      setAccessToken(null);
+      localStorage.removeItem(STORAGE_KEY);
       setState({ status: "unauthenticated" });
     }
+
+    window.addEventListener("toeic-auth-failed", handleAuthFailure);
+    return () => window.removeEventListener("toeic-auth-failed", handleAuthFailure);
   }, []);
 
   const login = useCallback(
-    (username: string, password: string): { ok: boolean; error?: string } => {
-      const key = username.toLowerCase().trim();
-      const account = MOCK_ACCOUNTS[key];
-
-      if (!account) {
-        return { ok: false, error: "Tài khoản không tồn tại." };
+    async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const data = await api.post("/auth/login", { email, password });
+        const user = mapUser(data.user);
+        setAccessToken(data.accessToken);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+        setState({ status: "authenticated", user });
+        return { ok: true };
+      } catch (err: any) {
+        return { ok: false, error: err.message || "Đăng nhập thất bại." };
       }
-      if (account.password !== password) {
-        return { ok: false, error: "Mật khẩu không đúng." };
-      }
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(account.user));
-      setState({ status: "authenticated", user: account.user });
-      return { ok: true };
     },
     []
   );
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setState({ status: "unauthenticated" });
+  const register = useCallback(
+    async (displayName: string, email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        await api.post("/auth/register", { displayName, email, password });
+        return { ok: true };
+      } catch (err: any) {
+        return { ok: false, error: err.message || "Đăng ký thất bại." };
+      }
+    },
+    []
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      console.error("Logout error", err);
+    } finally {
+      setAccessToken(null);
+      localStorage.removeItem(STORAGE_KEY);
+      setState({ status: "unauthenticated" });
+    }
   }, []);
 
   const updateUser = useCallback(
-    (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => {
+    (updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>) => {
       if (state.status !== "authenticated") {
         return;
       }
 
       const nextUser = {
         ...state.user,
-        ...updates
+        ...updates,
+        avatar: updates.avatar || state.user.avatar,
+        displayName: updates.displayName || state.user.displayName,
+        username: updates.username || state.user.username,
       };
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
@@ -125,10 +176,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: state.status === "authenticated",
       isLoading: state.status === "loading",
       login,
+      register,
       logout,
       updateUser,
     }),
-    [state, login, logout, updateUser]
+    [state, login, register, logout, updateUser]
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

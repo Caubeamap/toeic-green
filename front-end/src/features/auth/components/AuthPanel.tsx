@@ -50,9 +50,9 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
 
   /* Listen for login attempt from LoginForm */
   useEffect(() => {
-    function handleLoginAttempt(e: Event) {
-      const { username, password } = (e as CustomEvent).detail;
-      const result = login(username, password);
+    async function handleLoginAttempt(e: Event) {
+      const { email, password } = (e as CustomEvent).detail;
+      const result = await login(email, password);
 
       if (result.ok) {
         router.push(redirectTo);

@@ -17,7 +17,7 @@ import { loadPracticeAttempts } from "@/features/practice";
 import { loadWords } from "@/features/vocabulary/services/storage";
 import type { VocabularyWord } from "@/features/vocabulary/types";
 import { cn } from "@/lib/utils";
-import { loadUserProfile } from "../services/profile";
+import { loadUserProfile, getDefaultUserProfile } from "../services/profile";
 import type { UserProfile as UserProfileData } from "../types";
 
 const bannerTones: Record<UserProfileData["bannerTone"], string> = {
@@ -65,25 +65,26 @@ export function UserProfile() {
   const [stats, setStats] = useState<ProfileStats>(emptyStats);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (!user) {
-        setProfile(null);
-        setStats(emptyStats);
-        return;
-      }
+    if (!user) {
+      setProfile(null);
+      setStats(emptyStats);
+      return;
+    }
 
-      const nextProfile = loadUserProfile(user);
-      const words = loadWords();
-      const vocabularyStats = getProfileStats(words);
-
-      setProfile(nextProfile);
-      setStats({
-        ...vocabularyStats,
-        attempts: loadPracticeAttempts().length
+    loadUserProfile(user)
+      .then((nextProfile) => {
+        setProfile(nextProfile);
+      })
+      .catch(() => {
+        setProfile(getDefaultUserProfile(user));
       });
-    }, 0);
 
-    return () => window.clearTimeout(timer);
+    const words = loadWords();
+    const vocabularyStats = getProfileStats(words);
+    setStats({
+      ...vocabularyStats,
+      attempts: loadPracticeAttempts().length
+    });
   }, [user]);
 
   const profileDetails = useMemo(() => {

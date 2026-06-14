@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2409/api";
 
 let accessToken: string | null = null;
 
@@ -10,15 +10,36 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-type RequestOptions = RequestInit & {
-  body?: any;
+type RequestOptions = Omit<RequestInit, "body"> & {
+  body?: unknown;
 };
 
-async function request(path: string, options: RequestOptions = {}): Promise<any> {
+type RefreshResponse = {
+  accessToken: string;
+};
+
+function hasMessage(value: unknown): value is { message: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "message" in value &&
+    typeof value.message === "string"
+  );
+}
+
+export function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+async function request<ResponseData = void>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<ResponseData> {
   const url = `${BASE_URL}${path}`;
   const headers = new Headers(options.headers || {});
+  const { body, ...requestInit } = options;
 
-  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+  if (!headers.has("Content-Type") && !(body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -27,13 +48,15 @@ async function request(path: string, options: RequestOptions = {}): Promise<any>
   }
 
   const fetchOptions: RequestInit = {
-    ...options,
+    ...requestInit,
     headers,
     credentials: "include", // Gửi nhận cookie refresh_token
   };
 
-  if (options.body && !(options.body instanceof FormData)) {
-    fetchOptions.body = JSON.stringify(options.body);
+  if (body instanceof FormData) {
+    fetchOptions.body = body;
+  } else if (body !== undefined) {
+    fetchOptions.body = JSON.stringify(body);
   }
 
   let response = await fetch(url, fetchOptions);
@@ -54,7 +77,7 @@ async function request(path: string, options: RequestOptions = {}): Promise<any>
       });
 
       if (refreshResponse.ok) {
-        const data = await refreshResponse.json();
+        const data = (await refreshResponse.json()) as RefreshResponse;
         accessToken = data.accessToken;
 
         // Gọi lại request ban đầu với token mới
@@ -80,8 +103,10 @@ async function request(path: string, options: RequestOptions = {}): Promise<any>
   if (!response.ok) {
     let errorMessage = "Đã xảy ra lỗi hệ thống.";
     try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
+      const errorData: unknown = await response.json();
+      if (hasMessage(errorData)) {
+        errorMessage = errorData.message;
+      }
     } catch {
       // Bỏ qua lỗi parse
     }
@@ -90,16 +115,30 @@ async function request(path: string, options: RequestOptions = {}): Promise<any>
 
   const contentType = response.headers.get("content-type");
   if (contentType && contentType.includes("application/json")) {
-    return response.json();
+    return response.json() as Promise<ResponseData>;
   }
 
-  return null;
+  return undefined as ResponseData;
 }
 
 export const api = {
-  get: (path: string, options?: RequestOptions) => request(path, { ...options, method: "GET" }),
-  post: (path: string, body?: any, options?: RequestOptions) => request(path, { ...options, method: "POST", body }),
-  put: (path: string, body?: any, options?: RequestOptions) => request(path, { ...options, method: "PUT", body }),
-  patch: (path: string, body?: any, options?: RequestOptions) => request(path, { ...options, method: "PATCH", body }),
-  delete: (path: string, options?: RequestOptions) => request(path, { ...options, method: "DELETE" }),
+  get: <ResponseData = void>(path: string, options?: RequestOptions) =>
+    request<ResponseData>(path, { ...options, method: "GET" }),
+  post: <ResponseData = void>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions
+  ) => request<ResponseData>(path, { ...options, method: "POST", body }),
+  put: <ResponseData = void>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions
+  ) => request<ResponseData>(path, { ...options, method: "PUT", body }),
+  patch: <ResponseData = void>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions
+  ) => request<ResponseData>(path, { ...options, method: "PATCH", body }),
+  delete: <ResponseData = void>(path: string, options?: RequestOptions) =>
+    request<ResponseData>(path, { ...options, method: "DELETE" }),
 };

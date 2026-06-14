@@ -78,11 +78,11 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
 
   const practiceHref = isAuthenticated
     ? `/practice/${currentTest.id}/test?${queryParams.toString()}`
-    : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start?${queryParams.toString()}`)}`;
+    : "/login";
 
   const fullTestHref = isAuthenticated
     ? `/practice/${currentTest.id}/test?mode=full`
-    : `/login?next=${encodeURIComponent(`/practice/${currentTest.id}/start?mode=full`)}`;
+    : "/login";
   const isSpeakingWriting = currentTest.type === "Speaking & Writing";
 
   return (

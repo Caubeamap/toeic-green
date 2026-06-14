@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BookOpenCheck,
   CalendarDays,
   Edit3,
-  LogIn,
   Mail,
   ShieldCheck,
   Sparkles,
@@ -60,31 +60,60 @@ function formatDate(value: string) {
 }
 
 export function UserProfile() {
+  const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [profile, setProfile] = useState<UserProfileData | null>(null);
-  const [stats, setStats] = useState<ProfileStats>(emptyStats);
+  const [loadedProfile, setLoadedProfile] = useState<{
+    profile: UserProfileData;
+    userId: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!user) {
-      setProfile(null);
-      setStats(emptyStats);
       return;
     }
 
+    let cancelled = false;
+
     loadUserProfile(user)
       .then((nextProfile) => {
-        setProfile(nextProfile);
+        if (!cancelled) {
+          setLoadedProfile({ profile: nextProfile, userId: user.id });
+        }
       })
       .catch(() => {
-        setProfile(getDefaultUserProfile(user));
+        if (!cancelled) {
+          setLoadedProfile({
+            profile: getDefaultUserProfile(user),
+            userId: user.id
+          });
+        }
       });
 
-    const words = loadWords();
-    const vocabularyStats = getProfileStats(words);
-    setStats({
-      ...vocabularyStats,
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  const profile =
+    loadedProfile && loadedProfile.userId === user?.id
+      ? loadedProfile.profile
+      : null;
+
+  const stats = useMemo<ProfileStats>(() => {
+    if (!user) {
+      return emptyStats;
+    }
+
+    return {
+      ...getProfileStats(loadWords()),
       attempts: loadPracticeAttempts().length
-    });
+    };
   }, [user]);
 
   const profileDetails = useMemo(() => {
@@ -111,39 +140,15 @@ export function UserProfile() {
     ];
   }, [profile]);
 
-  if (isLoading) {
+  if (isLoading || !isAuthenticated || !user || !profile) {
     return (
       <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">
         <div className="container-shell">
           <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-soft">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="mt-4 text-sm font-bold text-muted">Đang tải hồ sơ...</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (!isAuthenticated || !user || !profile) {
-    return (
-      <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">
-        <div className="container-shell">
-          <div className="mx-auto max-w-lg rounded-xl border border-slate-200 bg-white p-8 text-center shadow-soft">
-            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-primary-container text-primary">
-              <LogIn className="h-6 w-6" />
-            </span>
-            <h1 className="mt-5 text-2xl font-extrabold text-ink">
-              Đăng nhập để xem trang cá nhân
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Hồ sơ cá nhân sẽ hiển thị thông tin tài khoản và hoạt động học tập của bạn.
+            <p className="mt-4 text-sm font-bold text-muted">
+              {isAuthenticated ? "Đang tải hồ sơ..." : "Đang chuyển hướng..."}
             </p>
-            <Link
-              href="/login?next=/profile"
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
-            >
-              Đăng nhập
-            </Link>
           </div>
         </div>
       </section>

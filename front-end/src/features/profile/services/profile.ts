@@ -2,9 +2,30 @@ import type { MockUser } from "@/features/auth";
 import type { UserProfile } from "../types";
 import { api } from "@/lib/api";
 
+type ProfileResponse = {
+  bannerTone?: string | null;
+  bio?: string | null;
+  updatedAt: string;
+  userId: string;
+  username?: string | null;
+  user: {
+    avatarUrl?: string | null;
+    displayName: string;
+    email: string;
+  };
+};
+
 function normalizeAvatar(value: string) {
   const normalized = value.trim().slice(0, 3).toUpperCase();
   return normalized || "TG";
+}
+
+function normalizeBannerTone(value?: string | null): UserProfile["bannerTone"] {
+  if (value === "sky" || value === "sunrise") {
+    return value;
+  }
+
+  return "mint";
 }
 
 export function getDefaultUserProfile(user: MockUser): UserProfile {
@@ -22,11 +43,11 @@ export function getDefaultUserProfile(user: MockUser): UserProfile {
 
 export async function loadUserProfile(user: MockUser): Promise<UserProfile> {
   try {
-    const data = await api.get("/profile");
+    const data = await api.get<ProfileResponse>("/profile");
     return {
       accountId: data.userId,
       avatar: normalizeAvatar(data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG"),
-      bannerTone: data.bannerTone || "mint",
+      bannerTone: normalizeBannerTone(data.bannerTone),
       bio: data.bio || "",
       displayName: data.user.displayName || "",
       email: data.user.email,
@@ -48,12 +69,12 @@ export async function saveUserProfile(profile: UserProfile): Promise<UserProfile
     avatarUrl: profile.avatar,
   };
 
-  const data = await api.patch("/profile", updateData);
+  const data = await api.patch<ProfileResponse>("/profile", updateData);
 
   return {
     accountId: data.userId,
     avatar: normalizeAvatar(data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG"),
-    bannerTone: data.bannerTone || "mint",
+    bannerTone: normalizeBannerTone(data.bannerTone),
     bio: data.bio || "",
     displayName: data.user.displayName || "",
     email: data.user.email,

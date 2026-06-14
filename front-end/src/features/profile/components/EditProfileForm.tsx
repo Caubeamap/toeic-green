@@ -6,6 +6,7 @@ import type { FormEvent, ReactNode } from "react";
 import { ArrowLeft, CheckCircle2, Save, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth";
+import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   getDefaultUserProfile,
@@ -39,27 +40,51 @@ const bannerOptions: Array<{
 export function EditProfileForm() {
   const router = useRouter();
   const { isAuthenticated, isLoading, updateUser, user } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loadedProfile, setLoadedProfile] = useState<{
+    profile: UserProfile;
+    userId: string;
+  } | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      setProfile(null);
       return;
     }
 
+    let cancelled = false;
+
     loadUserProfile(user)
       .then((nextProfile) => {
-        setProfile(nextProfile);
+        if (!cancelled) {
+          setLoadedProfile({ profile: nextProfile, userId: user.id });
+        }
       })
       .catch(() => {
-        setProfile(getDefaultUserProfile(user));
+        if (!cancelled) {
+          setLoadedProfile({
+            profile: getDefaultUserProfile(user),
+            userId: user.id
+          });
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
+  const profile =
+    loadedProfile && loadedProfile.userId === user?.id
+      ? loadedProfile.profile
+      : null;
+
   function updateField<Key extends keyof UserProfile>(key: Key, value: UserProfile[Key]) {
-    setProfile((current) => (current ? { ...current, [key]: value } : current));
+    setLoadedProfile((current) =>
+      current
+        ? { ...current, profile: { ...current.profile, [key]: value } }
+        : current
+    );
     setSaved(false);
     setError("");
   }
@@ -67,7 +92,7 @@ export function EditProfileForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!profile) {
+    if (!profile || !user) {
       return;
     }
 
@@ -89,15 +114,15 @@ export function EditProfileForm() {
         displayName: nextProfile.displayName,
         username: nextProfile.username
       });
-      setProfile(nextProfile);
+      setLoadedProfile({ profile: nextProfile, userId: user.id });
       setSaved(true);
       router.push("/profile");
-    } catch (err: any) {
-      setError(err.message || "Không thể cập nhật hồ sơ cá nhân.");
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Không thể cập nhật hồ sơ cá nhân."));
     }
   }
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && user && !profile)) {
     return (
       <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">
         <div className="container-shell">
@@ -110,7 +135,7 @@ export function EditProfileForm() {
     );
   }
 
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !user || !profile) {
     return (
       <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">
         <div className="container-shell">
@@ -125,7 +150,7 @@ export function EditProfileForm() {
               Thông tin cá nhân được gắn với tài khoản TOEIC Green của bạn.
             </p>
             <Link
-              href="/login?next=/profile/edit"
+              href="/login"
               className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
             >
               Đăng nhập
@@ -136,7 +161,7 @@ export function EditProfileForm() {
     );
   }
 
-  const currentProfile = profile ?? getDefaultUserProfile(user);
+  const currentProfile = profile;
 
   return (
     <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">

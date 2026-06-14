@@ -13,7 +13,6 @@ type AuthMode = "login" | "signup";
 
 type AuthPanelProps = {
   initialMode: AuthMode;
-  redirectTo: string;
 };
 
 /* ─────────────────────── Animation config ─────────────────────── */
@@ -36,7 +35,7 @@ const headings: Record<AuthMode, { title: string; subtitle: string }> = {
    AuthPanel — Client Component with animated form switching
    ═══════════════════════════════════════════════════════════════ */
 
-export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
+export function AuthPanel({ initialMode }: AuthPanelProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
@@ -44,9 +43,9 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
   /* Redirect immediately if already authenticated */
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(redirectTo);
+      router.replace("/");
     }
-  }, [isAuthenticated, redirectTo, router]);
+  }, [isAuthenticated, router]);
 
   /* Listen for login attempt from LoginForm */
   useEffect(() => {
@@ -54,9 +53,7 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
       const { email, password } = (e as CustomEvent).detail;
       const result = await login(email, password);
 
-      if (result.ok) {
-        router.push(redirectTo);
-      } else {
+      if (!result.ok) {
         /* Re-dispatch error back so LoginForm can display it */
         window.dispatchEvent(
           new CustomEvent("toeic-login-error", {
@@ -69,7 +66,7 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
     window.addEventListener("toeic-login-attempt", handleLoginAttempt);
     return () =>
       window.removeEventListener("toeic-login-attempt", handleLoginAttempt);
-  }, [login, redirectTo, router]);
+  }, [login]);
 
   function switchMode(newMode: AuthMode) {
     if (newMode === mode) return;
@@ -78,7 +75,6 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
     // Sync URL without full navigation
     const params = new URLSearchParams();
     params.set("mode", newMode);
-    params.set("next", redirectTo);
     router.replace(`/login?${params.toString()}`, { scroll: false });
   }
 

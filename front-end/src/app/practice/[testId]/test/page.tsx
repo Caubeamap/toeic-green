@@ -68,11 +68,9 @@ function TestPageContent() {
   /* Redirect to login if not authenticated */
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace(
-        `/login?next=${encodeURIComponent(`/practice/${params.testId}/start`)}`
-      );
+      router.replace("/login");
     }
-  }, [isLoading, isAuthenticated, params.testId, router]);
+  }, [isLoading, isAuthenticated, router]);
 
   const showLoading = isLoading || (isAuthenticated && loadingQuestions);
 

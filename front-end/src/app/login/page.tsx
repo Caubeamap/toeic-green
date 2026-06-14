@@ -17,7 +17,6 @@ type AuthMode = "login" | "signup";
 type LoginPageProps = {
   searchParams: Promise<{
     mode?: string;
-    next?: string;
   }>;
 };
 
@@ -39,9 +38,8 @@ const benefits = [
 /* ─────────────────────── Page Component ─────────────────────── */
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { mode, next } = await searchParams;
+  const { mode } = await searchParams;
   const activeMode: AuthMode = mode === "signup" ? "signup" : "login";
-  const redirectTo = sanitizeRedirect(next);
 
   return (
     <>
@@ -77,7 +75,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           {/* ──── Right Side: Auth Card (Client Component with animations) ──── */}
           <div className="flex justify-center">
-            <AuthPanel initialMode={activeMode} redirectTo={redirectTo} />
+            <AuthPanel initialMode={activeMode} />
           </div>
         </section>
 
@@ -97,13 +95,4 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <SiteFooter />
     </>
   );
-}
-
-/* ─────────────────────── Utilities ─────────────────────── */
-
-function sanitizeRedirect(next?: string) {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/practice";
-  }
-  return next;
 }

@@ -14,6 +14,7 @@ import {
   UserRound
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/api";
 import { useAuth } from "../hooks/auth";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -538,10 +539,10 @@ export function SignupForm() {
           message: result.error || "Đăng ký không thành công."
         });
       }
-    } catch (err: any) {
+    } catch (error: unknown) {
       setStatus({
         type: "error",
-        message: err.message || "Đăng ký không thành công."
+        message: getErrorMessage(error, "Đăng ký không thành công.")
       });
     }
   }

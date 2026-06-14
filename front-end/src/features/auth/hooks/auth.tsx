@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, setAccessToken } from "@/lib/api";
+import { api, getErrorMessage, setAccessToken } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -44,18 +44,43 @@ type AuthContextValue = {
 
 const STORAGE_KEY = "toeic-green-auth";
 
+type BackendUser = {
+  avatarUrl?: string | null;
+  displayName: string;
+  email: string;
+  id: string;
+  role: string;
+  username?: string | null;
+};
+
+type LoginResponse = {
+  accessToken: string;
+  user: BackendUser;
+};
+
+type ProfileResponse = {
+  updatedAt: string;
+  userId: string;
+  username?: string | null;
+  user: Omit<BackendUser, "id">;
+};
+
+type RefreshResponse = {
+  accessToken: string;
+};
+
 /* ═══════════════════════════════════════════════════════════════
    Context
    ═══════════════════════════════════════════════════════════════ */
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function mapUser(backendUser: any): MockUser {
+function mapUser(backendUser: BackendUser): MockUser {
   return {
     id: backendUser.id,
     email: backendUser.email,
     displayName: backendUser.displayName,
-    avatarUrl: backendUser.avatarUrl,
+    avatarUrl: backendUser.avatarUrl ?? undefined,
     role: backendUser.role,
     username: backendUser.username || backendUser.email.split("@")[0],
     avatar: backendUser.avatarUrl || backendUser.displayName?.trim().slice(0, 2).toUpperCase() || "TG",
@@ -70,16 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function hydrate() {
       try {
         // Thử refresh token ngầm
-        const data = await api.post("/auth/refresh");
+        const data = await api.post<RefreshResponse>("/auth/refresh");
         setAccessToken(data.accessToken);
 
         // Lấy thông tin cá nhân hiện tại
-        const profileData = await api.get("/profile");
+        const profileData = await api.get<ProfileResponse>("/profile");
         const user = {
           id: profileData.userId,
           email: profileData.user.email,
           displayName: profileData.user.displayName,
-          avatarUrl: profileData.user.avatarUrl,
+          avatarUrl: profileData.user.avatarUrl ?? undefined,
           role: profileData.user.role,
           username: profileData.username || profileData.user.email.split("@")[0],
           avatar: profileData.user.avatarUrl || profileData.user.displayName?.trim().slice(0, 2).toUpperCase() || "TG",
@@ -87,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
         setState({ status: "authenticated", user });
-      } catch (err) {
+      } catch {
         // Không tìm thấy phiên hoặc refresh token đã hết hạn
         localStorage.removeItem(STORAGE_KEY);
         setState({ status: "unauthenticated" });
@@ -112,14 +137,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
       try {
-        const data = await api.post("/auth/login", { email, password });
+        const data = await api.post<LoginResponse>("/auth/login", {
+          email,
+          password
+        });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
         setState({ status: "authenticated", user });
         return { ok: true };
-      } catch (err: any) {
-        return { ok: false, error: err.message || "Đăng nhập thất bại." };
+      } catch (error: unknown) {
+        return {
+          ok: false,
+          error: getErrorMessage(error, "Đăng nhập thất bại.")
+        };
       }
     },
     []
@@ -130,8 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await api.post("/auth/register", { displayName, email, password });
         return { ok: true };
-      } catch (err: any) {
-        return { ok: false, error: err.message || "Đăng ký thất bại." };
+      } catch (error: unknown) {
+        return {
+          ok: false,
+          error: getErrorMessage(error, "Đăng ký thất bại.")
+        };
       }
     },
     []

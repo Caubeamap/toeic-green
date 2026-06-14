@@ -38,9 +38,24 @@ export class ProfileService {
       throw new NotFoundException('Không tìm thấy hồ sơ cá nhân để cập nhật');
     }
 
+    const { displayName, avatarUrl, ...profileData } = updateProfileDto;
+
+    // 1. Cập nhật thông tin User nếu có thay đổi
+    if (displayName !== undefined || avatarUrl !== undefined) {
+      const userData: { displayName?: string; avatarUrl?: string } = {};
+      if (displayName !== undefined) userData.displayName = displayName;
+      if (avatarUrl !== undefined) userData.avatarUrl = avatarUrl;
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: userData,
+      });
+    }
+
+    // 2. Cập nhật thông tin UserProfile và trả về kết quả
     return this.prisma.userProfile.update({
       where: { userId },
-      data: updateProfileDto,
+      data: profileData,
       include: {
         user: {
           select: {

@@ -13,4 +13,13 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: 'Tone banner phải là chuỗi ký tự' })
   bannerTone?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Họ và tên phải là chuỗi ký tự' })
+  @Length(2, 50, { message: 'Họ và tên phải từ 2 đến 50 ký tự' })
+  displayName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Đường dẫn ảnh đại diện phải là chuỗi ký tự' })
+  avatarUrl?: string;
 }

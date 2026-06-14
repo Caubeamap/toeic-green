@@ -460,7 +460,7 @@ function CollectionCard({
 
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/70 pt-4">
         <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-black text-[9px] font-black text-white">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-[#d4f9d2] text-[9px] font-black text-primary shadow-soft">
             TG
           </span>
           <span className="text-sm font-extrabold leading-5 text-ink">

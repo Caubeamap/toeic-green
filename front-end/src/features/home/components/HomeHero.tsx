@@ -67,7 +67,7 @@ export function HomeHero() {
               </span>
               <div>
                 <p className="text-label-md font-semibold text-primary">Mục tiêu</p>
-                <p className="text-headline-md font-bold text-on-surface">850</p>
+                <p className="text-headline-md font-bold text-on-surface">850+</p>
               </div>
             </div>
           </div>

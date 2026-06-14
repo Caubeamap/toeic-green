@@ -21,9 +21,9 @@ import { loadUserProfile } from "../services/profile";
 import type { UserProfile as UserProfileData } from "../types";
 
 const bannerTones: Record<UserProfileData["bannerTone"], string> = {
-  mint: "from-[#baf7c3] via-[#e9fff0] to-[#d7efff]",
-  sky: "from-[#dce9ff] via-[#f6f8ff] to-[#c6f0ff]",
-  sunrise: "from-[#ffe1c4] via-[#fff7df] to-[#cdf8e0]"
+  mint: "bg-[#eafaf1]",
+  sky: "bg-[#edf4fe]",
+  sunrise: "bg-[#fff9f2]"
 };
 
 type ProfileStats = {
@@ -153,16 +153,25 @@ export function UserProfile() {
     <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">
       <div className="container-shell">
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-          <div className={cn("relative h-36 bg-gradient-to-r", bannerTones[profile.bannerTone])}>
-            <div className="absolute -left-12 top-0 h-40 w-64 -skew-x-12 bg-primary/80" />
-            <div className="absolute left-48 top-0 h-40 w-56 -skew-x-12 bg-secondary/80" />
-            <div className="absolute right-0 top-0 h-40 w-80 -skew-x-12 bg-[#ff8f5f]/90" />
+          <div className={cn("relative h-36 overflow-hidden", bannerTones[profile.bannerTone])}>
+            {/* Minimalist Grid Pattern Overlay */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.03)_1px,transparent_1px)] bg-[size:16px_16px]" />
+            
+            {/* Elegant Minimalist Geometric Circles (No blur, just clean border) */}
+            <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full border border-black/[0.04] bg-black/[0.005]" />
+            <div className="absolute -left-5 -top-5 h-28 w-28 rounded-full border border-black/[0.03] bg-black/[0.005]" />
+            
+            <div className="absolute right-10 -bottom-10 h-32 w-32 rounded-full border border-black/[0.04] bg-black/[0.005]" />
+            <div className="absolute right-20 -bottom-5 h-20 w-20 rounded-full border border-black/[0.03] bg-black/[0.005]" />
+            
+            {/* Simple Bottom border line */}
+            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200/60" />
           </div>
 
           <div className="px-5 pb-7 sm:px-8">
             <div className="relative -mt-16 flex flex-col items-center text-center">
               <div className="relative">
-                <div className="grid h-32 w-32 place-items-center rounded-full border-4 border-white bg-black text-3xl font-extrabold text-white shadow-soft">
+                <div className="grid h-32 w-32 place-items-center rounded-full border-4 border-white bg-[#d4f9d2] text-3xl font-extrabold text-primary shadow-soft">
                   {profile.avatar}
                 </div>
                 <Link

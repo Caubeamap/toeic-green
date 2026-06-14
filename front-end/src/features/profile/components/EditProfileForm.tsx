@@ -22,17 +22,17 @@ const bannerOptions: Array<{
   {
     label: "Mint",
     tone: "mint",
-    preview: "from-[#baf7c3] via-[#e9fff0] to-[#d7efff]"
+    preview: "bg-[#eafaf1]"
   },
   {
     label: "Sky",
     tone: "sky",
-    preview: "from-[#dce9ff] via-[#f6f8ff] to-[#c6f0ff]"
+    preview: "bg-[#edf4fe]"
   },
   {
     label: "Sunrise",
     tone: "sunrise",
-    preview: "from-[#ffe1c4] via-[#fff7df] to-[#cdf8e0]"
+    preview: "bg-[#fff9f2]"
   }
 ];
 
@@ -212,7 +212,7 @@ export function EditProfileForm() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
                 <p className="text-sm font-extrabold text-ink">Ảnh đại diện</p>
                 <div className="mt-4 flex items-center gap-4">
-                  <div className="grid h-20 w-20 place-items-center rounded-full bg-black text-xl font-extrabold text-white">
+                  <div className="grid h-20 w-20 place-items-center rounded-full bg-[#d4f9d2] text-xl font-extrabold text-primary shadow-soft">
                     {currentProfile.avatar}
                   </div>
                   <input
@@ -245,7 +245,7 @@ export function EditProfileForm() {
                     >
                       <span
                         className={cn(
-                          "h-10 w-24 rounded-md bg-gradient-to-r",
+                          "h-10 w-24 rounded-md border border-slate-200",
                           option.preview
                         )}
                       />

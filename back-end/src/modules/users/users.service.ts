@@ -16,4 +16,28 @@ export class UsersService {
       where: { id },
     });
   }
+
+  async create(email: string, passwordHash: string, displayName: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          displayName,
+        },
+      });
+
+      await tx.userProfile.create({
+        data: {
+          userId: user.id,
+          targetScore: 450,
+          currentLevel: 'BEGINNER',
+          bannerTone: 'mint',
+          studyHoursPerWeek: 5,
+        },
+      });
+
+      return user;
+    });
+  }
 }

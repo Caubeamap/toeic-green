@@ -41,7 +41,6 @@ export function HomeHero() {
           </Link>
         </div>
 
-
       </div>
 
       <div className="relative">

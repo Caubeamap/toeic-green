@@ -44,13 +44,11 @@ model OAuthAccount {
 }
 
 model UserProfile {
-  userId            String   @id @map("user_id") @db.Uuid
-  targetScore       Int      @default(450) @map("target_score")
-  currentLevel      String   @default("BEGINNER") @map("current_level")
-  bio               String?
-  bannerTone        String   @default("mint") @map("banner_tone")
-  studyHoursPerWeek Int      @default(5) @map("study_hours_per_week")
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  userId     String   @id @map("user_id") @db.Uuid
+  username   String?  @unique
+  bio        String?
+  bannerTone String   @default("mint") @map("banner_tone")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -123,7 +121,6 @@ model Question {
   explanation    String?
   imageUrl       String?  @map("image_url")
   audioUrl       String?  @map("audio_url")
-  difficulty     String   @default("MEDIUM")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   testPart       TestPart @relation(fields: [testPartId], references: [id], onDelete: Cascade)
@@ -183,6 +180,8 @@ model UserVocabulary {
   status             String    @default("LEARNING")
   isFavorite         Boolean   @default(false) @map("is_favorite")
   note               String?
+  audioUrl           String?   @map("audio_url")
+  reviewCount        Int       @default(0) @map("review_count")
   lastReviewedAt     DateTime? @map("last_reviewed_at") @db.Timestamptz
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
 

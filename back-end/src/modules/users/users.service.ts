@@ -30,10 +30,7 @@ export class UsersService {
       await tx.userProfile.create({
         data: {
           userId: user.id,
-          targetScore: 450,
-          currentLevel: 'BEGINNER',
           bannerTone: 'mint',
-          studyHoursPerWeek: 5,
         },
       });
 

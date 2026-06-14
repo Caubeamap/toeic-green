@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String         @unique
+  passwordHash String?        @map("password_hash")
+  displayName  String         @map("display_name")
+  avatarUrl    String?        @map("avatar_url")
+  role         String         @default("USER")
+  status       String         @default("ACTIVE")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  
+  profile         UserProfile?
+  oauthAccounts   OAuthAccount[]
+  attempts        PracticeAttempt[]
+  vocabularies    UserVocabulary[]
+  exploreProgress ExploreProgress[]
+  wordRatings     WordRating[]
+
+  @@map("users")
+}
+
+model OAuthAccount {
+  id             BigInt   @id @default(autoincrement())
+  userId         String   @map("user_id") @db.Uuid
+  provider       String
+  providerUserId String   @map("provider_user_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_accounts")
+}
+
+model UserProfile {
+  userId            String   @id @map("user_id") @db.Uuid
+  targetScore       Int      @default(450) @map("target_score")
+  currentLevel      String   @default("BEGINNER") @map("current_level")
+  bio               String?
+  bannerTone        String   @default("mint") @map("banner_tone")
+  studyHoursPerWeek Int      @default(5) @map("study_hours_per_week")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Test {
+  id              Int      @id @default(autoincrement())
+  slug            String   @unique
+  title           String
+  subtitle        String?
+  type            String
+  shortType       String   @map("short_type")
+  durationMinutes Int      @default(120) @map("duration_minutes")
+  totalQuestions  Int      @default(200) @map("total_questions")
+  accessLevel     String   @default("FREE") @map("access_level")
+  isPublished     Boolean  @default(false) @map("is_published")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  parts           TestPart[]
+  attempts        PracticeAttempt[]
+
+  @@map("tests")
+}
+
+model TestPart {
+  id            Int      @id @default(autoincrement())
+  testId        Int      @map("test_id")
+  partNumber    Int      @map("part_number")
+  section       String
+  label         String
+  description   String
+  questionCount Int      @map("question_count")
+
+  test          Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  questionGroups QuestionGroup[]
+  questions     Question[]
+
+  @@unique([testId, partNumber])
+  @@map("test_parts")
+}
+
+model QuestionGroup {
+  id         BigInt   @id @default(autoincrement())
+  testPartId Int      @map("test_part_id")
+  passage    String?
+  audioUrl   String?  @map("audio_url")
+  imageUrl   String?  @map("image_url")
+  transcript String?
+  sortOrder  Int      @default(0) @map("sort_order")
+
+  testPart   TestPart @relation(fields: [testPartId], references: [id], onDelete: Cascade)
+  questions  Question[]
+
+  @@map("question_groups")
+}
+
+model Question {
+  id             BigInt   @id @default(autoincrement())
+  testPartId     Int      @map("test_part_id")
+  groupId        BigInt?  @map("group_id")
+  questionNumber Int      @map("question_number")
+  stem           String
+  optionA        String   @map("option_a")
+  optionB        String   @map("option_b")
+  optionC        String   @map("option_c")
+  optionD        String?  @map("option_d")
+  correctAnswer  String   @map("correct_answer") @db.Char(1)
+  explanation    String?
+  imageUrl       String?  @map("image_url")
+  audioUrl       String?  @map("audio_url")
+  difficulty     String   @default("MEDIUM")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  testPart       TestPart @relation(fields: [testPartId], references: [id], onDelete: Cascade)
+  group          QuestionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  answers        AttemptAnswer[]
+
+  @@unique([testPartId, questionNumber])
+  @@map("questions")
+}
+
+model PracticeAttempt {
+  id              BigInt    @id @default(autoincrement())
+  publicId        String    @unique @default(dbgenerated("gen_random_uuid()")) @map("public_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  testId          Int       @map("test_id")
+  mode            String
+  status          String    @default("IN_PROGRESS")
+  correctCount    Int       @default(0) @map("correct_count")
+  totalCount      Int       @default(0) @map("total_count")
+  scaledScore     Int?      @map("scaled_score")
+  durationSeconds Int       @default(0) @map("duration_seconds")
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  test            Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  answers         AttemptAnswer[]
+
+  @@map("practice_attempts")
+}
+
+model AttemptAnswer {
+  attemptId      BigInt    @map("attempt_id")
+  questionId     BigInt    @map("question_id")
+  selectedAnswer String?   @map("selected_answer") @db.Char(1)
+  isCorrect      Boolean   @default(false) @map("is_correct")
+  isFlagged      Boolean   @default(false) @map("is_flagged")
+  timeSpentMs    Int       @default(0) @map("time_spent_ms")
+  answeredAt     DateTime  @default(now()) @map("answered_at") @db.Timestamptz
+
+  attempt        PracticeAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([attemptId, questionId])
+  @@map("attempt_answers")
+}
+
+model UserVocabulary {
+  id                 BigInt    @id @default(autoincrement())
+  userId             String    @map("user_id") @db.Uuid
+  word               String
+  phonetic           String?
+  partOfSpeech       String?   @map("part_of_speech")
+  meaning            String
+  example            String?
+  exampleTranslation String?   @map("example_translation")
+  status             String    @default("LEARNING")
+  isFavorite         Boolean   @default(false) @map("is_favorite")
+  note               String?
+  lastReviewedAt     DateTime? @map("last_reviewed_at") @db.Timestamptz
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, word])
+  @@map("user_vocabularies")
+}
+
+model ExploreCollection {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  title       String
+  description String?
+  category    String?
+  level       String?
+  wordCount   Int      @default(0) @map("word_count")
+  isPublished Boolean  @default(true) @map("is_published")
+  sortOrder   Int      @default(0) @map("sort_order")
+
+  words       ExploreWord[]
+  progress    ExploreProgress[]
+
+  @@map("explore_collections")
+}
+
+model ExploreWord {
+  id                 BigInt   @id @default(autoincrement())
+  collectionId       Int      @map("collection_id")
+  word               String
+  phonetic           String?
+  partOfSpeech       String?  @map("part_of_speech")
+  meaning            String
+  example            String?
+  exampleTranslation String?  @map("example_translation")
+  imageUrl           String?  @map("image_url")
+  audioUrl           String?  @map("audio_url")
+
+  collection         ExploreCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  ratings            WordRating[]
+
+  @@map("explore_words")
+}
+
+model ExploreProgress {
+  userId        String   @map("user_id") @db.Uuid
+  collectionId  Int      @map("collection_id")
+  isSaved       Boolean  @default(false) @map("is_saved")
+  isStudying    Boolean  @default(false) @map("is_studying")
+  lastStudiedAt DateTime @default(now()) @map("last_studied_at") @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection    ExploreCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, collectionId])
+  @@map("explore_progress")
+}
+
+model WordRating {
+  userId        String   @map("user_id") @db.Uuid
+  exploreWordId BigInt   @map("explore_word_id")
+  rating        String
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exploreWord   ExploreWord @relation(fields: [exploreWordId], references: [id], onDelete: Cascade)
+
+  @@id([userId, exploreWordId])
+  @@map("word_ratings")
+}

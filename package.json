@@ -4,8 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "npm --prefix front-end run dev",
+    "dev:frontend": "npm --prefix front-end run dev",
+    "dev:backend": "npm --prefix back-end run start:dev",
     "build": "npm --prefix front-end run build",
+    "build:frontend": "npm --prefix front-end run build",
+    "build:backend": "npm --prefix back-end run build",
     "lint": "npm --prefix front-end run lint",
-    "start": "npm --prefix front-end run start"
+    "start": "npm --prefix front-end run start",
+    "db:up": "docker compose -f back-end/docker-compose.yml up -d",
+    "db:down": "docker compose -f back-end/docker-compose.yml down"
   }
 }

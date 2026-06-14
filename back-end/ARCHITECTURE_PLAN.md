@@ -98,7 +98,7 @@ CREATE TABLE "users" (
 );
 
 CREATE TABLE "oauth_accounts" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "id" BIGSERIAL PRIMARY KEY,
     "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
     "provider" VARCHAR(50) NOT NULL, -- 'GOOGLE', 'GITHUB', 'FACEBOOK'
     "provider_user_id" VARCHAR(255) NOT NULL,
@@ -107,8 +107,7 @@ CREATE TABLE "oauth_accounts" (
 );
 
 CREATE TABLE "user_profiles" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "user_id" UUID UNIQUE NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "user_id" UUID PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE, -- Sử dụng luôn user_id làm khóa chính (quan hệ 1-1)
     "target_score" INTEGER DEFAULT 450,
     "current_level" VARCHAR(50) DEFAULT 'BEGINNER',
     "bio" TEXT,
@@ -119,8 +118,8 @@ CREATE TABLE "user_profiles" (
 
 -- 2. BẢNG ĐỀ THI & CÂU HỎI (TESTS & QUESTIONS)
 CREATE TABLE "tests" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "slug" VARCHAR(255) UNIQUE NOT NULL,
+    "id" SERIAL PRIMARY KEY, -- Sử dụng INT tự tăng vì số lượng đề thi rất nhỏ
+    "slug" VARCHAR(255) UNIQUE NOT NULL, -- Dùng cho URL hiển thị
     "title" VARCHAR(255) NOT NULL,
     "subtitle" VARCHAR(255),
     "type" VARCHAR(100) NOT NULL, -- 'Listening & Reading' hoặc 'Speaking & Writing'
@@ -134,8 +133,8 @@ CREATE TABLE "tests" (
 );
 
 CREATE TABLE "test_parts" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "test_id" UUID NOT NULL REFERENCES "tests"("id") ON DELETE CASCADE,
+    "id" SERIAL PRIMARY KEY, -- INT tự tăng
+    "test_id" INTEGER NOT NULL REFERENCES "tests"("id") ON DELETE CASCADE,
     "part_number" INTEGER NOT NULL, -- 1 đến 7
     "section" VARCHAR(50) NOT NULL, -- 'LISTENING', 'READING'
     "label" VARCHAR(50) NOT NULL, -- 'Part 1'
@@ -146,8 +145,8 @@ CREATE TABLE "test_parts" (
 
 -- Nhóm câu hỏi (Dùng cho Part 3, 4, 6, 7 - nhiều câu hỏi chung 1 audio/passage)
 CREATE TABLE "question_groups" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "test_part_id" UUID NOT NULL REFERENCES "test_parts"("id") ON DELETE CASCADE,
+    "id" BIGSERIAL PRIMARY KEY, -- BIGINT tự tăng
+    "test_part_id" INTEGER NOT NULL REFERENCES "test_parts"("id") ON DELETE CASCADE,
     "passage" TEXT, -- Đoạn văn đọc hiểu
     "audio_url" TEXT, -- Đường dẫn file nghe của cả nhóm câu hỏi
     "image_url" TEXT, -- Hình ảnh chung (nếu có)
@@ -156,9 +155,9 @@ CREATE TABLE "question_groups" (
 );
 
 CREATE TABLE "questions" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "test_part_id" UUID NOT NULL REFERENCES "test_parts"("id") ON DELETE CASCADE,
-    "group_id" UUID REFERENCES "question_groups"("id") ON DELETE SET NULL,
+    "id" BIGSERIAL PRIMARY KEY, -- BIGINT tự tăng giúp JOIN cực kỳ nhanh
+    "test_part_id" INTEGER NOT NULL REFERENCES "test_parts"("id") ON DELETE CASCADE,
+    "group_id" BIGINT REFERENCES "question_groups"("id") ON DELETE SET NULL,
     "question_number" INTEGER NOT NULL, -- Số thứ tự câu hỏi trong đề (1-200)
     "stem" TEXT NOT NULL, -- Đề bài / Câu hỏi
     "option_a" TEXT NOT NULL,
@@ -170,14 +169,16 @@ CREATE TABLE "questions" (
     "image_url" TEXT, -- Ảnh riêng của câu hỏi (nếu có)
     "audio_url" TEXT, -- Audio riêng (nếu có)
     "difficulty" VARCHAR(20) DEFAULT 'MEDIUM', -- 'EASY', 'MEDIUM', 'HARD'
-    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE("test_part_id", "question_number")
 );
 
 -- 3. BẢNG TIẾN TRÌNH LÀM BÀI (PRACTICE ATTEMPTS)
 CREATE TABLE "practice_attempts" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "id" BIGSERIAL PRIMARY KEY, -- BIGINT làm khóa chính vật lý để JOIN nhanh
+    "public_id" UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(), -- UUID ngẫu nhiên để an toàn khi hiển thị trên URL
     "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-    "test_id" UUID NOT NULL REFERENCES "tests"("id") ON DELETE CASCADE,
+    "test_id" INTEGER NOT NULL REFERENCES "tests"("id") ON DELETE CASCADE,
     "mode" VARCHAR(50) NOT NULL, -- 'PRACTICE', 'FULL_TEST'
     "status" VARCHAR(50) DEFAULT 'IN_PROGRESS', -- 'IN_PROGRESS', 'COMPLETED', 'ABANDONED'
     "correct_count" INTEGER DEFAULT 0,
@@ -188,22 +189,21 @@ CREATE TABLE "practice_attempts" (
     "completed_at" TIMESTAMP WITH TIME ZONE
 );
 
--- Chi tiết từng câu trả lời của user. Bảng này sẽ rất lớn, cần Partitioning hoặc Index cực tốt.
+-- Chi tiết từng câu trả lời của user. Loại bỏ hoàn toàn cột ID riêng biệt.
 CREATE TABLE "attempt_answers" (
-    "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
-    "attempt_id" UUID NOT NULL REFERENCES "practice_attempts"("id") ON DELETE CASCADE,
-    "question_id" UUID NOT NULL REFERENCES "questions"("id") ON DELETE CASCADE,
+    "attempt_id" BIGINT NOT NULL REFERENCES "practice_attempts"("id") ON DELETE CASCADE,
+    "question_id" BIGINT NOT NULL REFERENCES "questions"("id") ON DELETE CASCADE,
     "selected_answer" CHAR(1), -- NULL nếu bỏ trống
     "is_correct" BOOLEAN DEFAULT FALSE,
     "is_flagged" BOOLEAN DEFAULT FALSE,
     "time_spent_ms" INTEGER DEFAULT 0,
     "answered_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY ("attempt_id", "question_id") -- Composite Key ngăn trùng lặp câu trả lời
+    PRIMARY KEY ("attempt_id", "question_id") -- Khóa chính Composite ngăn trùng lặp và cực kỳ tiết kiệm bộ nhớ index
 );
 
 -- 4. BẢNG SỔ TAY TỪ VỰNG & KHÁM PHÁ (VOCABULARY & EXPLORE)
 CREATE TABLE "user_vocabularies" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "id" BIGSERIAL PRIMARY KEY,
     "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
     "word" VARCHAR(100) NOT NULL,
     "phonetic" VARCHAR(100),
@@ -220,7 +220,7 @@ CREATE TABLE "user_vocabularies" (
 );
 
 CREATE TABLE "explore_collections" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "id" SERIAL PRIMARY KEY,
     "slug" VARCHAR(255) UNIQUE NOT NULL,
     "title" VARCHAR(255) NOT NULL,
     "description" TEXT,
@@ -232,8 +232,8 @@ CREATE TABLE "explore_collections" (
 );
 
 CREATE TABLE "explore_words" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "collection_id" UUID NOT NULL REFERENCES "explore_collections"("id") ON DELETE CASCADE,
+    "id" BIGSERIAL PRIMARY KEY,
+    "collection_id" INTEGER NOT NULL REFERENCES "explore_collections"("id") ON DELETE CASCADE,
     "word" VARCHAR(100) NOT NULL,
     "phonetic" VARCHAR(100),
     "part_of_speech" VARCHAR(50),
@@ -245,22 +245,20 @@ CREATE TABLE "explore_words" (
 );
 
 CREATE TABLE "explore_progress" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-    "collection_id" UUID NOT NULL REFERENCES "explore_collections"("id") ON DELETE CASCADE,
+    "collection_id" INTEGER NOT NULL REFERENCES "explore_collections"("id") ON DELETE CASCADE,
     "is_saved" BOOLEAN DEFAULT FALSE,
     "is_studying" BOOLEAN DEFAULT FALSE,
     "last_studied_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE("user_id", "collection_id")
+    PRIMARY KEY ("user_id", "collection_id") -- Khóa chính Composite
 );
 
 CREATE TABLE "word_ratings" (
-    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-    "explore_word_id" UUID NOT NULL REFERENCES "explore_words"("id") ON DELETE CASCADE,
+    "explore_word_id" BIGINT NOT NULL REFERENCES "explore_words"("id") ON DELETE CASCADE,
     "rating" VARCHAR(20) NOT NULL, -- 'EASY', 'MEDIUM', 'HARD', 'KNOWN'
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE("user_id", "explore_word_id")
+    PRIMARY KEY ("user_id", "explore_word_id") -- Khóa chính Composite
 );
 ```
 

@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  Length,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { normalizeEmail } from '../../../common/utils/normalize-email';
 
@@ -8,10 +14,11 @@ export class LoginDto {
   )
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @IsNotEmpty({ message: 'Email không được để trống' })
+  @MaxLength(254, { message: 'Email không được vượt quá 254 ký tự' })
   email!: string;
 
   @IsString({ message: 'Mật khẩu phải là chuỗi' })
   @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
-  @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
+  @Length(6, 128, { message: 'Mật khẩu phải từ 6 đến 128 ký tự' })
   password!: string;
 }

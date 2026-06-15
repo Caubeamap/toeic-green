@@ -1,7 +1,6 @@
-import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import request, { Response } from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -16,18 +15,28 @@ interface RegisterResponseBody {
   email: string;
 }
 
+interface ValidationErrorResponseBody {
+  message: string;
+  validationErrors: Array<{
+    field: string;
+    messages: string[];
+  }>;
+}
+
 describe('Backend security baseline (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
   const email = `auth-e2e-${Date.now()}@example.com`;
-  const password = 'SecurePass123';
+  const password = 'SecurePass123!';
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication<NestExpressApplication>({
+      bodyParser: false,
+    });
     configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);
@@ -39,16 +48,57 @@ describe('Backend security baseline (e2e)', () => {
   });
 
   it('protects routes by default with the global JWT guard', async () => {
-    await request(app.getHttpServer()).get('/api').expect(401);
+    const response = await request(app.getHttpServer()).get('/api').expect(401);
+
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
   });
 
   it('lets public auth routes reach validation and controller logic', async () => {
     await request(app.getHttpServer()).post('/api/auth/refresh').expect(401);
+  });
 
+  it('rejects request bodies larger than the configured limit', async () => {
     await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send({ email: 'invalid', password: 'short', displayName: '' })
+      .send({
+        email: 'large-body@example.com',
+        password,
+        displayName: 'x'.repeat(110 * 1024),
+      })
+      .expect(413);
+  });
+
+  it('rejects weak passwords and unknown request fields', async () => {
+    const invalidPayloadResponse = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        email: `weak-${email}`,
+        password: 'weakpass',
+        displayName: 'Weak Password',
+        role: 'ADMIN',
+      })
       .expect(400);
+    const invalidPayloadBody =
+      invalidPayloadResponse.body as ValidationErrorResponseBody;
+
+    expect(invalidPayloadBody.message).toBe('Dữ liệu gửi lên không hợp lệ.');
+    const validationMessages = invalidPayloadBody.validationErrors.flatMap(
+      (issue) => issue.messages,
+    );
+
+    expect(validationMessages).toEqual(
+      expect.arrayContaining([
+        'Mật khẩu phải có ít nhất 1 chữ hoa, 1 chữ số và 1 ký tự đặc biệt',
+        'property role should not exist',
+      ]),
+    );
+    expect(invalidPayloadBody.validationErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'password' }),
+        expect.objectContaining({ field: 'role' }),
+      ]),
+    );
   });
 
   it('normalizes email casing and rejects case-variant duplicates', async () => {
@@ -106,6 +156,12 @@ describe('Backend security baseline (e2e)', () => {
       .get('/api/profile')
       .set('Authorization', `Bearer ${loginBody.accessToken}`)
       .expect(200);
+
+    await request(app.getHttpServer())
+      .patch('/api/profile')
+      .set('Authorization', `Bearer ${loginBody.accessToken}`)
+      .send({ bannerTone: 'admin-controlled' })
+      .expect(400);
 
     const refreshResponse = await request(app.getHttpServer())
       .post('/api/auth/refresh')

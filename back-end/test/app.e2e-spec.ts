@@ -28,9 +28,14 @@ describe('Backend security baseline (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
   const verificationTokens = new Map<string, string>();
+  const resetTokens = new Map<string, string>();
   const mailService = {
     sendEmailVerification: jest.fn((targetEmail: string, token: string) => {
       verificationTokens.set(targetEmail, token);
+      return Promise.resolve();
+    }),
+    sendPasswordReset: jest.fn((targetEmail: string, otp: string) => {
+      resetTokens.set(targetEmail, otp);
       return Promise.resolve();
     }),
   };
@@ -252,6 +257,95 @@ describe('Backend security baseline (e2e)', () => {
       .post('/api/auth/refresh')
       .set('Cookie', secondCookie)
       .expect(401);
+  });
+
+  it('handles forgot password requests without disclosing email existence', async () => {
+    const resExist = await request(app.getHttpServer())
+      .post('/api/auth/forgot-password')
+      .send({ email })
+      .expect(200);
+
+    expect((resExist.body as Record<string, unknown>).message).toBeDefined();
+
+    const resMissing = await request(app.getHttpServer())
+      .post('/api/auth/forgot-password')
+      .send({ email: `missing-${email}` })
+      .expect(200);
+
+    expect(resExist.body).toEqual(resMissing.body);
+    expect(resetTokens.has(email)).toBe(true);
+    expect(resetTokens.has(`missing-${email}`)).toBe(false);
+  });
+
+  it('rejects reset password with invalid or weak password policy', async () => {
+    const otp = resetTokens.get(email);
+    expect(otp).toBeDefined();
+
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({ email, otp, password: 'weak' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({ email, otp: '', password: 'NewSecurePass123!' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({ email, otp: 'invalid-otp', password: 'NewSecurePass123!' })
+      .expect(400);
+  });
+
+  it('resets password successfully with valid token, revoking all active sessions and auto-verifying email', async () => {
+    const otp = resetTokens.get(email);
+    const newPassword = 'NewSecurePass123!';
+
+    const loginRes = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password })
+      .expect(200);
+    const refreshCookie = getRefreshCookie(loginRes);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', refreshCookie)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({ email, otp, password: newPassword })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password })
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', refreshCookie)
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password: newPassword })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({ email, otp, password: newPassword })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/forgot-password')
+      .send({ email })
+      .expect(200);
+    const finalOtp = resetTokens.get(email);
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({ email, otp: finalOtp, password })
+      .expect(200);
   });
 
   it('rate limits repeated login attempts', async () => {

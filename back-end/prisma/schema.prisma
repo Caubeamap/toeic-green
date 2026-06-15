@@ -22,12 +22,28 @@ model User {
   
   profile         UserProfile?
   oauthAccounts   OAuthAccount[]
+  refreshSessions RefreshSession[]
   attempts        PracticeAttempt[]
   vocabularies    UserVocabulary[]
   exploreProgress ExploreProgress[]
   wordRatings     WordRating[]
 
   @@map("users")
+}
+
+model RefreshSession {
+  id        String    @id @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
 }
 
 model OAuthAccount {

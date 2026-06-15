@@ -6,9 +6,22 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { UsersService } from '../users/users.service';
-import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import {
+  RefreshSessionsService,
+  RefreshSessionToken,
+} from './refresh-sessions.service';
+import { RegisterDto } from './dto/register.dto';
+
+interface RefreshTokenPayload {
+  sub: string;
+  email: string;
+  role: string;
+  jti: string;
+  exp: number;
+}
 
 @Injectable()
 export class AuthService {
@@ -16,29 +29,25 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private refreshSessionsService: RefreshSessionsService,
   ) {}
 
   async register(registerDto: RegisterDto) {
     const { email, password, displayName } = registerDto;
-
-    // 1. Kiểm tra email tồn tại
     const existingUser = await this.usersService.findOneByEmail(email);
+
     if (existingUser) {
       throw new ConflictException('Email này đã được sử dụng');
     }
 
-    // 2. Hash mật khẩu (salt rounds = 12)
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
-
-    // 3. Tạo user và profile rỗng (Prisma transaction trong UsersService)
     const user = await this.usersService.create(
       email,
       passwordHash,
       displayName,
     );
 
-    // 4. Trả về thông tin cơ bản
     return {
       id: user.id,
       email: user.email,
@@ -49,25 +58,22 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
-
-    // 1. Tìm user theo email
     const user = await this.usersService.findOneByEmail(email);
+
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
-
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
     }
 
-    // 2. Kiểm tra mật khẩu
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
 
-    // 3. Tạo token
     const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.refreshSessionsService.create(user.id, tokens.refreshSession);
 
     return {
       user: {
@@ -77,34 +83,31 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
         role: user.role,
       },
-      ...tokens,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
   async refresh(refreshToken: string) {
     try {
-      // 1. Verify refresh token
-      const payload = await this.jwtService.verifyAsync<{
-        sub: string;
-        email: string;
-        role: string;
-      }>(refreshToken, {
-        secret: this.configService.get<string>('jwt.refreshSecret'),
-      });
-
-      // 2. Tìm user
+      const payload = await this.verifyRefreshToken(refreshToken);
       const user = await this.usersService.findSessionById(payload.sub);
+
       if (!user || user.status !== 'ACTIVE') {
-        throw new UnauthorizedException(
-          'Token không hợp lệ hoặc tài khoản đã bị khóa',
-        );
+        throw new UnauthorizedException('Tài khoản không còn hoạt động');
       }
 
-      // 3. Sinh token mới
       const tokens = await this.generateTokens(user.id, user.email, user.role);
+      await this.refreshSessionsService.rotate(
+        user.id,
+        payload.jti,
+        refreshToken,
+        tokens.refreshSession,
+      );
 
       return {
-        ...tokens,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -131,9 +134,37 @@ export class AuthService {
     }
   }
 
-  async generateTokens(userId: string, email: string, role: string) {
-    const jwtPayload = { sub: userId, email, role };
+  async logout(refreshToken: string) {
+    try {
+      const payload = await this.verifyRefreshToken(refreshToken);
+      await this.refreshSessionsService.revoke(
+        payload.sub,
+        payload.jti,
+        refreshToken,
+      );
+    } catch {
+      // Logout remains idempotent when the cookie is invalid or expired.
+    }
+  }
 
+  private async verifyRefreshToken(refreshToken: string) {
+    const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
+      refreshToken,
+      {
+        secret: this.configService.get<string>('jwt.refreshSecret'),
+      },
+    );
+
+    if (!payload.jti) {
+      throw new UnauthorizedException('Refresh token has no session');
+    }
+
+    return payload;
+  }
+
+  private async generateTokens(userId: string, email: string, role: string) {
+    const jwtPayload = { sub: userId, email, role };
+    const refreshSessionId = randomUUID();
     const [accessToken, refreshToken] = await Promise.all([
       // @ts-expect-error: config values provide general string, but JwtSignOptions expects StringValue
       this.jwtService.signAsync(jwtPayload, {
@@ -141,15 +172,25 @@ export class AuthService {
         expiresIn: this.configService.get<string>('jwt.accessExpiration'),
       }),
       // @ts-expect-error: config values provide general string, but JwtSignOptions expects StringValue
-      this.jwtService.signAsync(jwtPayload, {
-        secret: this.configService.get<string>('jwt.refreshSecret'),
-        expiresIn: this.configService.get<string>('jwt.refreshExpiration'),
-      }),
+      this.jwtService.signAsync(
+        { ...jwtPayload, jti: refreshSessionId },
+        {
+          secret: this.configService.get<string>('jwt.refreshSecret'),
+          expiresIn: this.configService.get<string>('jwt.refreshExpiration'),
+        },
+      ),
     ]);
+    const refreshPayload =
+      this.jwtService.decode<RefreshTokenPayload>(refreshToken);
 
     return {
       accessToken,
       refreshToken,
+      refreshSession: {
+        id: refreshSessionId,
+        token: refreshToken,
+        expiresAt: new Date(refreshPayload.exp * 1000),
+      } satisfies RefreshSessionToken,
     };
   }
 }

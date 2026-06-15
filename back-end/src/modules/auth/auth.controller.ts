@@ -8,6 +8,7 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
@@ -19,12 +20,14 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -32,11 +35,8 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.login(loginDto);
-
-    // Lưu Refresh Token vào HTTP-Only Cookie
     this.setRefreshTokenCookie(response, result.refreshToken);
 
-    // Trả về accessToken và thông tin user cho client
     return {
       user: result.user,
       accessToken: result.accessToken,
@@ -44,26 +44,19 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const requestCookies = request.cookies as
-      | Record<string, string>
-      | undefined;
-    const requestBody = request.body as Record<string, string> | undefined;
-    const refreshToken =
-      requestCookies?.refresh_token || requestBody?.refreshToken;
-
+    const refreshToken = this.getRefreshToken(request);
     if (!refreshToken) {
       throw new UnauthorizedException('Không tìm thấy Refresh Token');
     }
 
     const result = await this.authService.refresh(refreshToken);
-
-    // Xoay vòng Refresh Token (Refresh Token Rotation)
     this.setRefreshTokenCookie(response, result.refreshToken);
 
     return {
@@ -73,10 +66,19 @@ export class AuthController {
     };
   }
 
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@Res({ passthrough: true }) response: Response) {
-    // Xóa cookie Refresh Token bằng cách set maxAge = 0
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = this.getRefreshToken(request);
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+
     response.clearCookie('refresh_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -87,12 +89,21 @@ export class AuthController {
     return { message: 'Đăng xuất thành công' };
   }
 
+  private getRefreshToken(request: Request) {
+    const requestCookies = request.cookies as
+      | Record<string, string>
+      | undefined;
+    const requestBody = request.body as Record<string, string> | undefined;
+
+    return requestCookies?.refresh_token || requestBody?.refreshToken;
+  }
+
   private setRefreshTokenCookie(response: Response, refreshToken: string) {
     response.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
   }

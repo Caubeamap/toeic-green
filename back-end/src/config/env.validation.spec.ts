@@ -30,6 +30,35 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       JWT_SECRET: 'a'.repeat(32),
       JWT_REFRESH_SECRET: 'b'.repeat(32),
+      MAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_test',
+      EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+    };
+
+    expect(validateEnvironment(config)).toBe(config);
+  });
+
+  it('requires production mail delivery configuration', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a'.repeat(32),
+        JWT_REFRESH_SECRET: 'b'.repeat(32),
+        MAIL_PROVIDER: 'resend',
+        EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+      }),
+    ).toThrow('RESEND_API_KEY must be configured');
+  });
+
+  it('accepts production SMTP mail configuration', () => {
+    const config = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a'.repeat(32),
+      JWT_REFRESH_SECRET: 'b'.repeat(32),
+      MAIL_PROVIDER: 'smtp',
+      SMTP_USER: 'demo@gmail.com',
+      SMTP_APP_PASSWORD: 'example-app-password',
+      EMAIL_FROM: 'TOEIC Green <demo@gmail.com>',
     };
 
     expect(validateEnvironment(config)).toBe(config);

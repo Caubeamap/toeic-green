@@ -26,6 +26,7 @@ export class UsersService {
         email: true,
         role: true,
         status: true,
+        emailVerifiedAt: true,
       },
     });
   }
@@ -40,6 +41,7 @@ export class UsersService {
         avatarUrl: true,
         role: true,
         status: true,
+        emailVerifiedAt: true,
         profile: {
           select: {
             userId: true,

@@ -4,6 +4,7 @@ import request, { Response } from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { MailService } from '../src/modules/mail/mail.service';
 
 jest.setTimeout(30000);
 
@@ -26,13 +27,23 @@ interface ValidationErrorResponseBody {
 describe('Backend security baseline (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
+  const verificationTokens = new Map<string, string>();
+  const mailService = {
+    sendEmailVerification: jest.fn((targetEmail: string, token: string) => {
+      verificationTokens.set(targetEmail, token);
+      return Promise.resolve();
+    }),
+  };
   const email = `auth-e2e-${Date.now()}@example.com`;
   const password = 'SecurePass123!';
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailService)
+      .useValue(mailService)
+      .compile();
 
     app = moduleFixture.createNestApplication<NestExpressApplication>({
       bodyParser: false,
@@ -101,7 +112,7 @@ describe('Backend security baseline (e2e)', () => {
     );
   });
 
-  it('normalizes email casing and rejects case-variant duplicates', async () => {
+  it('normalizes email and requires one-time verification before login', async () => {
     const mixedCaseEmail = email.toUpperCase();
 
     const registerResponse = await request(app.getHttpServer())
@@ -124,7 +135,65 @@ describe('Backend security baseline (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email: mixedCaseEmail, password })
+      .expect(401);
+
+    const wrongPasswordResponse = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: mixedCaseEmail, password: 'WrongPassword123!' })
+      .expect(401);
+    expect(wrongPasswordResponse.body).toEqual(
+      expect.objectContaining({
+        message: 'Email hoặc mật khẩu không chính xác',
+      }),
+    );
+
+    const firstToken = verificationTokens.get(email);
+    if (!firstToken) {
+      throw new Error('Expected initial email verification token');
+    }
+
+    await request(app.getHttpServer())
+      .post('/api/auth/resend-verification')
+      .send({ email: mixedCaseEmail })
       .expect(200);
+
+    const replacementToken = verificationTokens.get(email);
+    if (!replacementToken || replacementToken === firstToken) {
+      throw new Error('Expected replacement email verification token');
+    }
+
+    await request(app.getHttpServer())
+      .post('/api/auth/verify-email')
+      .send({ token: firstToken })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/verify-email')
+      .send({ token: replacementToken })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/verify-email')
+      .send({ token: replacementToken })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: mixedCaseEmail, password })
+      .expect(200);
+  });
+
+  it('does not reveal whether a resend email belongs to an account', async () => {
+    const existingResponse = await request(app.getHttpServer())
+      .post('/api/auth/resend-verification')
+      .send({ email })
+      .expect(200);
+    const missingResponse = await request(app.getHttpServer())
+      .post('/api/auth/resend-verification')
+      .send({ email: `missing-${email}` })
+      .expect(200);
+
+    expect(existingResponse.body).toEqual(missingResponse.body);
   });
 
   it('rejects non-canonical email writes at the database boundary', async () => {

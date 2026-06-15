@@ -31,6 +31,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         'Tài khoản đã bị khóa hoặc ngừng hoạt động',
       );
     }
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException('Tài khoản chưa xác minh email');
+    }
     return { id: user.id, email: user.email, role: user.role };
   }
 }

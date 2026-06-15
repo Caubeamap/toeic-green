@@ -15,6 +15,7 @@ import {
   RefreshSessionToken,
 } from './refresh-sessions.service';
 import { RegisterDto } from './dto/register.dto';
+import { EmailVerificationService } from './email-verification.service';
 
 interface RefreshTokenPayload {
   sub: string;
@@ -31,6 +32,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private refreshSessionsService: RefreshSessionsService,
+    private emailVerificationService: EmailVerificationService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -49,12 +51,14 @@ export class AuthService {
       passwordHash,
       displayName,
     );
+    await this.emailVerificationService.issue(user.id, user.email);
 
     return {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
       role: user.role,
+      verificationRequired: true,
     };
   }
 
@@ -69,10 +73,14 @@ export class AuthService {
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
     }
-
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
+    }
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException(
+        'Bạn cần xác minh email trước khi đăng nhập',
+      );
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -96,7 +104,7 @@ export class AuthService {
       const payload = await this.verifyRefreshToken(refreshToken);
       const user = await this.usersService.findSessionById(payload.sub);
 
-      if (!user || user.status !== 'ACTIVE') {
+      if (!user || user.status !== 'ACTIVE' || !user.emailVerifiedAt) {
         throw new UnauthorizedException('Tài khoản không còn hoạt động');
       }
 
@@ -148,6 +156,14 @@ export class AuthService {
     } catch {
       // Logout remains idempotent when the cookie is invalid or expired.
     }
+  }
+
+  async verifyEmail(token: string) {
+    return this.emailVerificationService.verify(token);
+  }
+
+  async resendVerification(email: string) {
+    return this.emailVerificationService.resend(email);
   }
 
   private async verifyRefreshToken(refreshToken: string) {

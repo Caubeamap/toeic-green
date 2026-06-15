@@ -101,18 +101,12 @@ export function EditProfileForm() {
       return;
     }
 
-    if (!profile.username.trim()) {
-      setError("Vui lòng nhập tên người dùng.");
-      return;
-    }
-
     try {
       setError("");
       const nextProfile = await saveUserProfile(profile);
       updateUser({
         avatar: nextProfile.avatar,
-        displayName: nextProfile.displayName,
-        username: nextProfile.username
+        displayName: nextProfile.displayName
       });
       setLoadedProfile({ profile: nextProfile, userId: user.id });
       setSaved(true);
@@ -206,15 +200,6 @@ export function EditProfileForm() {
                   onChange={(event) => updateField("displayName", event.target.value)}
                   className="h-12 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   placeholder="Nhập họ và tên"
-                />
-              </Field>
-
-              <Field label="Tên người dùng">
-                <input
-                  value={currentProfile.username}
-                  onChange={(event) => updateField("username", event.target.value)}
-                  className="h-12 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  placeholder="Tên người dùng"
                 />
               </Field>
 

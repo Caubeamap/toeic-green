@@ -124,8 +124,8 @@ export function UserProfile() {
     return [
       {
         icon: UserRound,
-        label: "Tên người dùng",
-        value: profile.username
+        label: "Họ và tên",
+        value: profile.displayName
       },
       {
         icon: Mail,

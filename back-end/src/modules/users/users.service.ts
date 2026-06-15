@@ -42,7 +42,6 @@ export class UsersService {
         profile: {
           select: {
             userId: true,
-            username: true,
             bio: true,
             bannerTone: true,
             updatedAt: true,

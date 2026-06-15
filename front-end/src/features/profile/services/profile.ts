@@ -7,7 +7,6 @@ export type ProfileResponse = {
   bio?: string | null;
   updatedAt: string;
   userId: string;
-  username?: string | null;
   user: {
     avatarUrl?: string | null;
     displayName: string;
@@ -41,7 +40,6 @@ export function getDefaultUserProfile(user: MockUser): UserProfile {
     displayName: user.displayName,
     email: user.email,
     updatedAt: new Date().toISOString(),
-    username: user.username,
   };
 }
 
@@ -56,7 +54,6 @@ function mapProfileResponse(data: ProfileResponse): UserProfile {
     displayName: data.user.displayName || "",
     email: data.user.email,
     updatedAt: data.updatedAt,
-    username: data.username || "",
   };
 }
 
@@ -104,7 +101,6 @@ export async function saveUserProfile(
   profile: UserProfile,
 ): Promise<UserProfile> {
   const updateData = {
-    username: profile.username.trim(),
     bio: profile.bio.trim(),
     bannerTone: profile.bannerTone,
     displayName: profile.displayName.trim(),

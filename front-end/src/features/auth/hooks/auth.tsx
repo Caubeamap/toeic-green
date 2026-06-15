@@ -26,8 +26,6 @@ export type MockUser = {
   displayName: string;
   avatarUrl?: string;
   role: string;
-  // Kiểu tương thích với giao diện mock cũ
-  username: string;
   avatar: string;
 };
 
@@ -52,7 +50,7 @@ type AuthContextValue = {
   ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   updateUser: (
-    updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>,
+    updates: Partial<Pick<MockUser, "avatar" | "displayName">>,
   ) => void;
 };
 
@@ -64,7 +62,6 @@ type BackendUser = {
   email: string;
   id: string;
   role: string;
-  username?: string | null;
 };
 
 type LoginResponse = {
@@ -91,7 +88,6 @@ function mapUser(backendUser: BackendUser): MockUser {
     displayName: backendUser.displayName,
     avatarUrl: backendUser.avatarUrl ?? undefined,
     role: backendUser.role,
-    username: backendUser.username || backendUser.email.split("@")[0],
     avatar:
       backendUser.avatarUrl ||
       backendUser.displayName?.trim().slice(0, 2).toUpperCase() ||
@@ -118,10 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         cacheUserProfileResponse(data.profile);
-        const user = mapUser({
-          ...data.user,
-          username: data.profile.username,
-        });
+        const user = mapUser(data.user);
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
         setState({ status: "authenticated", user });
@@ -208,9 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateUser = useCallback(
-    (
-      updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>,
-    ) => {
+    (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => {
       if (state.status !== "authenticated") {
         return;
       }
@@ -220,7 +211,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...updates,
         avatar: updates.avatar || state.user.avatar,
         displayName: updates.displayName || state.user.displayName,
-        username: updates.username || state.user.username,
       };
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));

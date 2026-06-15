@@ -2,11 +2,6 @@ import { IsOptional, IsString, Length } from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
-  @IsString({ message: 'Username phải là chuỗi ký tự' })
-  @Length(3, 30, { message: 'Username phải từ 3 đến 30 ký tự' })
-  username?: string;
-
-  @IsOptional()
   @IsString({ message: 'Tiểu sử phải là chuỗi ký tự' })
   bio?: string;
 

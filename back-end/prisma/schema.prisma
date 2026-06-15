@@ -45,7 +45,6 @@ model OAuthAccount {
 
 model UserProfile {
   userId     String   @id @map("user_id") @db.Uuid
-  username   String?  @unique
   bio        String?
   bannerTone String   @default("mint") @map("banner_tone")
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz

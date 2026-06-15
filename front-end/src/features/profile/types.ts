@@ -6,5 +6,4 @@ export type UserProfile = {
   displayName: string;
   email: string;
   updatedAt: string;
-  username: string;
 };

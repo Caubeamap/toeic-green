@@ -68,6 +68,8 @@ export class AuthController {
 
     return {
       accessToken: result.accessToken,
+      user: result.user,
+      profile: result.profile,
     };
   }
 

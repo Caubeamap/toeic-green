@@ -2,7 +2,7 @@ import type { MockUser } from "@/features/auth";
 import type { UserProfile } from "../types";
 import { api } from "@/lib/api";
 
-type ProfileResponse = {
+export type ProfileResponse = {
   bannerTone?: string | null;
   bio?: string | null;
   updatedAt: string;
@@ -14,6 +14,10 @@ type ProfileResponse = {
     email: string;
   };
 };
+
+let cachedProfile: { profile: UserProfile; userId: string } | null = null;
+let pendingProfile: { promise: Promise<UserProfile>; userId: string } | null =
+  null;
 
 function normalizeAvatar(value: string) {
   const normalized = value.trim().slice(0, 3).toUpperCase();
@@ -41,26 +45,64 @@ export function getDefaultUserProfile(user: MockUser): UserProfile {
   };
 }
 
-export async function loadUserProfile(user: MockUser): Promise<UserProfile> {
-  try {
-    const data = await api.get<ProfileResponse>("/profile");
-    return {
-      accountId: data.userId,
-      avatar: normalizeAvatar(data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG"),
-      bannerTone: normalizeBannerTone(data.bannerTone),
-      bio: data.bio || "",
-      displayName: data.user.displayName || "",
-      email: data.user.email,
-      updatedAt: data.updatedAt,
-      username: data.username || "",
-    };
-  } catch (error) {
-    console.error("Failed to load user profile from api, using default", error);
-    return getDefaultUserProfile(user);
-  }
+function mapProfileResponse(data: ProfileResponse): UserProfile {
+  return {
+    accountId: data.userId,
+    avatar: normalizeAvatar(
+      data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG",
+    ),
+    bannerTone: normalizeBannerTone(data.bannerTone),
+    bio: data.bio || "",
+    displayName: data.user.displayName || "",
+    email: data.user.email,
+    updatedAt: data.updatedAt,
+    username: data.username || "",
+  };
 }
 
-export async function saveUserProfile(profile: UserProfile): Promise<UserProfile> {
+export function cacheUserProfileResponse(data: ProfileResponse): UserProfile {
+  const profile = mapProfileResponse(data);
+  cachedProfile = { profile, userId: data.userId };
+  return profile;
+}
+
+export function clearUserProfileCache() {
+  cachedProfile = null;
+  pendingProfile = null;
+}
+
+export async function loadUserProfile(user: MockUser): Promise<UserProfile> {
+  if (cachedProfile?.userId === user.id) {
+    return cachedProfile.profile;
+  }
+
+  if (pendingProfile?.userId === user.id) {
+    return pendingProfile.promise;
+  }
+
+  const promise = api
+    .get<ProfileResponse>("/profile")
+    .then(cacheUserProfileResponse)
+    .catch((error) => {
+      console.error(
+        "Failed to load user profile from api, using default",
+        error,
+      );
+      return getDefaultUserProfile(user);
+    })
+    .finally(() => {
+      if (pendingProfile?.userId === user.id) {
+        pendingProfile = null;
+      }
+    });
+
+  pendingProfile = { promise, userId: user.id };
+  return promise;
+}
+
+export async function saveUserProfile(
+  profile: UserProfile,
+): Promise<UserProfile> {
   const updateData = {
     username: profile.username.trim(),
     bio: profile.bio.trim(),
@@ -71,14 +113,5 @@ export async function saveUserProfile(profile: UserProfile): Promise<UserProfile
 
   const data = await api.patch<ProfileResponse>("/profile", updateData);
 
-  return {
-    accountId: data.userId,
-    avatar: normalizeAvatar(data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG"),
-    bannerTone: normalizeBannerTone(data.bannerTone),
-    bio: data.bio || "",
-    displayName: data.user.displayName || "",
-    email: data.user.email,
-    updatedAt: data.updatedAt,
-    username: data.username || "",
-  };
+  return cacheUserProfileResponse(data);
 }

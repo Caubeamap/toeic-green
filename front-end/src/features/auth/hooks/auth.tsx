@@ -10,6 +10,11 @@ import {
   type ReactNode,
 } from "react";
 import { api, getErrorMessage, setAccessToken } from "@/lib/api";
+import {
+  cacheUserProfileResponse,
+  clearUserProfileCache,
+  type ProfileResponse,
+} from "@/features/profile/services/profile";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -36,10 +41,19 @@ type AuthContextValue = {
   user: MockUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (displayName: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  register: (
+    displayName: string,
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
-  updateUser: (updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>) => void;
+  updateUser: (
+    updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>,
+  ) => void;
 };
 
 const STORAGE_KEY = "toeic-green-auth";
@@ -58,15 +72,10 @@ type LoginResponse = {
   user: BackendUser;
 };
 
-type ProfileResponse = {
-  updatedAt: string;
-  userId: string;
-  username?: string | null;
-  user: Omit<BackendUser, "id">;
-};
-
 type RefreshResponse = {
   accessToken: string;
+  profile?: ProfileResponse | null;
+  user?: BackendUser;
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -83,7 +92,10 @@ function mapUser(backendUser: BackendUser): MockUser {
     avatarUrl: backendUser.avatarUrl ?? undefined,
     role: backendUser.role,
     username: backendUser.username || backendUser.email.split("@")[0],
-    avatar: backendUser.avatarUrl || backendUser.displayName?.trim().slice(0, 2).toUpperCase() || "TG",
+    avatar:
+      backendUser.avatarUrl ||
+      backendUser.displayName?.trim().slice(0, 2).toUpperCase() ||
+      "TG",
   };
 }
 
@@ -99,21 +111,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(data.accessToken);
 
         // Lấy thông tin cá nhân hiện tại
-        const profileData = await api.get<ProfileResponse>("/profile");
-        const user = {
-          id: profileData.userId,
-          email: profileData.user.email,
-          displayName: profileData.user.displayName,
-          avatarUrl: profileData.user.avatarUrl ?? undefined,
-          role: profileData.user.role,
-          username: profileData.username || profileData.user.email.split("@")[0],
-          avatar: profileData.user.avatarUrl || profileData.user.displayName?.trim().slice(0, 2).toUpperCase() || "TG",
-        };
+        if (!data.user || !data.profile) {
+          throw new Error(
+            "Refresh response is missing the current user profile",
+          );
+        }
+
+        cacheUserProfileResponse(data.profile);
+        const user = mapUser({
+          ...data.user,
+          username: data.profile.username,
+        });
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
         setState({ status: "authenticated", user });
       } catch {
         // Không tìm thấy phiên hoặc refresh token đã hết hạn
+        clearUserProfileCache();
         localStorage.removeItem(STORAGE_KEY);
         setState({ status: "unauthenticated" });
       }
@@ -126,20 +140,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function handleAuthFailure() {
       setAccessToken(null);
+      clearUserProfileCache();
       localStorage.removeItem(STORAGE_KEY);
       setState({ status: "unauthenticated" });
     }
 
     window.addEventListener("toeic-auth-failed", handleAuthFailure);
-    return () => window.removeEventListener("toeic-auth-failed", handleAuthFailure);
+    return () =>
+      window.removeEventListener("toeic-auth-failed", handleAuthFailure);
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+    async (
+      email: string,
+      password: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
       try {
         const data = await api.post<LoginResponse>("/auth/login", {
           email,
-          password
+          password,
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
@@ -149,26 +168,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error: unknown) {
         return {
           ok: false,
-          error: getErrorMessage(error, "Đăng nhập thất bại.")
+          error: getErrorMessage(error, "Đăng nhập thất bại."),
         };
       }
     },
-    []
+    [],
   );
 
   const register = useCallback(
-    async (displayName: string, email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+    async (
+      displayName: string,
+      email: string,
+      password: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
       try {
         await api.post("/auth/register", { displayName, email, password });
         return { ok: true };
       } catch (error: unknown) {
         return {
           ok: false,
-          error: getErrorMessage(error, "Đăng ký thất bại.")
+          error: getErrorMessage(error, "Đăng ký thất bại."),
         };
       }
     },
-    []
+    [],
   );
 
   const logout = useCallback(async () => {
@@ -178,13 +201,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Logout error", err);
     } finally {
       setAccessToken(null);
+      clearUserProfileCache();
       localStorage.removeItem(STORAGE_KEY);
       setState({ status: "unauthenticated" });
     }
   }, []);
 
   const updateUser = useCallback(
-    (updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>) => {
+    (
+      updates: Partial<Pick<MockUser, "avatar" | "displayName" | "username">>,
+    ) => {
       if (state.status !== "authenticated") {
         return;
       }
@@ -200,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
       setState({ status: "authenticated", user: nextUser });
     },
-    [state]
+    [state],
   );
 
   const value = useMemo<AuthContextValue>(
@@ -214,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       updateUser,
     }),
-    [state, login, register, logout, updateUser]
+    [state, login, register, logout, updateUser],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

@@ -17,6 +17,41 @@ export class UsersService {
     });
   }
 
+  async findAuthIdentityById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+      },
+    });
+  }
+
+  async findSessionById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        role: true,
+        status: true,
+        profile: {
+          select: {
+            userId: true,
+            username: true,
+            bio: true,
+            bannerTone: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+  }
+
   async create(email: string, passwordHash: string, displayName: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({

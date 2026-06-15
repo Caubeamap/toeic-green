@@ -93,7 +93,7 @@ export class AuthService {
       });
 
       // 2. Tìm user
-      const user = await this.usersService.findOneById(payload.sub);
+      const user = await this.usersService.findSessionById(payload.sub);
       if (!user || user.status !== 'ACTIVE') {
         throw new UnauthorizedException(
           'Token không hợp lệ hoặc tài khoản đã bị khóa',
@@ -101,7 +101,29 @@ export class AuthService {
       }
 
       // 3. Sinh token mới
-      return this.generateTokens(user.id, user.email, user.role);
+      const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+      return {
+        ...tokens,
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+        },
+        profile: user.profile
+          ? {
+              ...user.profile,
+              user: {
+                email: user.email,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                role: user.role,
+              },
+            }
+          : null,
+      };
     } catch {
       throw new UnauthorizedException(
         'Refresh Token không hợp lệ hoặc đã hết hạn',

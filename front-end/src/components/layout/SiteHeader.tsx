@@ -22,7 +22,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/70 bg-white/92 shadow-glass">
+    <header className="fixed inset-x-0 top-0 z-50 isolate border-b border-slate-200/80 bg-white shadow-glass [transform:translateZ(0)]">
       <div className="container-shell flex h-20 items-center justify-between">
         <Link
           href="/"

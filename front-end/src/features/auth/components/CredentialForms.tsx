@@ -422,7 +422,7 @@ export function LoginForm() {
         action={
           <Link
             className="text-[12px] font-bold text-primary hover:underline"
-            href="/login?reset=1"
+            href="/forgot-password"
           >
             Quên mật khẩu?
           </Link>

@@ -322,7 +322,7 @@ function HomeCta() {
           </p>
           <Link
             href="/practice"
-            className="button-sheen inline-flex min-h-14 items-center justify-center rounded-full bg-white px-12 py-5 text-headline-md font-bold text-primary shadow-soft hover:bg-primary-container"
+            className="button-sheen inline-flex min-h-12 items-center justify-center rounded-full bg-white px-8 py-3.5 text-body-md font-extrabold text-primary shadow-soft hover:bg-primary-container whitespace-nowrap"
           >
             Bắt đầu hoàn toàn miễn phí
           </Link>

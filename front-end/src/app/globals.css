@@ -219,8 +219,8 @@ textarea {
 
 /* premium style for reading passages (Part 6 & Part 7) */
 .passage-content {
-  font-family: var(--font-outfit), var(--font-inter), sans-serif;
-  line-height: 1.7;
+  font-family: var(--font-merriweather), Georgia, serif;
+  line-height: 1.8;
 }
 
 .passage-content p {

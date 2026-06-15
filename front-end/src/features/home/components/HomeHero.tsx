@@ -28,14 +28,14 @@ export function HomeHero() {
         <div className="flex flex-col gap-4 sm:flex-row">
           <Link
             href="/practice"
-            className="button-sheen inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary-container px-8 py-4 text-headline-md font-bold text-on-primary-container shadow-soft hover:bg-primary-fixed-dim"
+            className="button-sheen inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-container px-6 py-3 text-body-md font-bold text-on-primary-container shadow-soft hover:bg-primary-fixed-dim whitespace-nowrap"
           >
             Bắt đầu luyện thi
             <MaterialSymbolIcon name="arrow_forward" className="h-5 w-5" />
           </Link>
           <Link
             href="/practice"
-            className="button-sheen glass-card inline-flex min-h-14 items-center justify-center gap-2 rounded-xl px-8 py-4 text-headline-md font-bold text-on-surface hover:bg-white/60"
+            className="button-sheen glass-card inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-6 py-3 text-body-md font-bold text-on-surface hover:bg-white/60 whitespace-nowrap"
           >
             Khám phá bài test
           </Link>

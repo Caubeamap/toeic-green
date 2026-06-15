@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Be_Vietnam_Pro, Merriweather } from "next/font/google";
 import { AppBackground } from "@/components/layout/AppBackground";
 import { AppProviders } from "@/components/layout/AppProviders";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
+const beVietnamPro = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
-  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-be-vietnam",
+  display: "swap"
+});
+
+const merriweather = Merriweather({
+  subsets: ["latin", "vietnamese"],
+  weight: ["300", "400", "700"],
+  variable: "--font-merriweather",
   display: "swap"
 });
 
@@ -69,7 +77,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${jakarta.variable} bg-background font-sans text-on-surface antialiased`}
+        className={`${beVietnamPro.variable} ${merriweather.variable} bg-background font-sans text-on-surface antialiased`}
         suppressHydrationWarning
       >
         <AppProviders>

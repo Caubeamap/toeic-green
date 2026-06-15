@@ -11,6 +11,8 @@ import {
   Sparkles,
   Star,
   TrendingUp,
+  ClipboardCheck,
+  Layers,
   type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,7 +30,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   star: Star,
   public: Globe,
   alternate_email: Mail,
-  share: Share2
+  share: Share2,
+  fact_check: ClipboardCheck,
+  style: Layers
 };
 
 type MaterialSymbolIconProps = {

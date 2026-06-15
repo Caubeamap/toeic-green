@@ -89,7 +89,7 @@ export function ForgotPasswordForm() {
         email: email.trim(),
         otp: code.trim(),
       });
-      setStatus({ type: "success", message: "Mã OTP hợp lệ! Vui lòng nhập mật khẩu mới." });
+      setStatus({ type: "success", message: "Mã xác nhận hợp lệ. Bạn có thể đặt mật khẩu mới." });
       setTimeout(() => {
         setStep("new-password");
         setStatus({ type: "idle" });
@@ -97,7 +97,7 @@ export function ForgotPasswordForm() {
     } catch (err: unknown) {
       setStatus({
         type: "error",
-        message: getErrorMessage(err, "Mã OTP không chính xác hoặc đã hết hạn.")
+        message: getErrorMessage(err, "Mã xác nhận không đúng hoặc đã hết hạn.")
       });
       // Reset lại OTP để người dùng nhập lại
       setOtpValues(Array(6).fill(""));
@@ -216,7 +216,7 @@ export function ForgotPasswordForm() {
     } catch (err: unknown) {
       setStatus({
         type: "error",
-        message: getErrorMessage(err, "Không thể gửi yêu cầu đặt lại mật khẩu.")
+        message: getErrorMessage(err, "Gửi mã xác nhận thất bại. Vui lòng thử lại.")
       });
     }
   }
@@ -246,7 +246,7 @@ export function ForgotPasswordForm() {
     } catch (err: unknown) {
       setStatus({
         type: "error",
-        message: getErrorMessage(err, "Không thể đặt lại mật khẩu.")
+        message: getErrorMessage(err, "Đặt lại mật khẩu thất bại. Vui lòng thử lại.")
       });
     }
   }
@@ -257,7 +257,7 @@ export function ForgotPasswordForm() {
       await api.post<{ message: string }>("/auth/forgot-password", {
         email: email.trim()
       });
-      setStatus({ type: "success", message: "Đã gửi lại mã OTP mới vào email của bạn." });
+      setStatus({ type: "success", message: "Đã gửi lại mã xác nhận mới vào email." });
       setOtpValues(Array(6).fill(""));
       setTimeout(() => {
         setStatus({ type: "idle" });
@@ -266,7 +266,7 @@ export function ForgotPasswordForm() {
     } catch (err: unknown) {
       setStatus({
         type: "error",
-        message: getErrorMessage(err, "Không thể gửi lại mã OTP.")
+        message: getErrorMessage(err, "Không thể gửi lại mã xác nhận.")
       });
     }
   }
@@ -281,13 +281,13 @@ export function ForgotPasswordForm() {
         </div>
         <h1 className="mt-6 text-[26px] font-extrabold text-on-surface">Mật khẩu đã được cập nhật</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-on-surface-variant">
-          Đặt lại mật khẩu thành công. Các phiên đăng nhập cũ trên thiết bị khác đã được thu hồi. Bạn có thể đăng nhập ngay bây giờ.
+          Mật khẩu của bạn đã được cập nhật thành công. Tất cả các phiên đăng nhập khác đã được đăng xuất để bảo mật. Bạn có thể đăng nhập bằng mật khẩu mới.
         </p>
         <Link
           href="/login"
           className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary px-7 py-3.5 text-sm font-extrabold text-white transition hover:bg-primary/90"
         >
-          Đăng nhập ngay
+          Đăng nhập
         </Link>
       </div>
     );
@@ -298,10 +298,10 @@ export function ForgotPasswordForm() {
       <div className="mb-8 text-center">
         <h1 className="text-[28px] font-extrabold text-on-surface">Quên mật khẩu</h1>
         <p className="mt-3 text-body-md text-on-surface-variant leading-relaxed">
-          {step === "email" && "Nhập email của bạn để nhận mã OTP đặt lại mật khẩu."}
-          {step === "otp" && `Nhập mã OTP 6 số được gửi tới email:`}
+          {step === "email" && "Nhập địa chỉ email đăng ký tài khoản để nhận mã xác nhận."}
+          {step === "otp" && `Nhập mã xác nhận 6 số đã được gửi đến email:`}
           {step === "otp" && <span className="block font-bold text-on-surface mt-1">{email}</span>}
-          {step === "new-password" && "Nhập mật khẩu mới cho tài khoản của bạn."}
+          {step === "new-password" && "Đặt mật khẩu mới cho tài khoản của bạn."}
         </p>
       </div>
 
@@ -372,7 +372,7 @@ export function ForgotPasswordForm() {
             {isSubmitting ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Đang gửi mã...
+                Đang gửi mã xác nhận...
               </>
             ) : (
               "Gửi mã xác nhận"
@@ -392,7 +392,7 @@ export function ForgotPasswordForm() {
         <div className="space-y-6">
           <div>
             <label className="mb-4 block text-center text-[14px] font-bold text-on-surface-variant">
-              Nhập mã OTP gồm 6 chữ số
+              Mã xác nhận (OTP)
             </label>
             <div className="flex justify-center gap-3 py-2">
               {otpValues.map((val, idx) => (
@@ -422,7 +422,7 @@ export function ForgotPasswordForm() {
             {isSubmitting && (
               <div className="flex items-center justify-center gap-2 mt-4 text-[13px] font-semibold text-primary">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Đang xác minh mã OTP...
+                Đang xác nhận mã...
               </div>
             )}
           </div>
@@ -438,7 +438,7 @@ export function ForgotPasswordForm() {
               disabled={isSubmitting}
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Thay đổi Email
+              Nhập lại email
             </button>
 
             <button
@@ -447,7 +447,7 @@ export function ForgotPasswordForm() {
               disabled={isSubmitting}
               className="text-[13px] font-bold text-primary hover:underline disabled:opacity-50"
             >
-              Gửi lại mã OTP
+              Gửi lại mã xác nhận
             </button>
           </div>
         </div>

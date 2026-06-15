@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { normalizeEmail } from '../../common/utils/normalize-email';
@@ -10,6 +10,8 @@ const RESET_TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 @Injectable()
 export class PasswordResetService {
+  private readonly logger = new Logger(PasswordResetService.name);
+
   constructor(
     private prisma: PrismaService,
     private mailService: MailService,
@@ -45,7 +47,12 @@ export class PasswordResetService {
       });
     });
 
-    await this.mailService.sendPasswordReset(user.email, otp);
+    this.mailService.sendPasswordReset(user.email, otp).catch((error) => {
+      this.logger.error(
+        `Không thể gửi email đặt lại mật khẩu tới ${user.email}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
 
     return successMessage;
   }

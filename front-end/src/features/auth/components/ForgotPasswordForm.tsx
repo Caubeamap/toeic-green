@@ -93,7 +93,7 @@ export function ForgotPasswordForm() {
       setTimeout(() => {
         setStep("new-password");
         setStatus({ type: "idle" });
-      }, 1000);
+      }, 300);
     } catch (err: unknown) {
       setStatus({
         type: "error",
@@ -212,7 +212,7 @@ export function ForgotPasswordForm() {
       setTimeout(() => {
         setStep("otp");
         setStatus({ type: "idle" });
-      }, 1000);
+      }, 300);
     } catch (err: unknown) {
       setStatus({
         type: "error",
@@ -262,7 +262,7 @@ export function ForgotPasswordForm() {
       setTimeout(() => {
         setStatus({ type: "idle" });
         inputRefs.current[0]?.focus();
-      }, 2000);
+      }, 500);
     } catch (err: unknown) {
       setStatus({
         type: "error",

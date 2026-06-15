@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 import { normalizeEmail } from '../../common/utils/normalize-email';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -8,6 +8,8 @@ const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class EmailVerificationService {
+  private readonly logger = new Logger(EmailVerificationService.name);
+
   constructor(
     private prisma: PrismaService,
     private mailService: MailService,
@@ -27,7 +29,12 @@ export class EmailVerificationService {
       });
     });
 
-    await this.mailService.sendEmailVerification(email, token);
+    this.mailService.sendEmailVerification(email, token).catch((error) => {
+      this.logger.error(
+        `Không thể gửi email xác minh tới ${email}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
   }
 
   async resend(email: string) {

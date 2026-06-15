@@ -9,6 +9,7 @@ import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { RefreshSessionsService } from './refresh-sessions.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { PasswordResetService } from './password-reset.service';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     EmailVerificationService,
     RefreshSessionsService,
+    PasswordResetService,
     JwtStrategy,
   ],
   exports: [AuthService, JwtStrategy, PassportModule],

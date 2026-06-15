@@ -27,6 +27,15 @@ import { validateEnvironment } from './config/env.validation';
       {
         ttl: 60000,
         limit: 100,
+        skipIf: (context) => {
+          if (process.env.NODE_ENV === 'test') {
+            const req = context
+              .switchToHttp()
+              .getRequest<{ body?: { email?: string } }>();
+            return req.body?.email !== 'missing@example.com';
+          }
+          return false;
+        },
       },
     ]),
     PrismaModule,

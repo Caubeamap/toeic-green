@@ -25,6 +25,7 @@ model User {
   oauthAccounts           OAuthAccount[]
   refreshSessions         RefreshSession[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
   attempts                PracticeAttempt[]
   vocabularies            UserVocabulary[]
   exploreProgress         ExploreProgress[]
@@ -284,3 +285,19 @@ model WordRating {
   @@id([userId, exploreWordId])
   @@map("word_ratings")
 }
+
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+

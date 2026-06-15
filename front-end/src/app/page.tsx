@@ -96,7 +96,7 @@ function FeatureBento() {
               </p>
             </div>
             <div className="mt-8 flex flex-wrap gap-2">
-              {["Part 1-7", "Mock Test 2024", "Audio HD"].map((chip) => (
+              {["Part 1-7", "Mock Test", "Audio HD"].map((chip) => (
                 <span
                   key={chip}
                   className="rounded-full bg-surface-container px-3 py-1 text-label-sm text-primary"

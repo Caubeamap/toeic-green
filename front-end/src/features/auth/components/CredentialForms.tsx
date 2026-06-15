@@ -528,10 +528,10 @@ export function SignupForm() {
       if (result.ok) {
         setStatus({
           type: "success",
-          message: "Đăng ký tài khoản thành công! Đang chuyển hướng sang đăng nhập..."
+          message: "Đăng ký thành công! Hãy kiểm tra email để xác minh tài khoản."
         });
         setTimeout(() => {
-          window.location.search = "?mode=login";
+          window.location.href = `/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`;
         }, 1500);
       } else {
         setStatus({

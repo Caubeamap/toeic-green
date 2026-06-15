@@ -1,8 +1,6 @@
-import { ValidationPipe } from '@nestjs/common';
-import { HttpAdapterHost, NestFactory } from '@nestjs/core';
-import cookieParser from 'cookie-parser';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
+import { configureApp } from './app.setup';
 
 async function bootstrap() {
   const startedAt = performance.now();
@@ -10,30 +8,7 @@ async function bootstrap() {
     logger: ['error', 'warn'],
   });
 
-  // Enable cookie parser middleware
-  app.use(cookieParser());
-
-  // Set global prefix for all routes
-  app.setGlobalPrefix('api');
-
-  // Enable validation pipe globally
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-    }),
-  );
-
-  // Register global exception filter for database errors
-  const { httpAdapter } = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
-
-  // Enable CORS
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:6868';
-  app.enableCors({
-    origin: frontendUrl,
-    credentials: true,
-  });
+  const { frontendUrl } = configureApp(app);
 
   const port = process.env.PORT || 2409;
   await app.listen(port);

@@ -12,6 +12,10 @@ interface LoginResponseBody {
   accessToken: string;
 }
 
+interface RegisterResponseBody {
+  email: string;
+}
+
 describe('Backend security baseline (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -47,12 +51,33 @@ describe('Backend security baseline (e2e)', () => {
       .expect(400);
   });
 
-  it('rotates refresh tokens, rejects replay, and revokes on logout', async () => {
+  it('normalizes email casing and rejects case-variant duplicates', async () => {
+    const mixedCaseEmail = email.toUpperCase();
+
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        email: `  ${mixedCaseEmail}  `,
+        password,
+        displayName: 'Auth E2E',
+      })
+      .expect(201);
+    const registerBody = registerResponse.body as RegisterResponseBody;
+
+    expect(registerBody.email).toBe(email);
+
     await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send({ email, password, displayName: 'Auth E2E' })
-      .expect(201);
+      .send({ email, password, displayName: 'Duplicate Auth E2E' })
+      .expect(409);
 
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: mixedCaseEmail, password })
+      .expect(200);
+  });
+
+  it('rotates refresh tokens, rejects replay, and revokes on logout', async () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email, password })

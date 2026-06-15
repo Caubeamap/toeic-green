@@ -1,8 +1,13 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2409/api";
 
 let accessToken: string | null = null;
+let accessTokenVersion = 0;
+let refreshPromise: Promise<RefreshResponse | null> | null = null;
 
 export function setAccessToken(token: string | null) {
+  if (accessToken !== token) {
+    accessTokenVersion += 1;
+  }
   accessToken = token;
 }
 
@@ -31,13 +36,59 @@ export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function notifyAuthFailure() {
+  setAccessToken(null);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("toeic-auth-failed"));
+  }
+}
+
+export async function refreshSession<
+  ResponseData extends RefreshResponse = RefreshResponse,
+>(): Promise<ResponseData | null> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          notifyAuthFailure();
+          return null;
+        }
+
+        const data = (await response.json()) as RefreshResponse;
+        setAccessToken(data.accessToken);
+        return data;
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to refresh token", error);
+        notifyAuthFailure();
+        return null;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise as Promise<ResponseData | null>;
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  return (await refreshSession()) !== null;
+}
+
 async function request<ResponseData = void>(
   path: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<ResponseData> {
   const url = `${BASE_URL}${path}`;
   const headers = new Headers(options.headers || {});
   const { body, ...requestInit } = options;
+  const requestAccessTokenVersion = accessTokenVersion;
 
   if (!headers.has("Content-Type") && !(body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
@@ -67,36 +118,14 @@ async function request<ResponseData = void>(
     !path.startsWith("/auth/refresh") &&
     !path.startsWith("/auth/login")
   ) {
-    try {
-      const refreshResponse = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (refreshResponse.ok) {
-        const data = (await refreshResponse.json()) as RefreshResponse;
-        accessToken = data.accessToken;
-
-        // Gọi lại request ban đầu với token mới
-        headers.set("Authorization", `Bearer ${accessToken}`);
-        fetchOptions.headers = headers;
-        response = await fetch(url, fetchOptions);
-      } else {
-        // Refresh token đã hết hạn hoặc không hợp lệ -> Đăng xuất
-        accessToken = null;
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("toeic-auth-failed"));
-        }
-      }
-    } catch (error) {
-      console.error("Failed to refresh token", error);
-      accessToken = null;
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("toeic-auth-failed"));
-      }
+    const refreshed =
+      accessToken !== null && accessTokenVersion !== requestAccessTokenVersion
+        ? true
+        : await refreshAccessToken();
+    if (refreshed && accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+      fetchOptions.headers = headers;
+      response = await fetch(url, fetchOptions);
     }
   }
 
@@ -127,17 +156,17 @@ export const api = {
   post: <ResponseData = void>(
     path: string,
     body?: unknown,
-    options?: RequestOptions
+    options?: RequestOptions,
   ) => request<ResponseData>(path, { ...options, method: "POST", body }),
   put: <ResponseData = void>(
     path: string,
     body?: unknown,
-    options?: RequestOptions
+    options?: RequestOptions,
   ) => request<ResponseData>(path, { ...options, method: "PUT", body }),
   patch: <ResponseData = void>(
     path: string,
     body?: unknown,
-    options?: RequestOptions
+    options?: RequestOptions,
   ) => request<ResponseData>(path, { ...options, method: "PATCH", body }),
   delete: <ResponseData = void>(path: string, options?: RequestOptions) =>
     request<ResponseData>(path, { ...options, method: "DELETE" }),

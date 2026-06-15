@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { normalizeEmail } from '../../common/utils/normalize-email';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import {
@@ -33,7 +34,8 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, displayName } = registerDto;
+    const { password, displayName } = registerDto;
+    const email = normalizeEmail(registerDto.email);
     const existingUser = await this.usersService.findOneByEmail(email);
 
     if (existingUser) {
@@ -57,7 +59,8 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { password } = loginDto;
+    const email = normalizeEmail(loginDto.email);
     const user = await this.usersService.findOneByEmail(email);
 
     if (!user || !user.passwordHash) {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { normalizeEmail } from '../../common/utils/normalize-email';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -7,7 +8,7 @@ export class UsersService {
 
   async findOneByEmail(email: string) {
     return this.prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizeEmail(email) },
     });
   }
 
@@ -55,7 +56,7 @@ export class UsersService {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email,
+          email: normalizeEmail(email),
           passwordHash,
           displayName,
         },

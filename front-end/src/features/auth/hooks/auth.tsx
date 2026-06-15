@@ -9,7 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getErrorMessage, setAccessToken } from "@/lib/api";
+import {
+  api,
+  getErrorMessage,
+  refreshSession,
+  setAccessToken,
+} from "@/lib/api";
 import {
   cacheUserProfileResponse,
   clearUserProfileCache,
@@ -103,11 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function hydrate() {
       try {
         // Thử refresh token ngầm
-        const data = await api.post<RefreshResponse>("/auth/refresh");
-        setAccessToken(data.accessToken);
+        const data = await refreshSession<RefreshResponse>();
 
         // Lấy thông tin cá nhân hiện tại
-        if (!data.user || !data.profile) {
+        if (!data?.user || !data.profile) {
           throw new Error(
             "Refresh response is missing the current user profile",
           );

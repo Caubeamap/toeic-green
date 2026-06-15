@@ -72,6 +72,15 @@ export function PracticeCatalog() {
   }, [activeFilter, historyTests, query, testsWithProgress]);
 
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Tự động cuộn lên đầu section khi chuyển trang
+  useEffect(() => {
+    const section = document.getElementById("practice");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [currentPage]);
+
   const ITEMS_PER_PAGE = 8;
 
   const totalPages = Math.ceil(visibleTests.length / ITEMS_PER_PAGE);

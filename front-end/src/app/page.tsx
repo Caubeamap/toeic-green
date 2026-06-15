@@ -132,7 +132,7 @@ function FeatureBento() {
 
         <Link
           href="/explore"
-          className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-4"
+          className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-6"
         >
           <div className="space-y-4">
             <IconTile tone="tertiary">
@@ -147,9 +147,9 @@ function FeatureBento() {
 
         <Link
           href="/vocabulary"
-          className="glass-card interactive-surface flex flex-col gap-8 rounded-[28px] p-8 md:col-span-8 md:flex-row md:items-center"
+          className="glass-card interactive-surface rounded-[28px] p-8 md:col-span-6"
         >
-          <div className="flex-1 space-y-4">
+          <div className="space-y-4">
             <IconTile tone="fixed">
               <MaterialSymbolIcon name="history_edu" className="h-6 w-6" />
             </IconTile>
@@ -157,23 +157,6 @@ function FeatureBento() {
             <p className="text-body-md text-on-surface-variant">
               Lưu từ vựng mới khi làm đề, ghi chú và ôn tập theo danh sách cá nhân.
             </p>
-          </div>
-          <div className="w-full flex-1 rounded-xl border border-white/40 bg-white/60 p-4">
-            {[
-              ["Collaborate", "Luyện tập: 3/5"],
-              ["Innovative", "Luyện tập: 1/5"],
-              ["Efficiency", "Luyện tập: 5/5"]
-            ].map(([word, status], index) => (
-              <div
-                key={word}
-                className={`flex items-center justify-between py-2 ${
-                  index < 2 ? "border-b border-surface-container-highest pb-2" : ""
-                }`}
-              >
-                <span className="font-bold text-primary">{word}</span>
-                <span className="text-[12px] text-on-surface-variant">{status}</span>
-              </div>
-            ))}
           </div>
         </Link>
       </div>

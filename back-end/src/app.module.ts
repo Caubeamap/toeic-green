@@ -30,8 +30,8 @@ import { validateEnvironment } from './config/env.validation';
         skipIf: (context) => {
           if (process.env.NODE_ENV === 'test') {
             const req = context
-              .switchToHttp()
-              .getRequest<{ body?: { email?: string } }>();
+               .switchToHttp()
+               .getRequest<{ body?: { email?: string } }>();
             return req.body?.email !== 'missing@example.com';
           }
           return false;

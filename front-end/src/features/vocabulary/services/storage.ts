@@ -2,9 +2,6 @@
  * Vocabulary storage service.
  *
  * Currently persists to localStorage.
- * When a backend is available, replace each function body with
- * an API call (e.g. fetch("/api/vocabulary", ...)) — the function
- * signatures stay the same so consuming components don't change.
  */
 
 import type { VocabularyWord } from "../types";

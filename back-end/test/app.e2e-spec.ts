@@ -77,6 +77,23 @@ describe('Backend security baseline (e2e)', () => {
       .expect(200);
   });
 
+  it('rejects non-canonical email writes at the database boundary', async () => {
+    const directEmail = `Direct-${Date.now()}@example.com`;
+
+    try {
+      await expect(
+        prisma.$executeRaw`
+          INSERT INTO users (email, display_name)
+          VALUES (${directEmail}, 'Direct E2E')
+        `,
+      ).rejects.toThrow();
+    } finally {
+      await prisma.user.deleteMany({
+        where: { email: { in: [directEmail, directEmail.toLowerCase()] } },
+      });
+    }
+  });
+
   it('rotates refresh tokens, rejects replay, and revokes on logout', async () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/api/auth/login')

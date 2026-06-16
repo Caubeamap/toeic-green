@@ -1,6 +1,7 @@
 // Components
 export { PracticeCatalog } from "./components/PracticeCatalog";
 export { PracticeExamSession } from "./components/PracticeExamSession";
+export { PracticeResultReview } from "./components/PracticeResultReview";
 export { PracticeTestSetup } from "./components/PracticeTestSetup";
 
 // Tests and types

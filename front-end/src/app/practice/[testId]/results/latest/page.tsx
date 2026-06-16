@@ -40,14 +40,12 @@ export default function LatestResultPage() {
       }
     }
 
-    if (isAuthenticated) {
-      loadLatestResult();
-    }
+    loadLatestResult();
 
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, params.testId, router]);
+  }, [params.testId, router]);
 
   return (
     <>

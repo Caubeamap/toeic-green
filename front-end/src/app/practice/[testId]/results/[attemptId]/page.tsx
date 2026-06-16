@@ -56,14 +56,12 @@ export default function AttemptResultPage() {
       }
     }
 
-    if (isAuthenticated) {
-      loadResult();
-    }
+    loadResult();
 
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, params.attemptId, params.testId]);
+  }, [params.attemptId, params.testId]);
 
   if (!isLoading && !isAuthLoading && result) {
     return <PracticeResultReview attemptResult={result} />;

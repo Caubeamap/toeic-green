@@ -137,6 +137,7 @@ model QuestionGroup {
   testPart  TestPart   @relation(fields: [testPartId], references: [id], onDelete: Cascade)
   questions Question[]
 
+  @@index([testPartId])
   @@map("question_groups")
 }
 
@@ -161,6 +162,8 @@ model Question {
   answers  AttemptAnswer[]
 
   @@unique([testPartId, questionNumber])
+  @@index([groupId])
+  @@index([testPartId])
   @@map("questions")
 }
 

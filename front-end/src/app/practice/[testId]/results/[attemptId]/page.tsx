@@ -1,104 +1,157 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, FileQuestion } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { allPracticeTests, getPracticeAttemptById } from "@/features/practice";
+import { useAuth } from "@/features/auth";
+import {
+  getPracticeAttemptResult,
+  type PracticeAttemptResult
+} from "@/features/practice";
+import { getErrorMessage } from "@/lib/api";
 
-type AttemptResultPageProps = {
-  params: Promise<{
-    attemptId: string;
-    testId: string;
-  }>;
-};
+export default function AttemptResultPage() {
+  const params = useParams<{ attemptId: string; testId: string }>();
+  const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const [result, setResult] = useState<PracticeAttemptResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-export function generateStaticParams() {
-  return allPracticeTests.flatMap((test) =>
-    (test.recentAttempts ?? []).map((attempt) => ({
-      attemptId: attempt.id,
-      testId: test.id
-    }))
-  );
-}
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isAuthLoading, router]);
 
-export async function generateMetadata({ params }: AttemptResultPageProps): Promise<Metadata> {
-  const { attemptId, testId } = await params;
-  const result = getPracticeAttemptById(testId, attemptId);
+  useEffect(() => {
+    let cancelled = false;
 
-  return {
-    title: result
-      ? `${result.test.title} ${result.test.subtitle} Result | TOEIC Green`
-      : "Attempt Result | TOEIC Green"
-  };
-}
+    async function loadResult() {
+      setIsLoading(true);
+      setErrorMessage(null);
 
-export default async function AttemptResultPage({ params }: AttemptResultPageProps) {
-  const { attemptId, testId } = await params;
-  const result = getPracticeAttemptById(testId, attemptId);
+      try {
+        const nextResult = await getPracticeAttemptResult(
+          params.testId,
+          params.attemptId
+        );
 
-  if (!result) {
-    notFound();
-  }
+        if (!cancelled) {
+          setResult(nextResult);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(
+            getErrorMessage(error, "Không tải được kết quả làm bài.")
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
 
-  const { attempt, test } = result;
-  const accuracy = Math.round((attempt.correct / attempt.total) * 100);
+    if (isAuthenticated) {
+      loadResult();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, params.attemptId, params.testId]);
+
+  const accuracy =
+    result && result.attempt.total > 0
+      ? Math.round((result.attempt.correct / result.attempt.total) * 100)
+      : 0;
 
   return (
     <>
       <SiteHeader />
       <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_44%),radial-gradient(circle_at_100%_20%,#eef4ff_0%,#fbf9f8_36%)] pt-32">
         <section className="container-shell pb-16">
-          <Link
-            href={`/practice/${test.id}/start`}
-            className="mb-6 inline-flex text-sm font-bold text-primary transition hover:text-on-primary-container"
-          >
-            Quay lại trang chuẩn bị thi
-          </Link>
-
-          <div className="max-w-4xl rounded-[28px] border border-white/70 bg-white/68 p-6 shadow-glass backdrop-blur-xl sm:p-8">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary-container/70 px-4 py-2 text-label-sm font-bold text-on-primary-container">
-              <CheckCircle2 className="h-4 w-4" />
-              Attempt result
+          {isLoading || isAuthLoading ? (
+            <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
+              Đang tải kết quả từ backend...
             </div>
-            <h1 className="text-headline-lg font-bold text-on-surface">
-              {test.title} {test.subtitle}
-            </h1>
-            <p className="mt-2 text-body-md text-on-surface-variant">
-              Đây là trang kết quả tóm tắt cho lần làm bài đã lưu. Khi có backend, dữ liệu chi tiết từng câu có thể được tải theo `attemptId`.
-            </p>
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ResultMetric
-                icon={<CalendarDays className="h-5 w-5" />}
-                label="Ngày làm"
-                value={attempt.attemptedAt}
-              />
-              <ResultMetric
-                icon={<FileQuestion className="h-5 w-5" />}
-                label="Kết quả"
-                value={`${attempt.correct}/${attempt.total}`}
-              />
-              <ResultMetric
-                icon={<CheckCircle2 className="h-5 w-5" />}
-                label="Độ chính xác"
-                value={`${accuracy}%`}
-              />
-              <ResultMetric
-                icon={<Clock3 className="h-5 w-5" />}
-                label="Thời gian"
-                value={formatDuration(attempt.durationSeconds)}
-              />
+          ) : errorMessage || !result ? (
+            <div className="mx-auto max-w-xl rounded-3xl border border-red-200 bg-red-50/80 p-8 text-center shadow-soft">
+              <h1 className="text-2xl font-extrabold text-red-700">
+                Không tìm thấy kết quả
+              </h1>
+              <p className="mt-3 text-sm font-semibold text-red-700">
+                {errorMessage ?? "Kết quả này không tồn tại hoặc không thuộc tài khoản hiện tại."}
+              </p>
+              <Link
+                href="/practice"
+                className="mt-6 inline-flex rounded-2xl bg-primary px-6 py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-primary/90"
+              >
+                Quay về danh sách
+              </Link>
             </div>
+          ) : (
+            <>
+              <Link
+                href={`/practice/${result.test.id}/start`}
+                className="mb-6 inline-flex text-sm font-bold text-primary transition hover:text-on-primary-container"
+              >
+                Quay lại trang chuẩn bị thi
+              </Link>
 
-            {attempt.scaledScore ? (
-              <div className="mt-6 rounded-2xl border border-primary/20 bg-primary-container/20 p-5">
-                <p className="text-sm font-bold uppercase tracking-wider text-primary">Scaled score</p>
-                <p className="mt-1 text-3xl font-extrabold text-on-surface">{attempt.scaledScore}</p>
+              <div className="max-w-4xl rounded-[28px] border border-white/70 bg-white/68 p-6 shadow-glass backdrop-blur-xl sm:p-8">
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary-container/70 px-4 py-2 text-label-sm font-bold text-on-primary-container">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Attempt result
+                </div>
+                <h1 className="text-headline-lg font-bold text-on-surface">
+                  {result.test.title} {result.test.subtitle}
+                </h1>
+                <p className="mt-2 text-body-md text-on-surface-variant">
+                  Kết quả này được lưu trong database và có thể mở lại theo mã attempt.
+                </p>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <ResultMetric
+                    icon={<CalendarDays className="h-5 w-5" />}
+                    label="Ngày làm"
+                    value={result.attempt.attemptedAt}
+                  />
+                  <ResultMetric
+                    icon={<FileQuestion className="h-5 w-5" />}
+                    label="Kết quả"
+                    value={`${result.attempt.correct}/${result.attempt.total}`}
+                  />
+                  <ResultMetric
+                    icon={<CheckCircle2 className="h-5 w-5" />}
+                    label="Độ chính xác"
+                    value={`${accuracy}%`}
+                  />
+                  <ResultMetric
+                    icon={<Clock3 className="h-5 w-5" />}
+                    label="Thời gian"
+                    value={formatDuration(result.attempt.durationSeconds)}
+                  />
+                </div>
+
+                {result.attempt.scaledScore ? (
+                  <div className="mt-6 rounded-2xl border border-primary/20 bg-primary-container/20 p-5">
+                    <p className="text-sm font-bold uppercase tracking-wider text-primary">
+                      Scaled score
+                    </p>
+                    <p className="mt-1 text-3xl font-extrabold text-on-surface">
+                      {result.attempt.scaledScore}
+                    </p>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
+            </>
+          )}
         </section>
       </main>
       <SiteFooter />

@@ -10,41 +10,95 @@ import {
   Search
 } from "lucide-react";
 import Link from "next/link";
-import {
-  allPracticeTests,
-  practiceFilters,
-  type PracticeAttempt,
-  type PracticeFilter,
-  type PracticeTest
-} from "../lib/practice-tests";
-import { mergePracticeProgress } from "../lib/practice-progress";
+import { useAuth } from "@/features/auth";
+import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-type TimestampedPracticeAttempt = PracticeAttempt & {
-  timestamp?: string;
-};
+import { practiceFilters, type PracticeAttempt, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
+import { listPracticeTests, listRecentPracticeAttempts } from "../services/practice-api";
 
 function getLatestAttemptTimestamp(test: PracticeTest) {
-  const [latestAttempt] = (test.recentAttempts ?? []) as TimestampedPracticeAttempt[];
+  const [latestAttempt] = test.recentAttempts ?? [];
 
   return latestAttempt?.timestamp ?? test.completedAt ?? "";
 }
 
-export function PracticeCatalog() {
-  const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
-  const [query, setQuery] = useState("");
-  const [testsWithProgress, setTestsWithProgress] = useState<PracticeTest[]>(allPracticeTests);
+function mergeAttempts(tests: PracticeTest[], attempts: PracticeAttempt[]) {
+  if (attempts.length === 0) {
+    return tests;
+  }
 
-  useEffect(() => {
-    function refreshProgress() {
-      setTestsWithProgress(mergePracticeProgress(allPracticeTests));
+  const attemptsByTestId = new Map<string, PracticeAttempt[]>();
+
+  attempts.forEach((attempt) => {
+    if (!attempt.testId) {
+      return;
     }
 
-    refreshProgress();
-    window.addEventListener("storage", refreshProgress);
+    const current = attemptsByTestId.get(attempt.testId) ?? [];
+    attemptsByTestId.set(attempt.testId, [...current, attempt]);
+  });
 
-    return () => window.removeEventListener("storage", refreshProgress);
-  }, []);
+  return tests.map((test) => {
+    const recentAttempts = attemptsByTestId.get(test.id);
+
+    if (!recentAttempts?.length) {
+      return test;
+    }
+
+    return {
+      ...test,
+      status: "Completed" as const,
+      recentAttempts,
+      completedAt: recentAttempts[0]?.attemptedAt
+    };
+  });
+}
+
+export function PracticeCatalog() {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
+  const [query, setQuery] = useState("");
+  const [testsWithProgress, setTestsWithProgress] = useState<PracticeTest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTests() {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const tests = await listPracticeTests();
+        const attempts =
+          isAuthenticated && !isAuthLoading ? await listRecentPracticeAttempts() : [];
+
+        if (!cancelled) {
+          setTestsWithProgress(mergeAttempts(tests, attempts));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(
+            getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    if (!isAuthLoading) {
+      loadTests();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isAuthLoading]);
 
   const historyTests = useMemo(
     () =>
@@ -71,9 +125,6 @@ export function PracticeCatalog() {
     });
   }, [activeFilter, historyTests, query, testsWithProgress]);
 
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Tự động cuộn lên đầu section khi chuyển trang
   useEffect(() => {
     const section = document.getElementById("practice");
     if (section) {
@@ -81,13 +132,12 @@ export function PracticeCatalog() {
     }
   }, [currentPage]);
 
-  const ITEMS_PER_PAGE = 8;
-
-  const totalPages = Math.ceil(visibleTests.length / ITEMS_PER_PAGE);
+  const itemsPerPage = 8;
+  const totalPages = Math.ceil(visibleTests.length / itemsPerPage);
 
   const paginatedTests = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return visibleTests.slice(start, start + ITEMS_PER_PAGE);
+    const start = (currentPage - 1) * itemsPerPage;
+    return visibleTests.slice(start, start + itemsPerPage);
   }, [visibleTests, currentPage]);
 
   const isHistoryView = activeFilter === "Test History";
@@ -109,7 +159,7 @@ export function PracticeCatalog() {
                 setCurrentPage(1);
               }}
               className="glass-card w-full rounded-2xl px-12 py-4 text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/30"
-              placeholder="Tìm kiếm đề thi (ví dụ: ETS 2024, TOEIC SW TEST 1)..."
+              placeholder="Tìm kiếm đề thi TOEIC..."
               type="text"
             />
             <button
@@ -132,10 +182,10 @@ export function PracticeCatalog() {
             </h1>
             <p className="max-w-xl text-body-md text-on-surface-variant">
               {isHistoryView
-                ? "Theo dõi các bài luyện thi đã bắt đầu hoặc đã hoàn thành để tiếp tục ôn tập đúng điểm yếu."
+                ? "Theo dõi các bài luyện thi đã hoàn thành để tiếp tục ôn tập đúng điểm yếu."
                 : isCompletedView
                   ? "Danh sách các bài luyện thi đã hoàn thành, kèm điểm số và trạng thái review rõ ràng."
-                  : "Luyện thi với các bộ đề mô phỏng TOEIC."}
+                  : "Luyện thi với các bộ đề TOEIC đã được nạp từ cơ sở dữ liệu."}
             </p>
           </div>
 
@@ -159,13 +209,25 @@ export function PracticeCatalog() {
           </div>
         </div>
 
-        {isHistoryView ? (
+        {isLoading ? (
+          <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
+            Đang tải danh sách đề thi từ backend...
+          </div>
+        ) : errorMessage ? (
+          <div className="glass-card rounded-2xl border border-red-200 bg-red-50/70 p-8 text-center font-semibold text-red-700">
+            {errorMessage}
+          </div>
+        ) : isHistoryView ? (
           <HistoryList tests={paginatedTests} />
-        ) : (
+        ) : paginatedTests.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {paginatedTests.map((test) => (
               <PracticeTestCard key={test.id} test={test} />
             ))}
+          </div>
+        ) : (
+          <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
+            Chưa có đề thi phù hợp với bộ lọc hiện tại.
           </div>
         )}
 
@@ -173,41 +235,37 @@ export function PracticeCatalog() {
           <div className="mt-12 flex items-center justify-center gap-2">
             <button
               aria-label="Previous"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={currentPage === 1}
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              )}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
               type="button"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            
-            {Array.from({ length: totalPages }, (_, i) => {
-              const pageNum = i + 1;
+
+            {Array.from({ length: totalPages }, (_, index) => {
+              const pageNumber = index + 1;
               return (
                 <button
-                  key={pageNum}
-                  aria-label={`Page ${pageNum}`}
-                  onClick={() => setCurrentPage(pageNum)}
+                  key={pageNumber}
+                  aria-label={`Page ${pageNumber}`}
+                  onClick={() => setCurrentPage(pageNumber)}
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white",
-                    currentPage === pageNum && "border-primary bg-primary text-white hover:bg-primary"
+                    currentPage === pageNumber && "border-primary bg-primary text-white hover:bg-primary"
                   )}
                   type="button"
                 >
-                  {pageNum}
+                  {pageNumber}
                 </button>
               );
             })}
 
             <button
               aria-label="Next"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
               disabled={currentPage === totalPages}
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              )}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
               type="button"
             >
               <ChevronRight className="h-5 w-5" />
@@ -215,8 +273,6 @@ export function PracticeCatalog() {
           </div>
         )}
       </div>
-
-
     </section>
   );
 }

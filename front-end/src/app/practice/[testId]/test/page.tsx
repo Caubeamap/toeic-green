@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth";
-import { getPracticeTestById, getQuestionsForTest, type ToeicQuestion, PracticeExamSession } from "@/features/practice";
+import {
+  getPracticeTest,
+  listPracticeQuestions,
+  PracticeExamSession,
+  type PracticeTest,
+  type ToeicQuestion
+} from "@/features/practice";
+import { getErrorMessage } from "@/lib/api";
 
 function TestPageContent() {
   const params = useParams<{ testId: string }>();
@@ -11,10 +18,10 @@ function TestPageContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
 
-  const test = getPracticeTestById(params.testId);
-  
+  const [test, setTest] = useState<PracticeTest | null>(null);
   const [questions, setQuestions] = useState<ToeicQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const partsParam = searchParams.get("parts");
   const timeParam = searchParams.get("time");
@@ -24,48 +31,53 @@ function TestPageContent() {
     if (modeParam === "full" || !partsParam) {
       return questions;
     }
+
     const selectedParts = partsParam.split(",");
-    return questions.filter((q) => selectedParts.includes(q.partId));
+    return questions.filter((question) => selectedParts.includes(question.partId));
   }, [questions, partsParam, modeParam]);
 
   const customTimeLimit = useMemo(() => {
-    if (modeParam === "full") {
-      return test?.minutes;
+    if (!test) {
+      return undefined;
     }
+
+    if (modeParam === "full") {
+      return test.minutes;
+    }
+
     if (timeParam !== null) {
       return Number(timeParam);
     }
-    return test?.minutes;
+
+    return test.minutes;
   }, [test, timeParam, modeParam]);
 
   useEffect(() => {
     async function loadQuestions() {
+      setLoadingQuestions(true);
+      setErrorMessage(null);
+
       try {
-        if (params.testId.startsWith("practice-toeic-test-")) {
-          const res = await fetch(`/data/toeic-questions/${params.testId}.json`);
-          if (res.ok) {
-            const data = await res.json();
-            setQuestions(data);
-            setLoadingQuestions(false);
-            return;
-          }
-        }
-        // Fallback to static mock data
-        const staticQs = getQuestionsForTest(params.testId);
-        setQuestions(staticQs);
-      } catch (err) {
-        console.error("Failed to load questions", err);
+        const [nextTest, nextQuestions] = await Promise.all([
+          getPracticeTest(params.testId),
+          listPracticeQuestions(params.testId)
+        ]);
+        setTest(nextTest);
+        setQuestions(nextQuestions);
+      } catch (error) {
+        setErrorMessage(
+          getErrorMessage(error, "Không tải được dữ liệu câu hỏi từ backend.")
+        );
       } finally {
         setLoadingQuestions(false);
       }
     }
-    
+
     if (isAuthenticated) {
       loadQuestions();
     }
   }, [params.testId, isAuthenticated]);
 
-  /* Redirect to login if not authenticated */
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
@@ -80,7 +92,7 @@ function TestPageContent() {
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm font-bold text-on-surface-variant">
-            Đang tải bài thi...
+            Đang tải bài thi từ backend...
           </p>
         </div>
       </div>
@@ -91,7 +103,7 @@ function TestPageContent() {
     return null;
   }
 
-  if (!test || questions.length === 0) {
+  if (!test || filteredQuestions.length === 0) {
     return (
       <div className="grid min-h-screen place-items-center">
         <div className="max-w-md rounded-3xl border border-white/70 bg-white/60 p-10 text-center shadow-glass backdrop-blur-xl">
@@ -99,7 +111,8 @@ function TestPageContent() {
             Bài thi không tồn tại
           </h1>
           <p className="mt-3 text-sm text-on-surface-variant">
-            Không tìm thấy bài thi hoặc dữ liệu câu hỏi chưa sẵn sàng.
+            {errorMessage ??
+              "Không tìm thấy bài thi hoặc dữ liệu câu hỏi chưa sẵn sàng."}
           </p>
           <button
             type="button"
@@ -124,16 +137,18 @@ function TestPageContent() {
 
 export default function TestPage() {
   return (
-    <Suspense fallback={
-      <div className="grid min-h-screen place-items-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm font-bold text-on-surface-variant">
-            Đang tải cấu hình bài thi...
-          </p>
+    <Suspense
+      fallback={
+        <div className="grid min-h-screen place-items-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm font-bold text-on-surface-variant">
+              Đang tải cấu hình bài thi...
+            </p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <TestPageContent />
     </Suspense>
   );

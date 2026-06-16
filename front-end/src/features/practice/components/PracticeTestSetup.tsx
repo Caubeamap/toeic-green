@@ -21,7 +21,6 @@ import {
   X
 } from "lucide-react";
 import type { PracticeAttempt, PracticeTest } from "../lib/practice-tests";
-import { mergePracticeProgress } from "../lib/practice-progress";
 import { cn } from "@/lib/utils";
 
 type TabId = "practice" | "full-test" | "discussion";
@@ -38,7 +37,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const [timeLimit, setTimeLimit] = useState(test.minutes);
   const [showDevelopmentNotice, setShowDevelopmentNotice] = useState(false);
 
-  const currentTest = useMemo(() => mergePracticeProgress([test])[0], [test]);
+  const currentTest = test;
 
   const timeOptions = useMemo(
     () => Array.from({ length: 28 }, (_, index) => index * 5),

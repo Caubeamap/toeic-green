@@ -22,12 +22,11 @@ import {
 } from "lucide-react";
 import type { PracticeTest } from "../lib/practice-tests";
 import {
-  LATEST_PRACTICE_RESULT_KEY,
-  savePracticeAttemptResult,
-  type SavedPracticeResult
-} from "../lib/practice-progress";
+  submitPracticeAttempt
+} from "../services/practice-api";
 import type { ToeicQuestion } from "../lib/toeic-questions";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
    Types & Constants
@@ -505,38 +504,33 @@ export function PracticeExamSession({
   }, [currentIndex, currentGroupQuestions, questions, goNextGroup, goPrevGroup, goTo, showSubmitDialog, currentQuestion, selectAnswer, toggleFlag, isNavigationBlocked]);
 
   // Submit test and format results
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
+    if (submitted) return;
+
     setSubmitted(true);
     timer.setRunning(false);
     setShowSubmitDialog(false);
 
-    // Calculate score
-    let correctCount = 0;
-    questions.forEach((q) => {
-      if (answers[q.id] === q.correctAnswer) correctCount++;
-    });
-
     const examMinutes = customTimeLimit !== undefined ? customTimeLimit : test.minutes;
 
-    const result: SavedPracticeResult = {
-      testId: test.id,
-      testTitle: `${test.title} ${test.subtitle}`,
-      correct: correctCount,
-      total: totalQuestions,
-      answered: answeredCount,
-      flagged: flags.size,
-      flaggedIds: Array.from(flags),
-      duration: timer.isCountUp ? timer.remaining : examMinutes * 60 - timer.remaining,
-      answers,
-      timestamp: new Date().toISOString(),
-      parts: Array.from(new Set(questions.map((q) => q.partId))),
-      timeLimit: examMinutes,
-    };
+    try {
+      const result = await submitPracticeAttempt(test.id, {
+        mode: totalQuestions >= test.questions ? "FULL_TEST" : "PRACTICE",
+        durationSeconds: timer.isCountUp ? timer.remaining : examMinutes * 60 - timer.remaining,
+        timeLimitMinutes: examMinutes,
+        questionIds: questions.map((question) => question.id),
+        flaggedQuestionIds: Array.from(flags),
+        answers
+      });
 
-    sessionStorage.setItem(LATEST_PRACTICE_RESULT_KEY, JSON.stringify(result));
-    savePracticeAttemptResult(test, result);
-    router.push(`/practice/${test.id}/results/latest`);
-  }, [test, questions, answers, answeredCount, flags, timer, router, totalQuestions, customTimeLimit]);
+      router.push(`/practice/${test.id}/results/${result.attempt.id}`);
+    } catch (error) {
+      console.error("Failed to submit practice attempt", error);
+      setSubmitted(false);
+      timer.setRunning(true);
+      window.alert(getErrorMessage(error, "Không lưu được kết quả làm bài."));
+    }
+  }, [test, questions, answers, flags, timer, router, totalQuestions, customTimeLimit, submitted]);
 
   // Time-out submit
   useEffect(() => {

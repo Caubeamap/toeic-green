@@ -14,6 +14,7 @@ import {
   api,
   getErrorMessage,
   refreshSession,
+  restoreAccessTokenFromStorage,
   setAccessToken,
 } from "@/lib/api";
 import {
@@ -36,7 +37,7 @@ export type MockUser = {
 };
 
 type AuthState =
-  | { status: "loading" }
+  | { status: "loading"; user?: MockUser }
   | { status: "unauthenticated" }
   | { status: "authenticated"; user: MockUser };
 
@@ -101,12 +102,54 @@ function mapUser(backendUser: BackendUser): MockUser {
   };
 }
 
+function isStoredUser(value: unknown): value is MockUser {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const user = value as Partial<MockUser>;
+  return (
+    typeof user.id === "string" &&
+    typeof user.email === "string" &&
+    typeof user.displayName === "string" &&
+    typeof user.role === "string" &&
+    typeof user.avatar === "string"
+  );
+}
+
+function readStoredUser() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    return isStoredUser(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
   /* Tự động khôi phục phiên (Hydration) bằng Refresh Token khi mở trang web */
   useEffect(() => {
     async function hydrate() {
+      const storedUser = readStoredUser();
+      const storedToken = restoreAccessTokenFromStorage();
+
+      if (storedUser && storedToken) {
+        setState({ status: "authenticated", user: storedUser });
+      } else if (storedUser) {
+        setState({ status: "loading", user: storedUser });
+      }
+
       try {
         // Thử refresh token ngầm
         const data = await refreshSession<RefreshResponse>();
@@ -226,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       state,
-      user: state.status === "authenticated" ? state.user : null,
+      user: "user" in state ? state.user ?? null : null,
       isAuthenticated: state.status === "authenticated",
       isLoading: state.status === "loading",
       login,

@@ -1,18 +1,53 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2409/api";
+const ACCESS_TOKEN_STORAGE_KEY = "toeic-green-access-token";
 
 let accessToken: string | null = null;
 let accessTokenVersion = 0;
 let refreshPromise: Promise<RefreshResponse | null> | null = null;
+
+function getSessionStorage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
 
 export function setAccessToken(token: string | null) {
   if (accessToken !== token) {
     accessTokenVersion += 1;
   }
   accessToken = token;
+
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+
+  if (token) {
+    storage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+  } else {
+    storage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  }
 }
 
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+export function restoreAccessTokenFromStorage(): string | null {
+  const storage = getSessionStorage();
+  const token = storage?.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? null;
+
+  if (token) {
+    setAccessToken(token);
+  }
+
+  return token;
 }
 
 type RequestOptions = Omit<RequestInit, "body"> & {

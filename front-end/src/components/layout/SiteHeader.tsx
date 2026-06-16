@@ -12,7 +12,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   function handleLogout() {
@@ -48,7 +48,7 @@ export function SiteHeader() {
 
         {/* Desktop auth area */}
         <div className="hidden shrink-0 items-center gap-4 sm:flex">
-          {isAuthenticated && user ? (
+          {user ? (
             <div className="relative">
               <button
                 type="button"
@@ -95,6 +95,11 @@ export function SiteHeader() {
                   </div>
                 </>
               )}
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center gap-3" aria-label="Đang tải tài khoản">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-primary/10" />
+              <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
             </div>
           ) : (
             <>
@@ -143,7 +148,7 @@ export function SiteHeader() {
 
             {/* Mobile auth */}
             <div className="mt-1 border-t border-outline-variant/50 pt-3">
-              {isAuthenticated && user ? (
+              {user ? (
                 <>
                   <div className="flex items-center gap-3 px-4 py-2">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary">
@@ -170,6 +175,11 @@ export function SiteHeader() {
                     Đăng xuất
                   </button>
                 </>
+              ) : isLoading ? (
+                <div className="flex items-center gap-3 px-4 py-3" aria-label="Đang tải tài khoản">
+                  <div className="h-8 w-8 animate-pulse rounded-full bg-primary/10" />
+                  <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                </div>
               ) : (
                 <>
                   <Link

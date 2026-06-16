@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Merriweather } from "next/font/google";
+import Script from "next/script";
 import { AppBackground } from "@/components/layout/AppBackground";
 import { AppProviders } from "@/components/layout/AppProviders";
 import "./globals.css";
@@ -32,8 +33,9 @@ export default function RootLayout({
   return (
     <html lang="vi" className="scroll-smooth" suppressHydrationWarning>
       <head>
-        <script
-          suppressHydrationWarning
+        <Script
+          id="clean-extension-hydration-attrs"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {

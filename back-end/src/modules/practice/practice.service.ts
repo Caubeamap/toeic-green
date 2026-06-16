@@ -114,6 +114,56 @@ type PracticeTestsSnapshot = {
   tests: TestWithParts[];
 };
 
+interface AttemptResultRow {
+  attempt_id: bigint;
+  attempt_public_id: string;
+  attempt_user_id: string;
+  attempt_test_id: number;
+  attempt_mode: string;
+  attempt_status: string;
+  attempt_correct_count: number;
+  attempt_total_count: number;
+  attempt_scaled_score: number | null;
+  attempt_duration_seconds: number;
+  attempt_started_at: Date;
+  attempt_completed_at: Date | null;
+
+  answer_selected_answer: string | null;
+  answer_is_correct: boolean;
+  answer_is_flagged: boolean;
+  answer_time_spent_ms: number;
+  answer_answered_at: Date;
+
+  question_id: bigint | null;
+  question_test_part_id: number;
+  question_group_id: bigint | null;
+  question_question_number: number;
+  question_stem: string;
+  question_option_a: string;
+  question_option_b: string;
+  question_option_c: string;
+  question_option_d: string | null;
+  question_correct_answer: string;
+  question_explanation: string | null;
+  question_image_url: string | null;
+  question_audio_url: string | null;
+  question_created_at: Date;
+
+  part_id: number;
+  part_part_number: number;
+  part_section: string;
+  part_label: string;
+  part_description: string;
+  part_question_count: number;
+
+  group_id: bigint | null;
+  group_passage: string | null;
+  group_audio_url: string | null;
+  group_image_url: string | null;
+  group_transcript: string | null;
+  group_sort_order: number | null;
+}
+
 @Injectable()
 export class PracticeService implements OnModuleInit {
   private testsSnapshotCache: {
@@ -324,13 +374,25 @@ export class PracticeService implements OnModuleInit {
       return attemptVal;
     });
 
-    this.testsSnapshotCache = null;
-    this.attemptResultCache.clear();
-
-    return this.toAttemptResult(
+    const result = this.toAttemptResult(
       attempt as AttemptWithAnswers,
       submitAttemptDto.timeLimitMinutes,
     );
+
+    this.testsSnapshotCache = null;
+
+    // Pre-populate attempt cache
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes TTL
+    this.attemptResultCache.set(`${userId}:${slug}:${attempt.publicId}`, {
+      expiresAt,
+      value: result,
+    });
+    this.attemptResultCache.set(`${userId}:${slug}:latest`, {
+      expiresAt,
+      value: result,
+    });
+
+    return result;
   }
 
   async getLatestAttemptResult(
@@ -352,22 +414,31 @@ export class PracticeService implements OnModuleInit {
 
     const promise = (async () => {
       const test = await this.findPublishedTest(slug);
-      const attempt = await this.prisma.practiceAttempt.findFirst({
+
+      // Fast index scan to find only the latest completed attempt id
+      const attemptMetadata = await this.prisma.practiceAttempt.findFirst({
         where: {
           userId,
           testId: test.id,
           status: 'COMPLETED',
         },
-        include: ATTEMPT_INCLUDE_LEAN,
         orderBy: { completedAt: 'desc' },
+        select: { id: true },
       });
+
+      if (!attemptMetadata) {
+        throw new NotFoundException('Không tìm thấy kết quả làm bài.');
+      }
+
+      // Single database roundtrip raw JOIN query for answers and questions context
+      const rows = await this.queryAttemptResult(attemptMetadata.id);
+      const attempt = this.reconstructAttempt(rows, test);
 
       if (!attempt) {
         throw new NotFoundException('Không tìm thấy kết quả làm bài.');
       }
 
-      (attempt as Record<string, any>).test = test;
-      const result = this.toAttemptResult(attempt as AttemptWithAnswers);
+      const result = this.toAttemptResult(attempt);
 
       this.attemptResultCache.set(cacheKey, {
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
@@ -405,22 +476,31 @@ export class PracticeService implements OnModuleInit {
 
     const promise = (async () => {
       const test = await this.findPublishedTest(slug);
-      const attempt = await this.prisma.practiceAttempt.findFirst({
+
+      // Fast index scan to find the completed attempt id by public UUID
+      const attemptMetadata = await this.prisma.practiceAttempt.findFirst({
         where: {
           userId,
           testId: test.id,
           publicId: attemptId,
           status: 'COMPLETED',
         },
-        include: ATTEMPT_INCLUDE_LEAN,
+        select: { id: true },
       });
+
+      if (!attemptMetadata) {
+        throw new NotFoundException('Không tìm thấy kết quả làm bài.');
+      }
+
+      // Single database roundtrip raw JOIN query for answers and questions context
+      const rows = await this.queryAttemptResult(attemptMetadata.id);
+      const attempt = this.reconstructAttempt(rows, test);
 
       if (!attempt) {
         throw new NotFoundException('Không tìm thấy kết quả làm bài.');
       }
 
-      (attempt as Record<string, any>).test = test;
-      const result = this.toAttemptResult(attempt as AttemptWithAnswers);
+      const result = this.toAttemptResult(attempt);
 
       this.attemptResultCache.set(cacheKey, {
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
@@ -436,6 +516,159 @@ export class PracticeService implements OnModuleInit {
     } finally {
       this.attemptResultPromises.delete(cacheKey);
     }
+  }
+
+  private async queryAttemptResult(
+    attemptId: bigint,
+  ): Promise<AttemptResultRow[]> {
+    return this.prisma.$queryRaw<AttemptResultRow[]>(Prisma.sql`
+      SELECT 
+        pa.id as "attempt_id",
+        pa.public_id as "attempt_public_id",
+        pa.user_id as "attempt_user_id",
+        pa.test_id as "attempt_test_id",
+        pa.mode as "attempt_mode",
+        pa.status as "attempt_status",
+        pa.correct_count as "attempt_correct_count",
+        pa.total_count as "attempt_total_count",
+        pa.scaled_score as "attempt_scaled_score",
+        pa.duration_seconds as "attempt_duration_seconds",
+        pa.started_at as "attempt_started_at",
+        pa.completed_at as "attempt_completed_at",
+        
+        aa.selected_answer as "answer_selected_answer",
+        aa.is_correct as "answer_is_correct",
+        aa.is_flagged as "answer_is_flagged",
+        aa.time_spent_ms as "answer_time_spent_ms",
+        aa.answered_at as "answer_answered_at",
+        
+        q.id as "question_id",
+        q.test_part_id as "question_test_part_id",
+        q.group_id as "question_group_id",
+        q.question_number as "question_question_number",
+        q.stem as "question_stem",
+        q.option_a as "question_option_a",
+        q.option_b as "question_option_b",
+        q.option_c as "question_option_c",
+        q.option_d as "question_option_d",
+        q.correct_answer as "question_correct_answer",
+        q.explanation as "question_explanation",
+        q.image_url as "question_image_url",
+        q.audio_url as "question_audio_url",
+        q.created_at as "question_created_at",
+        
+        tp.id as "part_id",
+        tp.part_number as "part_part_number",
+        tp.section as "part_section",
+        tp.label as "part_label",
+        tp.description as "part_description",
+        tp.question_count as "part_question_count",
+        
+        qg.id as "group_id",
+        qg.passage as "group_passage",
+        qg.audio_url as "group_audio_url",
+        qg.image_url as "group_image_url",
+        qg.transcript as "group_transcript",
+        qg.sort_order as "group_sort_order"
+      FROM practice_attempts pa
+      LEFT JOIN attempt_answers aa ON pa.id = aa.attempt_id
+      LEFT JOIN questions q ON aa.question_id = q.id
+      LEFT JOIN test_parts tp ON q.test_part_id = tp.id
+      LEFT JOIN question_groups qg ON q.group_id = qg.id
+      WHERE pa.id = ${attemptId}
+      ORDER BY q.question_number ASC, q.id ASC
+    `);
+  }
+
+  private reconstructAttempt(
+    rows: AttemptResultRow[],
+    test: TestWithParts,
+  ): AttemptWithAnswers | null {
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const firstRow = rows[0];
+    const attempt: AttemptWithAnswers = {
+      id: firstRow.attempt_id,
+      publicId: firstRow.attempt_public_id,
+      userId: firstRow.attempt_user_id,
+      testId: firstRow.attempt_test_id,
+      mode: firstRow.attempt_mode,
+      status: firstRow.attempt_status,
+      correctCount: firstRow.attempt_correct_count,
+      totalCount: firstRow.attempt_total_count,
+      scaledScore: firstRow.attempt_scaled_score,
+      durationSeconds: firstRow.attempt_duration_seconds,
+      startedAt: firstRow.attempt_started_at,
+      completedAt: firstRow.attempt_completed_at,
+      test: test,
+      answers: [],
+    };
+
+    for (const row of rows) {
+      if (row.question_id === null) {
+        continue;
+      }
+
+      const group =
+        row.question_group_id !== null
+          ? {
+              id: row.question_group_id,
+              testPartId: row.question_test_part_id,
+              passage: row.group_passage,
+              audioUrl: row.group_audio_url,
+              imageUrl: row.group_image_url,
+              transcript: row.group_transcript,
+              sortOrder: row.group_sort_order ?? 0,
+            }
+          : null;
+
+      const testPart = {
+        id: row.question_test_part_id,
+        testId: firstRow.attempt_test_id,
+        partNumber: row.part_part_number,
+        section: row.part_section,
+        label: row.part_label,
+        description: row.part_description,
+        questionCount: row.part_question_count,
+      };
+
+      const question = {
+        id: row.question_id,
+        testPartId: row.question_test_part_id,
+        groupId: row.question_group_id,
+        questionNumber: row.question_question_number,
+        stem: row.question_stem,
+        optionA: row.question_option_a,
+        optionB: row.question_option_b,
+        optionC: row.question_option_c,
+        optionD: row.question_option_d,
+        correctAnswer: row.question_correct_answer,
+        explanation: row.question_explanation,
+        imageUrl: row.question_image_url,
+        audioUrl: row.question_audio_url,
+        createdAt: row.question_created_at,
+        testPart: testPart,
+        group: group,
+      };
+
+      const answer = {
+        attemptId: row.attempt_id,
+        questionId: row.question_id,
+        selectedAnswer: row.answer_selected_answer,
+        isCorrect: row.answer_is_correct,
+        isFlagged: row.answer_is_flagged,
+        timeSpentMs: row.answer_time_spent_ms,
+        answeredAt: row.answer_answered_at,
+        question:
+          question as unknown as AttemptWithAnswers['answers'][number]['question'],
+      } as unknown as AttemptWithAnswers['answers'][number];
+
+      attempt.answers.push(answer);
+    }
+
+    return attempt;
   }
 
   private async findPublishedTest(slug: string) {

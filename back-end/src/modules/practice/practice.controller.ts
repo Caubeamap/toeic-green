@@ -15,11 +15,24 @@ export class PracticeController {
     return this.practiceService.listTests();
   }
 
+  @Get('tests/me')
+  async listTestsForCurrentUser(@CurrentUser('id') userId: string) {
+    return this.practiceService.listTestsForUser(userId);
+  }
+
   @Public()
   @Get('tests/:slug')
   @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
   async getTest(@Param('slug') slug: string) {
     return this.practiceService.getTestBySlug(slug);
+  }
+
+  @Get('tests/:slug/progress')
+  async getTestForCurrentUser(
+    @CurrentUser('id') userId: string,
+    @Param('slug') slug: string,
+  ) {
+    return this.practiceService.getTestBySlugForUser(userId, slug);
   }
 
   @Get('attempts/recent')

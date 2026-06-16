@@ -63,6 +63,39 @@ const ATTEMPT_INCLUDE = {
   },
 } satisfies Prisma.PracticeAttemptInclude;
 
+const ATTEMPT_SUMMARY_INCLUDE = {
+  test: {
+    select: {
+      slug: true,
+      title: true,
+      subtitle: true,
+      totalQuestions: true,
+    },
+  },
+  answers: {
+    select: {
+      question: {
+        select: {
+          testPart: {
+            select: {
+              partNumber: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      question: {
+        questionNumber: 'asc',
+      },
+    },
+  },
+} satisfies Prisma.PracticeAttemptInclude;
+
+const USER_PROGRESS_ATTEMPT_LIMIT = 50;
+const TEST_DETAIL_ATTEMPT_LIMIT = 5;
+const PRACTICE_TEST_CACHE_TTL_MS = 60_000;
+
 type TestWithParts = Prisma.TestGetPayload<{ include: typeof TEST_INCLUDE }>;
 type QuestionWithContext = Prisma.QuestionGetPayload<{
   include: typeof QUESTIONS_INCLUDE;
@@ -74,42 +107,81 @@ type ToeicQuestionSource = QuestionWithContext | ExamQuestionWithContext;
 type AttemptWithAnswers = Prisma.PracticeAttemptGetPayload<{
   include: typeof ATTEMPT_INCLUDE;
 }>;
+type AttemptSummaryWithParts = Prisma.PracticeAttemptGetPayload<{
+  include: typeof ATTEMPT_SUMMARY_INCLUDE;
+}>;
+type AttemptSummarySource = AttemptWithAnswers | AttemptSummaryWithParts;
+type PracticeTestsSnapshot = {
+  countsByTestId: Map<number, number>;
+  tests: TestWithParts[];
+};
 
 @Injectable()
 export class PracticeService {
+  private testsSnapshotCache: {
+    expiresAt: number;
+    value: PracticeTestsSnapshot;
+  } | null = null;
+  private testsSnapshotPromise: Promise<PracticeTestsSnapshot> | null = null;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async listTests() {
-    const tests = await this.prisma.test.findMany({
-      where: { isPublished: true },
-      include: TEST_INCLUDE,
-      orderBy: { slug: 'asc' },
-    });
-
-    const attemptCounts = await this.prisma.practiceAttempt.groupBy({
-      by: ['testId'],
-      _count: { _all: true },
-      where: { status: 'COMPLETED' },
-    });
-    const countsByTestId = new Map(
-      attemptCounts.map((item) => [item.testId, item._count._all]),
-    );
+    const { countsByTestId, tests } = await this.getTestsSnapshot();
 
     return this.sortTestsByDisplayNumber(tests).map((test) =>
       this.toPracticeTest(test, countsByTestId.get(test.id) ?? 0),
     );
   }
 
-  async getTestBySlug(slug: string) {
-    const test = await this.findPublishedTest(slug);
-    const attempts = await this.prisma.practiceAttempt.count({
-      where: {
-        testId: test.id,
-        status: 'COMPLETED',
-      },
-    });
+  async listTestsForUser(userId: string) {
+    const [snapshot, recentAttempts] = await Promise.all([
+      this.getTestsSnapshot(),
+      this.findRecentAttemptSummaries(
+        userId,
+        {},
+        USER_PROGRESS_ATTEMPT_LIMIT,
+      ),
+    ]);
+    const attemptsByTestId = this.groupAttemptsByTestId(recentAttempts);
 
-    return this.toPracticeTest(test, attempts);
+    return this.sortTestsByDisplayNumber(snapshot.tests).map((test) =>
+      this.toPracticeTestWithAttempts(
+        test,
+        snapshot.countsByTestId.get(test.id) ?? 0,
+        attemptsByTestId.get(test.id) ?? [],
+      ),
+    );
+  }
+
+  async getTestBySlug(slug: string) {
+    const { countsByTestId, tests } = await this.getTestsSnapshot();
+    const test = this.findTestInSnapshot(tests, slug);
+
+    return this.toPracticeTest(test, countsByTestId.get(test.id) ?? 0);
+  }
+
+  async getTestBySlugForUser(userId: string, slug: string) {
+    const [snapshot, recentAttempts] = await Promise.all([
+      this.getTestsSnapshot(),
+      this.findRecentAttemptSummaries(
+        userId,
+        {
+          test: {
+            slug,
+            isPublished: true,
+          },
+        },
+        TEST_DETAIL_ATTEMPT_LIMIT,
+      ),
+    ]);
+    const test = this.findTestInSnapshot(snapshot.tests, slug);
+
+    return this.toPracticeTestWithAttempts(
+      test,
+      snapshot.countsByTestId.get(test.id) ?? 0,
+      recentAttempts,
+    );
   }
 
   async listQuestions(slug: string) {
@@ -134,15 +206,7 @@ export class PracticeService {
   }
 
   async listRecentAttempts(userId: string) {
-    const attempts = await this.prisma.practiceAttempt.findMany({
-      where: {
-        userId,
-        status: 'COMPLETED',
-      },
-      include: ATTEMPT_INCLUDE,
-      orderBy: { completedAt: 'desc' },
-      take: 20,
-    });
+    const attempts = await this.findRecentAttemptSummaries(userId, {}, 20);
 
     return attempts.map((attempt) => this.toAttemptSummary(attempt));
   }
@@ -215,6 +279,8 @@ export class PracticeService {
       });
     });
 
+    this.testsSnapshotCache = null;
+
     return this.toAttemptResult(attempt, submitAttemptDto.timeLimitMinutes);
   }
 
@@ -269,6 +335,57 @@ export class PracticeService {
     return test;
   }
 
+  private async getTestsSnapshot(): Promise<PracticeTestsSnapshot> {
+    const now = Date.now();
+
+    if (this.testsSnapshotCache && this.testsSnapshotCache.expiresAt > now) {
+      return this.testsSnapshotCache.value;
+    }
+
+    if (!this.testsSnapshotPromise) {
+      this.testsSnapshotPromise = Promise.all([
+        this.prisma.test.findMany({
+          where: { isPublished: true },
+          include: TEST_INCLUDE,
+          orderBy: { slug: 'asc' },
+        }),
+        this.prisma.practiceAttempt.groupBy({
+          by: ['testId'],
+          _count: { _all: true },
+          where: { status: 'COMPLETED' },
+        }),
+      ])
+        .then(([tests, attemptCounts]) => ({
+          tests,
+          countsByTestId: new Map(
+            attemptCounts.map((item) => [item.testId, item._count._all]),
+          ),
+        }))
+        .then((value) => {
+          this.testsSnapshotCache = {
+            expiresAt: Date.now() + PRACTICE_TEST_CACHE_TTL_MS,
+            value,
+          };
+          return value;
+        })
+        .finally(() => {
+          this.testsSnapshotPromise = null;
+        });
+    }
+
+    return this.testsSnapshotPromise;
+  }
+
+  private findTestInSnapshot(tests: TestWithParts[], slug: string) {
+    const test = tests.find((item) => item.slug === slug);
+
+    if (!test) {
+      throw new NotFoundException('KhÃ´ng tÃ¬m tháº¥y bÃ i luyá»‡n TOEIC.');
+    }
+
+    return test;
+  }
+
   private toPracticeTest(test: TestWithParts, attempts: number) {
     return {
       id: test.slug,
@@ -288,6 +405,52 @@ export class PracticeService {
         questions: part.questionCount,
       })),
     };
+  }
+
+  private toPracticeTestWithAttempts(
+    test: TestWithParts,
+    attempts: number,
+    recentAttempts: AttemptSummaryWithParts[],
+  ) {
+    const summaries = recentAttempts.map((attempt) =>
+      this.toAttemptSummary(attempt),
+    );
+    const latestAttempt = summaries[0];
+
+    return {
+      ...this.toPracticeTest(test, attempts),
+      status: summaries.length > 0 ? 'Completed' : 'New',
+      recentAttempts: summaries,
+      completedAt: latestAttempt?.attemptedAt,
+    };
+  }
+
+  private findRecentAttemptSummaries(
+    userId: string,
+    where: Prisma.PracticeAttemptWhereInput,
+    take: number,
+  ) {
+    return this.prisma.practiceAttempt.findMany({
+      where: {
+        ...where,
+        userId,
+        status: 'COMPLETED',
+      },
+      include: ATTEMPT_SUMMARY_INCLUDE,
+      orderBy: { completedAt: 'desc' },
+      take,
+    });
+  }
+
+  private groupAttemptsByTestId(attempts: AttemptSummaryWithParts[]) {
+    const attemptsByTestId = new Map<number, AttemptSummaryWithParts[]>();
+
+    attempts.forEach((attempt) => {
+      const current = attemptsByTestId.get(attempt.testId) ?? [];
+      attemptsByTestId.set(attempt.testId, [...current, attempt]);
+    });
+
+    return attemptsByTestId;
   }
 
   private toToeicQuestion(
@@ -335,7 +498,7 @@ export class PracticeService {
     return dto;
   }
 
-  private toAttemptSummary(attempt: AttemptWithAnswers) {
+  private toAttemptSummary(attempt: AttemptSummarySource) {
     const completedAt = attempt.completedAt ?? attempt.startedAt;
     const scopeLabels = this.getScopeLabels(attempt);
     const testTitle = this.toDisplayTitle(attempt.test);
@@ -506,7 +669,7 @@ export class PracticeService {
     return listeningCount === 100 && readingCount === 100;
   }
 
-  private getScopeLabels(attempt: AttemptWithAnswers) {
+  private getScopeLabels(attempt: AttemptSummarySource) {
     if (attempt.totalCount >= attempt.test.totalQuestions) {
       return [];
     }
@@ -516,7 +679,7 @@ export class PracticeService {
     );
   }
 
-  private getPartIds(attempt: AttemptWithAnswers) {
+  private getPartIds(attempt: AttemptSummarySource) {
     const partIds = new Set(
       attempt.answers.map((answer) =>
         this.toPartId(answer.question.testPart.partNumber),

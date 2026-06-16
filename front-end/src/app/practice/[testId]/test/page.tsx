@@ -66,7 +66,7 @@ function TestPageContent() {
         setQuestions(nextQuestions);
       } catch (error) {
         setErrorMessage(
-          getErrorMessage(error, "Không tải được dữ liệu câu hỏi từ backend.")
+          getErrorMessage(error, "Không tải được dữ liệu câu hỏi.")
         );
       } finally {
         setLoadingQuestions(false);
@@ -92,7 +92,7 @@ function TestPageContent() {
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm font-bold text-on-surface-variant">
-            Đang tải bài thi từ backend...
+            Đang tải đề thi
           </p>
         </div>
       </div>
@@ -143,7 +143,7 @@ export default function TestPage() {
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             <p className="text-sm font-bold text-on-surface-variant">
-              Đang tải cấu hình bài thi...
+              Đang tải đề thi
             </p>
           </div>
         </div>

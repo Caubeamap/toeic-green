@@ -78,7 +78,7 @@ export default function AttemptResultPage() {
         <section className="container-shell pb-16">
           {isLoading || isAuthLoading ? (
             <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
-              Đang tải kết quả từ backend...
+              Đang tải kết quả
             </div>
           ) : errorMessage || !result ? (
             <div className="mx-auto max-w-xl rounded-3xl border border-red-200 bg-red-50/80 p-8 text-center shadow-soft">
@@ -107,13 +107,13 @@ export default function AttemptResultPage() {
               <div className="max-w-4xl rounded-[28px] border border-white/70 bg-white/68 p-6 shadow-glass backdrop-blur-xl sm:p-8">
                 <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary-container/70 px-4 py-2 text-label-sm font-bold text-on-primary-container">
                   <CheckCircle2 className="h-4 w-4" />
-                  Attempt result
+                  Kết quả bài làm
                 </div>
                 <h1 className="text-headline-lg font-bold text-on-surface">
                   {result.test.title} {result.test.subtitle}
                 </h1>
                 <p className="mt-2 text-body-md text-on-surface-variant">
-                  Kết quả này được lưu trong database và có thể mở lại theo mã attempt.
+                  Kết quả đã được lưu và có thể mở lại bất cứ lúc nào.
                 </p>
 
                 <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

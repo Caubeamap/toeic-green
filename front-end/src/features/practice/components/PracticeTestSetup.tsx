@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/features/auth";
+import { listPracticeQuestions } from "../services/practice-api";
 import {
   CalendarDays,
   CheckCircle2,
@@ -84,6 +85,14 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
     : "/login";
   const isSpeakingWriting = currentTest.type === "Speaking & Writing";
 
+  function prefetchQuestions() {
+    if (!isAuthenticated || isSpeakingWriting) {
+      return;
+    }
+
+    void listPracticeQuestions(currentTest.id).catch(() => undefined);
+  }
+
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
       <div className="container-shell">
@@ -148,6 +157,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                     actionHref={practiceHref}
                     isUnavailable={isSpeakingWriting}
                     onUnavailableClick={() => setShowDevelopmentNotice(true)}
+                    onPrefetch={prefetchQuestions}
                     onSelectAll={selectAllParts}
                     onTimeLimitChange={setTimeLimit}
                     onTogglePart={togglePart}
@@ -159,6 +169,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                     actionHref={fullTestHref}
                     isUnavailable={isSpeakingWriting}
                     onUnavailableClick={() => setShowDevelopmentNotice(true)}
+                    onPrefetch={prefetchQuestions}
                     test={currentTest}
                   />
                 ) : null}
@@ -213,6 +224,7 @@ function PracticeTab({
   actionHref,
   isUnavailable,
   onUnavailableClick,
+  onPrefetch,
   onSelectAll,
   onTimeLimitChange,
   onTogglePart
@@ -225,6 +237,7 @@ function PracticeTab({
   actionHref: string;
   isUnavailable?: boolean;
   onUnavailableClick?: () => void;
+  onPrefetch: () => void;
   onSelectAll: () => void;
   onTimeLimitChange: (value: number) => void;
   onTogglePart: (partId: string) => void;
@@ -346,6 +359,8 @@ function PracticeTab({
         <Link
           href={canPractice ? actionHref : "#"}
           aria-disabled={!canPractice}
+          onFocus={canPractice ? onPrefetch : undefined}
+          onMouseEnter={canPractice ? onPrefetch : undefined}
           className={actionClassName}
         >
           <Play className="h-5 w-5" />
@@ -483,11 +498,13 @@ function FullTestTab({
   actionHref,
   isUnavailable,
   onUnavailableClick,
+  onPrefetch,
   test
 }: {
   actionHref: string;
   isUnavailable?: boolean;
   onUnavailableClick?: () => void;
+  onPrefetch: () => void;
   test: PracticeTest;
 }) {
   return (
@@ -514,6 +531,8 @@ function FullTestTab({
         ) : (
           <Link
             href={actionHref}
+            onFocus={onPrefetch}
+            onMouseEnter={onPrefetch}
             className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition-colors hover:bg-primary/90"
           >
             <Play className="h-5 w-5" />

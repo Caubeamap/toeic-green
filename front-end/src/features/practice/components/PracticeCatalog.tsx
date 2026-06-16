@@ -58,7 +58,8 @@ export function PracticeCatalog() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
   const [query, setQuery] = useState("");
-  const [testsWithProgress, setTestsWithProgress] = useState<PracticeTest[]>([]);
+  const [tests, setTests] = useState<PracticeTest[]>([]);
+  const [recentAttempts, setRecentAttempts] = useState<PracticeAttempt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,11 +73,9 @@ export function PracticeCatalog() {
 
       try {
         const tests = await listPracticeTests();
-        const attempts =
-          isAuthenticated && !isAuthLoading ? await listRecentPracticeAttempts() : [];
 
         if (!cancelled) {
-          setTestsWithProgress(mergeAttempts(tests, attempts));
+          setTests(tests);
         }
       } catch (error) {
         if (!cancelled) {
@@ -91,14 +90,48 @@ export function PracticeCatalog() {
       }
     }
 
+    loadTests();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAttempts() {
+      if (!isAuthenticated) {
+        setRecentAttempts([]);
+        return;
+      }
+
+      try {
+        const attempts = await listRecentPracticeAttempts();
+
+        if (!cancelled) {
+          setRecentAttempts(attempts);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecentAttempts([]);
+        }
+      }
+    }
+
     if (!isAuthLoading) {
-      loadTests();
+      loadAttempts();
     }
 
     return () => {
       cancelled = true;
     };
   }, [isAuthenticated, isAuthLoading]);
+
+  const testsWithProgress = useMemo(
+    () => mergeAttempts(tests, recentAttempts),
+    [recentAttempts, tests]
+  );
 
   const historyTests = useMemo(
     () =>
@@ -185,7 +218,7 @@ export function PracticeCatalog() {
                 ? "Theo dõi các bài luyện thi đã hoàn thành để tiếp tục ôn tập đúng điểm yếu."
                 : isCompletedView
                   ? "Danh sách các bài luyện thi đã hoàn thành, kèm điểm số và trạng thái review rõ ràng."
-                  : "Luyện thi với các bộ đề TOEIC đã được nạp từ cơ sở dữ liệu."}
+                  : "Luyện thi với các bộ đề TOEIC đã sẵn sàng để bắt đầu."}
             </p>
           </div>
 
@@ -211,7 +244,7 @@ export function PracticeCatalog() {
 
         {isLoading ? (
           <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
-            Đang tải danh sách đề thi từ backend...
+            Đang tải đề thi
           </div>
         ) : errorMessage ? (
           <div className="glass-card rounded-2xl border border-red-200 bg-red-50/70 p-8 text-center font-semibold text-red-700">

@@ -26,20 +26,9 @@ export function PracticeStartClient({ testId }: { testId: string }) {
 
       try {
         const nextTest = await getPracticeTest(testId);
-        const recentAttempts =
-          isAuthenticated && !isAuthLoading
-            ? (await listRecentPracticeAttempts()).filter(
-                (attempt) => attempt.testId === testId
-              )
-            : [];
 
         if (!cancelled) {
-          setTest({
-            ...nextTest,
-            status: recentAttempts.length > 0 ? "Completed" : nextTest.status,
-            recentAttempts,
-            completedAt: recentAttempts[0]?.attemptedAt
-          });
+          setTest(nextTest);
         }
       } catch (error) {
         if (!cancelled) {
@@ -54,8 +43,64 @@ export function PracticeStartClient({ testId }: { testId: string }) {
       }
     }
 
+    loadTest();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [testId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRecentAttempts() {
+      if (!isAuthenticated) {
+        setTest((currentTest) =>
+          currentTest
+            ? {
+                ...currentTest,
+                recentAttempts: [],
+                status: currentTest.status
+              }
+            : currentTest
+        );
+        return;
+      }
+
+      try {
+        const recentAttempts = (await listRecentPracticeAttempts()).filter(
+          (attempt) => attempt.testId === testId
+        );
+
+        if (!cancelled) {
+          setTest((currentTest) =>
+            currentTest
+              ? {
+                  ...currentTest,
+                  status:
+                    recentAttempts.length > 0 ? "Completed" : currentTest.status,
+                  recentAttempts,
+                  completedAt: recentAttempts[0]?.attemptedAt
+                }
+              : currentTest
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setTest((currentTest) =>
+            currentTest
+              ? {
+                  ...currentTest,
+                  recentAttempts: []
+                }
+              : currentTest
+          );
+        }
+      }
+    }
+
     if (!isAuthLoading) {
-      loadTest();
+      loadRecentAttempts();
     }
 
     return () => {
@@ -67,7 +112,7 @@ export function PracticeStartClient({ testId }: { testId: string }) {
     return (
       <section className="container-shell py-24">
         <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
-          Đang tải trang chuẩn bị thi từ backend...
+          Đang tải đề thi
         </div>
       </section>
     );
@@ -81,7 +126,7 @@ export function PracticeStartClient({ testId }: { testId: string }) {
             Không tìm thấy đề thi
           </h1>
           <p className="mt-3 text-sm font-semibold text-red-700">
-            {errorMessage ?? "Đề thi này chưa có trong cơ sở dữ liệu."}
+            {errorMessage ?? "Đề thi này chưa sẵn sàng."}
           </p>
           <Link
             href="/practice"

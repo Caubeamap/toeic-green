@@ -66,7 +66,7 @@ export default function LatestResultPage() {
                 </Link>
               </>
             ) : (
-              "Đang mở kết quả mới nhất từ backend..."
+              "Đang mở kết quả mới nhất..."
             )}
           </div>
         </section>

@@ -261,7 +261,7 @@ export function PracticeExamSession({
     if (!audio || !activeAudioUrl) return;
 
     if (audioPlaying) {
-      audio.play().catch((err) => console.log("Audio play error:", err));
+      audio.play().catch(() => undefined);
     } else {
       audio.pause();
     }
@@ -525,7 +525,6 @@ export function PracticeExamSession({
 
       router.push(`/practice/${test.id}/results/${result.attempt.id}`);
     } catch (error) {
-      console.error("Failed to submit practice attempt", error);
       setSubmitted(false);
       timer.setRunning(true);
       window.alert(getErrorMessage(error, "Không lưu được kết quả làm bài."));
@@ -611,7 +610,7 @@ export function PracticeExamSession({
           src={activeAudioUrl}
           onCanPlay={() => {
             if (audioPlaying && audioRef.current) {
-              audioRef.current.play().catch((err) => console.log("onCanPlay play error:", err));
+              audioRef.current.play().catch(() => undefined);
             }
           }}
           onTimeUpdate={() => {
@@ -782,7 +781,10 @@ export function PracticeExamSession({
         <div
           ref={leftPanelRef}
           className={cn(
-            "flex-1 md:flex-[1.2] lg:flex-[1.3] overflow-y-auto border-r border-outline-variant/20 p-4 md:p-6 lg:p-8 bg-surface-container-low flex-col",
+            "flex-1 overflow-y-auto border-r border-outline-variant/20 p-4 md:p-6 lg:p-8 bg-surface-container-low flex-col",
+            currentQuestion.partId === "part-1"
+              ? "md:flex-[1.45] lg:flex-[1.7]"
+              : "md:flex-[1.2] lg:flex-[1.3]",
             currentQuestion.partId === "part-5"
               ? "hidden"
               : mobileActiveTab === "passage"
@@ -908,12 +910,12 @@ export function PracticeExamSession({
             {/* 1. PHOTOGRAPHS (PART 1) */}
             {currentQuestion.partId === "part-1" && (
               <div className="space-y-4">
-                <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass max-h-[580px]">
+                <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
-                    className="w-full h-[480px] object-contain bg-zinc-50"
+                    className="h-[min(70vh,700px)] min-h-[420px] w-full object-contain bg-zinc-50"
                   />
                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
                     <button

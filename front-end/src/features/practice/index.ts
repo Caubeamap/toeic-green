@@ -30,8 +30,10 @@ export {
   getLatestPracticeAttemptResult,
   getPracticeAttemptResult,
   getPracticeTest,
+  getPracticeTestWithProgress,
   listPracticeQuestions,
   listPracticeTests,
+  listPracticeTestsWithProgress,
   listRecentPracticeAttempts,
   submitPracticeAttempt,
 } from "./services/practice-api";

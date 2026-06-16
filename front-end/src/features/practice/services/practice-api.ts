@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, getAccessToken } from "@/lib/api";
 import type { SavedPracticeResult } from "../lib/practice-progress";
 import type { PracticeAttempt, PracticeTest } from "../lib/practice-tests";
 import type { ToeicQuestion } from "../lib/toeic-questions";
@@ -13,8 +13,11 @@ type CacheEntry<T> = {
 };
 
 let testsCache: CacheEntry<PracticeTest[]> | null = null;
+let testsWithProgressCache: CacheEntry<PracticeTest[]> | null = null;
 const testCache = new Map<string, CacheEntry<PracticeTest>>();
+const testWithProgressCache = new Map<string, CacheEntry<PracticeTest>>();
 const questionCache = new Map<string, CacheEntry<ToeicQuestion[]>>();
+let progressCacheToken: string | null = null;
 
 function hasFreshValue<T>(
   entry: CacheEntry<T> | null | undefined
@@ -27,6 +30,30 @@ function setTestCache(test: PracticeTest) {
     expiresAt: Date.now() + TEST_CACHE_TTL_MS,
     value: test
   });
+
+  if (test.recentAttempts !== undefined) {
+    testWithProgressCache.set(test.id, {
+      expiresAt: Date.now() + TEST_CACHE_TTL_MS,
+      value: test
+    });
+  }
+}
+
+function syncProgressCacheToken() {
+  const token = getAccessToken();
+
+  if (progressCacheToken !== token) {
+    progressCacheToken = token;
+    testsWithProgressCache = null;
+    testWithProgressCache.clear();
+  }
+}
+
+function clearPracticeTestCaches() {
+  testsCache = null;
+  testsWithProgressCache = null;
+  testCache.clear();
+  testWithProgressCache.clear();
 }
 
 async function readCache<T>(
@@ -114,9 +141,53 @@ export async function listPracticeTests() {
   return promise;
 }
 
+export async function listPracticeTestsWithProgress() {
+  syncProgressCacheToken();
+
+  if (hasFreshValue(testsWithProgressCache)) {
+    return testsWithProgressCache.value;
+  }
+
+  if (testsWithProgressCache?.promise) {
+    return testsWithProgressCache.promise;
+  }
+
+  const promise = api.get<PracticeTest[]>("/practice/tests/me").then((tests) => {
+    tests.forEach(setTestCache);
+    testsWithProgressCache = {
+      expiresAt: Date.now() + TEST_CACHE_TTL_MS,
+      value: tests
+    };
+    return tests;
+  });
+
+  testsWithProgressCache = {
+    expiresAt: Date.now() + TEST_CACHE_TTL_MS,
+    promise,
+    value: testsWithProgressCache?.value
+  };
+
+  return promise;
+}
+
 export async function getPracticeTest(testId: string) {
   return readCache(testCache, testId, TEST_CACHE_TTL_MS, () =>
     api.get<PracticeTest>(`/practice/tests/${encodeURIComponent(testId)}`)
+  );
+}
+
+export async function getPracticeTestWithProgress(testId: string) {
+  syncProgressCacheToken();
+
+  return readCache(testWithProgressCache, testId, TEST_CACHE_TTL_MS, () =>
+    api
+      .get<PracticeTest>(
+        `/practice/tests/${encodeURIComponent(testId)}/progress`
+      )
+      .then((test) => {
+        setTestCache(test);
+        return test;
+      })
   );
 }
 
@@ -139,7 +210,10 @@ export async function submitPracticeAttempt(
   return api.post<PracticeAttemptResult>(
     `/practice/tests/${encodeURIComponent(testId)}/attempts`,
     input
-  );
+  ).then((result) => {
+    clearPracticeTestCaches();
+    return result;
+  });
 }
 
 export async function getPracticeAttemptResult(testId: string, attemptId: string) {

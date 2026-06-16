@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth";
 import {
   getPracticeTest,
-  listRecentPracticeAttempts,
+  getPracticeTestWithProgress,
   PracticeTestSetup,
   type PracticeTest
 } from "@/features/practice";
@@ -21,11 +21,17 @@ export function PracticeStartClient({ testId }: { testId: string }) {
     let cancelled = false;
 
     async function loadTest() {
+      if (isAuthLoading) {
+        return;
+      }
+
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
-        const nextTest = await getPracticeTest(testId);
+        const nextTest = isAuthenticated
+          ? await getPracticeTestWithProgress(testId)
+          : await getPracticeTest(testId);
 
         if (!cancelled) {
           setTest(nextTest);
@@ -44,64 +50,6 @@ export function PracticeStartClient({ testId }: { testId: string }) {
     }
 
     loadTest();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [testId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadRecentAttempts() {
-      if (!isAuthenticated) {
-        setTest((currentTest) =>
-          currentTest
-            ? {
-                ...currentTest,
-                recentAttempts: [],
-                status: currentTest.status
-              }
-            : currentTest
-        );
-        return;
-      }
-
-      try {
-        const recentAttempts = (await listRecentPracticeAttempts()).filter(
-          (attempt) => attempt.testId === testId
-        );
-
-        if (!cancelled) {
-          setTest((currentTest) =>
-            currentTest
-              ? {
-                  ...currentTest,
-                  status:
-                    recentAttempts.length > 0 ? "Completed" : currentTest.status,
-                  recentAttempts,
-                  completedAt: recentAttempts[0]?.attemptedAt
-                }
-              : currentTest
-          );
-        }
-      } catch {
-        if (!cancelled) {
-          setTest((currentTest) =>
-            currentTest
-              ? {
-                  ...currentTest,
-                  recentAttempts: []
-                }
-              : currentTest
-          );
-        }
-      }
-    }
-
-    if (!isAuthLoading) {
-      loadRecentAttempts();
-    }
 
     return () => {
       cancelled = true;

@@ -13,8 +13,8 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { practiceFilters, type PracticeAttempt, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
-import { listPracticeTests, listRecentPracticeAttempts } from "../services/practice-api";
+import { practiceFilters, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
+import { listPracticeTests, listPracticeTestsWithProgress } from "../services/practice-api";
 
 function getLatestAttemptTimestamp(test: PracticeTest) {
   const [latestAttempt] = test.recentAttempts ?? [];
@@ -22,44 +22,11 @@ function getLatestAttemptTimestamp(test: PracticeTest) {
   return latestAttempt?.timestamp ?? test.completedAt ?? "";
 }
 
-function mergeAttempts(tests: PracticeTest[], attempts: PracticeAttempt[]) {
-  if (attempts.length === 0) {
-    return tests;
-  }
-
-  const attemptsByTestId = new Map<string, PracticeAttempt[]>();
-
-  attempts.forEach((attempt) => {
-    if (!attempt.testId) {
-      return;
-    }
-
-    const current = attemptsByTestId.get(attempt.testId) ?? [];
-    attemptsByTestId.set(attempt.testId, [...current, attempt]);
-  });
-
-  return tests.map((test) => {
-    const recentAttempts = attemptsByTestId.get(test.id);
-
-    if (!recentAttempts?.length) {
-      return test;
-    }
-
-    return {
-      ...test,
-      status: "Completed" as const,
-      recentAttempts,
-      completedAt: recentAttempts[0]?.attemptedAt
-    };
-  });
-}
-
 export function PracticeCatalog() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
   const [query, setQuery] = useState("");
   const [tests, setTests] = useState<PracticeTest[]>([]);
-  const [recentAttempts, setRecentAttempts] = useState<PracticeAttempt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,11 +35,17 @@ export function PracticeCatalog() {
     let cancelled = false;
 
     async function loadTests() {
+      if (isAuthLoading) {
+        return;
+      }
+
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
-        const tests = await listPracticeTests();
+        const tests = isAuthenticated
+          ? await listPracticeTestsWithProgress()
+          : await listPracticeTests();
 
         if (!cancelled) {
           setTests(tests);
@@ -95,50 +68,14 @@ export function PracticeCatalog() {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAttempts() {
-      if (!isAuthenticated) {
-        setRecentAttempts([]);
-        return;
-      }
-
-      try {
-        const attempts = await listRecentPracticeAttempts();
-
-        if (!cancelled) {
-          setRecentAttempts(attempts);
-        }
-      } catch {
-        if (!cancelled) {
-          setRecentAttempts([]);
-        }
-      }
-    }
-
-    if (!isAuthLoading) {
-      loadAttempts();
-    }
-
-    return () => {
-      cancelled = true;
-    };
   }, [isAuthenticated, isAuthLoading]);
-
-  const testsWithProgress = useMemo(
-    () => mergeAttempts(tests, recentAttempts),
-    [recentAttempts, tests]
-  );
 
   const historyTests = useMemo(
     () =>
-      testsWithProgress
+      tests
         .filter((test) => test.status === "Completed")
         .sort((a, b) => getLatestAttemptTimestamp(b).localeCompare(getLatestAttemptTimestamp(a))),
-    [testsWithProgress]
+    [tests]
   );
 
   const visibleTests = useMemo(() => {
@@ -147,8 +84,8 @@ export function PracticeCatalog() {
       activeFilter === "Test History"
         ? historyTests
         : activeFilter === "Completed"
-          ? testsWithProgress.filter((test) => test.status === "Completed")
-          : testsWithProgress.filter((test) => test.type === activeFilter);
+          ? tests.filter((test) => test.status === "Completed")
+          : tests.filter((test) => test.type === activeFilter);
 
     return baseTests.filter((test) => {
       return (
@@ -156,7 +93,7 @@ export function PracticeCatalog() {
         `${test.title} ${test.subtitle} ${test.type}`.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [activeFilter, historyTests, query, testsWithProgress]);
+  }, [activeFilter, historyTests, query, tests]);
 
   useEffect(() => {
     const section = document.getElementById("practice");

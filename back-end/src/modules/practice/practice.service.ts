@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -114,7 +115,7 @@ type PracticeTestsSnapshot = {
 };
 
 @Injectable()
-export class PracticeService {
+export class PracticeService implements OnModuleInit {
   private testsSnapshotCache: {
     expiresAt: number;
     value: PracticeTestsSnapshot;
@@ -137,6 +138,11 @@ export class PracticeService {
   private questionsPromises = new Map<string, Promise<Record<string, any>[]>>();
 
   constructor(private readonly prisma: PrismaService) {}
+
+  onModuleInit() {
+    // Pre-warm cache and connection pool on startup asynchronously
+    this.getTestsSnapshot().catch(() => {});
+  }
 
   async listTests() {
     const { countsByTestId, tests } = await this.getTestsSnapshot();

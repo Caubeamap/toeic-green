@@ -31,24 +31,21 @@ export function PracticeCatalog() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // 1. Tải danh sách đề thi công khai ngay lập tức khi component mount
   useEffect(() => {
     let cancelled = false;
 
-    async function loadTests() {
-      if (isAuthLoading) {
-        return;
-      }
+    async function loadInitialTests() {
+      // Nếu đã có dữ liệu đề thi, không cần tải lại bản sơ bộ
+      if (tests.length > 0) return;
 
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
-        const tests = isAuthenticated
-          ? await listPracticeTestsWithProgress()
-          : await listPracticeTests();
-
+        const initialTests = await listPracticeTests();
         if (!cancelled) {
-          setTests(tests);
+          setTests(initialTests);
         }
       } catch (error) {
         if (!cancelled) {
@@ -63,7 +60,33 @@ export function PracticeCatalog() {
       }
     }
 
-    loadTests();
+    loadInitialTests();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tests.length]);
+
+  // 2. Chạy ngầm tải tiến trình bài làm khi xác thực hoàn tất
+  useEffect(() => {
+    if (isAuthLoading || !isAuthenticated) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadProgressTests() {
+      try {
+        const progressTests = await listPracticeTestsWithProgress();
+        if (!cancelled) {
+          setTests(progressTests);
+        }
+      } catch {
+        // Lỗi chạy ngầm thì bỏ qua, giữ nguyên danh sách đề đã có
+      }
+    }
+
+    loadProgressTests();
 
     return () => {
       cancelled = true;

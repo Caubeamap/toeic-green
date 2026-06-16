@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { SubmitPracticeAttemptDto } from './dto/submit-practice-attempt.dto';
@@ -10,12 +10,14 @@ export class PracticeController {
 
   @Public()
   @Get('tests')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
   async listTests() {
     return this.practiceService.listTests();
   }
 
   @Public()
   @Get('tests/:slug')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
   async getTest(@Param('slug') slug: string) {
     return this.practiceService.getTestBySlug(slug);
   }

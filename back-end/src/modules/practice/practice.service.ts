@@ -18,6 +18,33 @@ const QUESTIONS_INCLUDE = {
   group: true,
 } satisfies Prisma.QuestionInclude;
 
+const EXAM_QUESTION_SELECT = {
+  id: true,
+  groupId: true,
+  questionNumber: true,
+  stem: true,
+  optionA: true,
+  optionB: true,
+  optionC: true,
+  optionD: true,
+  imageUrl: true,
+  audioUrl: true,
+  testPart: {
+    select: {
+      partNumber: true,
+    },
+  },
+  group: {
+    select: {
+      id: true,
+      passage: true,
+      imageUrl: true,
+      audioUrl: true,
+      transcript: true,
+    },
+  },
+} satisfies Prisma.QuestionSelect;
+
 const ATTEMPT_INCLUDE = {
   test: {
     include: TEST_INCLUDE,
@@ -40,6 +67,10 @@ type TestWithParts = Prisma.TestGetPayload<{ include: typeof TEST_INCLUDE }>;
 type QuestionWithContext = Prisma.QuestionGetPayload<{
   include: typeof QUESTIONS_INCLUDE;
 }>;
+type ExamQuestionWithContext = Prisma.QuestionGetPayload<{
+  select: typeof EXAM_QUESTION_SELECT;
+}>;
+type ToeicQuestionSource = QuestionWithContext | ExamQuestionWithContext;
 type AttemptWithAnswers = Prisma.PracticeAttemptGetPayload<{
   include: typeof ATTEMPT_INCLUDE;
 }>;
@@ -52,7 +83,7 @@ export class PracticeService {
     const tests = await this.prisma.test.findMany({
       where: { isPublished: true },
       include: TEST_INCLUDE,
-      orderBy: { id: 'asc' },
+      orderBy: { slug: 'asc' },
     });
 
     const attemptCounts = await this.prisma.practiceAttempt.groupBy({
@@ -64,7 +95,7 @@ export class PracticeService {
       attemptCounts.map((item) => [item.testId, item._count._all]),
     );
 
-    return tests.map((test) =>
+    return this.sortTestsByDisplayNumber(tests).map((test) =>
       this.toPracticeTest(test, countsByTestId.get(test.id) ?? 0),
     );
   }
@@ -93,7 +124,7 @@ export class PracticeService {
           },
         },
       },
-      include: QUESTIONS_INCLUDE,
+      select: EXAM_QUESTION_SELECT,
       orderBy: [{ questionNumber: 'asc' }, { id: 'asc' }],
     });
 
@@ -241,7 +272,7 @@ export class PracticeService {
   private toPracticeTest(test: TestWithParts, attempts: number) {
     return {
       id: test.slug,
-      title: test.title,
+      title: this.toDisplayTitle(test),
       subtitle: test.subtitle ?? '',
       type: this.toDisplayType(test.type),
       shortType: test.shortType,
@@ -260,7 +291,7 @@ export class PracticeService {
   }
 
   private toToeicQuestion(
-    question: QuestionWithContext,
+    question: ToeicQuestionSource,
     options: { includeAnswer: boolean } = { includeAnswer: true },
   ) {
     const dto: {
@@ -287,14 +318,16 @@ export class PracticeService {
         { label: 'A', text: question.optionA },
         { label: 'B', text: question.optionB },
         { label: 'C', text: question.optionC },
-        ...(question.optionD ? [{ label: 'D', text: question.optionD }] : []),
+        ...(this.hasOptionD(question)
+          ? [{ label: 'D', text: question.optionD ?? '' }]
+          : []),
       ],
       image_url: question.imageUrl ?? question.group?.imageUrl ?? null,
       audio_url: question.audioUrl ?? question.group?.audioUrl ?? null,
       transcript: question.group?.transcript ?? null,
     };
 
-    if (options.includeAnswer) {
+    if (options.includeAnswer && 'correctAnswer' in question) {
       dto.correctAnswer = question.correctAnswer;
       dto.explanation = question.explanation;
     }
@@ -305,11 +338,12 @@ export class PracticeService {
   private toAttemptSummary(attempt: AttemptWithAnswers) {
     const completedAt = attempt.completedAt ?? attempt.startedAt;
     const scopeLabels = this.getScopeLabels(attempt);
+    const testTitle = this.toDisplayTitle(attempt.test);
 
     return {
       id: attempt.publicId,
       testId: attempt.test.slug,
-      testTitle: `${attempt.test.title} ${attempt.test.subtitle ?? ''}`.trim(),
+      testTitle: `${testTitle} ${attempt.test.subtitle ?? ''}`.trim(),
       attemptedAt: this.formatDate(completedAt),
       mode: attempt.mode === 'FULL_TEST' ? 'Full test' : 'Practice',
       scopeLabels,
@@ -378,7 +412,12 @@ export class PracticeService {
       return null;
     }
 
-    const allowedAnswers = ['A', 'B', 'C', ...(question.optionD ? ['D'] : [])];
+    const allowedAnswers = [
+      'A',
+      'B',
+      'C',
+      ...(this.hasOptionD(question) ? ['D'] : []),
+    ];
     if (!allowedAnswers.includes(selectedAnswer)) {
       throw new BadRequestException('Đáp án gửi lên không hợp lệ.');
     }
@@ -464,6 +503,38 @@ export class PracticeService {
 
   private toDisplayAccess(accessLevel: string) {
     return accessLevel === 'PRO' ? 'Pro' : 'Free';
+  }
+
+  private hasOptionD(question: {
+    optionD: string | null;
+    testPart: { partNumber: number };
+  }) {
+    return question.testPart.partNumber === 1 || Boolean(question.optionD);
+  }
+
+  private sortTestsByDisplayNumber(tests: TestWithParts[]) {
+    return [...tests].sort((a, b) => {
+      const aNumber = this.getDisplayNumber(a);
+      const bNumber = this.getDisplayNumber(b);
+
+      if (aNumber !== bNumber) {
+        return aNumber - bNumber;
+      }
+
+      return a.slug.localeCompare(b.slug, undefined, { numeric: true });
+    });
+  }
+
+  private toDisplayTitle(test: Pick<TestWithParts, 'slug' | 'title'>) {
+    return `Practice Toeic Test ${this.getDisplayNumber(test)}`;
+  }
+
+  private getDisplayNumber(test: Pick<TestWithParts, 'slug' | 'title'>) {
+    const slugMatch = test.slug.match(/(\d+)$/);
+    const titleMatch = test.title.match(/(\d+)(?!.*\d)/);
+    const value = Number(slugMatch?.[1] ?? titleMatch?.[1] ?? 0);
+
+    return Number.isFinite(value) && value > 0 ? value : 1;
   }
 
   private toPartId(partNumber: number) {

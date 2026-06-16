@@ -182,6 +182,9 @@ model PracticeAttempt {
   test    Test            @relation(fields: [testId], references: [id], onDelete: Cascade)
   answers AttemptAnswer[]
 
+  @@index([status, testId])
+  @@index([userId, status, completedAt])
+  @@index([userId, testId, status, completedAt])
   @@map("practice_attempts")
 }
 
@@ -300,4 +303,3 @@ model PasswordResetToken {
   @@index([expiresAt])
   @@map("password_reset_tokens")
 }
-

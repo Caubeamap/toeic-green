@@ -212,18 +212,28 @@ export async function submitPracticeAttempt(
     input
   ).then((result) => {
     clearPracticeTestCaches();
+    attemptResultCache.clear();
     return result;
   });
 }
 
+const ATTEMPT_RESULT_CACHE_TTL_MS = 60_000;
+const attemptResultCache = new Map<string, CacheEntry<PracticeAttemptResult>>();
+
 export async function getPracticeAttemptResult(testId: string, attemptId: string) {
-  return api.get<PracticeAttemptResult>(
-    `/practice/tests/${encodeURIComponent(testId)}/attempts/${encodeURIComponent(attemptId)}`
+  const key = `${testId}:${attemptId}`;
+  return readCache(attemptResultCache, key, ATTEMPT_RESULT_CACHE_TTL_MS, () =>
+    api.get<PracticeAttemptResult>(
+      `/practice/tests/${encodeURIComponent(testId)}/attempts/${encodeURIComponent(attemptId)}`
+    )
   );
 }
 
 export async function getLatestPracticeAttemptResult(testId: string) {
-  return api.get<PracticeAttemptResult>(
-    `/practice/tests/${encodeURIComponent(testId)}/attempts/latest`
+  const key = `${testId}:latest`;
+  return readCache(attemptResultCache, key, ATTEMPT_RESULT_CACHE_TTL_MS, () =>
+    api.get<PracticeAttemptResult>(
+      `/practice/tests/${encodeURIComponent(testId)}/attempts/latest`
+    )
   );
 }

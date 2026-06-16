@@ -6,7 +6,7 @@ export type ToeicQuestion = {
   passageGroupId?: string;
   stem: string;
   options: { label: string; text: string }[];
-  correctAnswer: string;
+  correctAnswer?: string;
   image_url?: string | null;
   audio_url?: string | null;
   explanation?: string | null;

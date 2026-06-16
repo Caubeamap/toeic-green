@@ -11,6 +11,8 @@ export type TestPart = {
 
 export type PracticeAttempt = {
   id: string;
+  testId?: string;
+  testTitle?: string;
   attemptedAt: string;
   mode: "Practice" | "Full test";
   scopeLabels: string[];
@@ -19,6 +21,7 @@ export type PracticeAttempt = {
   durationSeconds: number;
   detailHref: string;
   scaledScore?: number;
+  timestamp?: string;
 };
 
 export type PracticeTest = {
@@ -44,91 +47,3 @@ export const practiceFilters: PracticeFilter[] = [
   "Completed",
   "Test History"
 ];
-
-export const listeningReadingParts: TestPart[] = [
-  { id: "part-1", label: "Part 1", description: "Photographs", questions: 6 },
-  { id: "part-2", label: "Part 2", description: "Question-Response", questions: 25 },
-  { id: "part-3", label: "Part 3", description: "Conversations", questions: 39 },
-  { id: "part-4", label: "Part 4", description: "Short Talks", questions: 30 },
-  { id: "part-5", label: "Part 5", description: "Incomplete Sentences", questions: 30 },
-  { id: "part-6", label: "Part 6", description: "Text Completion", questions: 16 },
-  { id: "part-7", label: "Part 7", description: "Reading Comprehension", questions: 54 }
-];
-
-export const speakingParts: TestPart[] = [
-  { id: "speak-1", label: "Questions 1-2", description: "Read a text aloud", questions: 2 },
-  { id: "speak-2", label: "Questions 3-4", description: "Describe a picture", questions: 2 },
-  { id: "speak-3", label: "Questions 5-7", description: "Respond to questions", questions: 3 }
-];
-
-export const writingParts: TestPart[] = [
-  { id: "write-1", label: "Questions 1-5", description: "Write a sentence based on a picture", questions: 5 },
-  { id: "write-2", label: "Questions 6-7", description: "Respond to written requests", questions: 2 },
-  { id: "write-3", label: "Question 8", description: "Write an opinion essay", questions: 1 }
-];
-
-export const study4Tests: PracticeTest[] = Array.from({ length: 10 }, (_, index) => {
-  const testNum = index + 1;
-  const id = `practice-toeic-test-${testNum}`;
-
-  return {
-    id,
-    title: `Practice Toeic Test ${testNum}`,
-    subtitle: `Toeic Green Practice`,
-    type: "Listening & Reading",
-    shortType: "L & R",
-    minutes: 120,
-    questions: 200,
-    access: "Free",
-    status: "New",
-    attempts: 15420 - index * 650,
-    parts: listeningReadingParts
-  } satisfies PracticeTest;
-});
-
-export const listeningReadingTests: PracticeTest[] = [
-  ...study4Tests
-];
-
-
-export const speakingWritingTests: PracticeTest[] = [
-  {
-    id: "sw-1-speaking",
-    title: "TOEIC SW TEST 1 SPEAKING",
-    subtitle: "Speaking Practice",
-    type: "Speaking & Writing",
-    shortType: "Speaking",
-    minutes: 20,
-    questions: 2,
-    access: "Free",
-    status: "New",
-    attempts: 5800,
-    parts: speakingParts
-  },
-  {
-    id: "sw-1-writing",
-    title: "TOEIC SW TEST 1 WRITING",
-    subtitle: "Writing Practice",
-    type: "Speaking & Writing",
-    shortType: "Writing",
-    minutes: 60,
-    questions: 2,
-    access: "Free",
-    status: "New",
-    attempts: 4200,
-    parts: writingParts
-  }
-];
-
-export const allPracticeTests = [...listeningReadingTests, ...speakingWritingTests];
-
-export function getPracticeTestById(testId: string) {
-  return allPracticeTests.find((test) => test.id === testId);
-}
-
-export function getPracticeAttemptById(testId: string, attemptId: string) {
-  const test = getPracticeTestById(testId);
-  const attempt = test?.recentAttempts?.find((item) => item.id === attemptId);
-
-  return test && attempt ? { test, attempt } : undefined;
-}

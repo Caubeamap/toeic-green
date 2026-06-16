@@ -5,10 +5,7 @@ export { PracticeTestSetup } from "./components/PracticeTestSetup";
 
 // Tests and types
 export {
-  allPracticeTests,
   practiceFilters,
-  getPracticeTestById,
-  getPracticeAttemptById,
 } from "./lib/practice-tests";
 export type {
   TestType,
@@ -20,17 +17,27 @@ export type {
 
 // Progress and results
 export {
-  LATEST_PRACTICE_RESULT_KEY,
   loadPracticeAttempts,
-  savePracticeAttemptResult,
-  getLatestPracticeResult,
-  mergePracticeProgress,
 } from "./lib/practice-progress";
 export type {
   SavedPracticeResult,
   StoredPracticeAttempt,
 } from "./lib/practice-progress";
 
+// Backend API
+export {
+  getLatestPracticeAttemptResult,
+  getPracticeAttemptResult,
+  getPracticeTest,
+  listPracticeQuestions,
+  listPracticeTests,
+  listRecentPracticeAttempts,
+  submitPracticeAttempt,
+} from "./services/practice-api";
+export type {
+  PracticeAttemptResult,
+  SubmitPracticeAttemptInput,
+} from "./services/practice-api";
+
 // Questions
-export { getQuestionsForTest } from "./lib/toeic-questions";
 export type { ToeicQuestion } from "./lib/toeic-questions";

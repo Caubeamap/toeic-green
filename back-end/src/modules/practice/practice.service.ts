@@ -45,10 +45,7 @@ const EXAM_QUESTION_SELECT = {
   },
 } satisfies Prisma.QuestionSelect;
 
-const ATTEMPT_INCLUDE = {
-  test: {
-    include: TEST_INCLUDE,
-  },
+const ATTEMPT_INCLUDE_LEAN = {
   answers: {
     include: {
       question: {
@@ -105,8 +102,8 @@ type ExamQuestionWithContext = Prisma.QuestionGetPayload<{
 }>;
 type ToeicQuestionSource = QuestionWithContext | ExamQuestionWithContext;
 type AttemptWithAnswers = Prisma.PracticeAttemptGetPayload<{
-  include: typeof ATTEMPT_INCLUDE;
-}>;
+  include: typeof ATTEMPT_INCLUDE_LEAN;
+}> & { test: TestWithParts };
 type AttemptSummaryWithParts = Prisma.PracticeAttemptGetPayload<{
   include: typeof ATTEMPT_SUMMARY_INCLUDE;
 }>;
@@ -124,6 +121,21 @@ export class PracticeService {
   } | null = null;
   private testsSnapshotPromise: Promise<PracticeTestsSnapshot> | null = null;
 
+  private attemptResultCache = new Map<
+    string,
+    { expiresAt: number; value: Record<string, any> }
+  >();
+  private attemptResultPromises = new Map<
+    string,
+    Promise<Record<string, any>>
+  >();
+
+  private questionsCache = new Map<
+    string,
+    { expiresAt: number; value: Record<string, any>[] }
+  >();
+  private questionsPromises = new Map<string, Promise<Record<string, any>[]>>();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async listTests() {
@@ -137,11 +149,7 @@ export class PracticeService {
   async listTestsForUser(userId: string) {
     const [snapshot, recentAttempts] = await Promise.all([
       this.getTestsSnapshot(),
-      this.findRecentAttemptSummaries(
-        userId,
-        {},
-        USER_PROGRESS_ATTEMPT_LIMIT,
-      ),
+      this.findRecentAttemptSummaries(userId, {}, USER_PROGRESS_ATTEMPT_LIMIT),
     ]);
     const attemptsByTestId = this.groupAttemptsByTestId(recentAttempts);
 
@@ -184,25 +192,54 @@ export class PracticeService {
     );
   }
 
-  async listQuestions(slug: string) {
-    await this.findPublishedTest(slug);
+  async listQuestions(slug: string): Promise<Record<string, any>[]> {
+    const cacheKey = slug;
+    const now = Date.now();
 
-    const questions = await this.prisma.question.findMany({
-      where: {
-        testPart: {
-          test: {
-            slug,
-            isPublished: true,
+    const cached = this.questionsCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.value;
+    }
+
+    const existingPromise = this.questionsPromises.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const promise = (async () => {
+      await this.findPublishedTest(slug);
+
+      const questions = await this.prisma.question.findMany({
+        where: {
+          testPart: {
+            test: {
+              slug,
+              isPublished: true,
+            },
           },
         },
-      },
-      select: EXAM_QUESTION_SELECT,
-      orderBy: [{ questionNumber: 'asc' }, { id: 'asc' }],
-    });
+        select: EXAM_QUESTION_SELECT,
+        orderBy: [{ questionNumber: 'asc' }, { id: 'asc' }],
+      });
 
-    return questions.map((question) =>
-      this.toToeicQuestion(question, { includeAnswer: false }),
-    );
+      const result = questions.map((question) =>
+        this.toToeicQuestion(question, { includeAnswer: false }),
+      );
+
+      this.questionsCache.set(cacheKey, {
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
+        value: result,
+      });
+
+      return result;
+    })();
+
+    this.questionsPromises.set(cacheKey, promise);
+    try {
+      return await promise;
+    } finally {
+      this.questionsPromises.delete(cacheKey);
+    }
   }
 
   async listRecentAttempts(userId: string) {
@@ -273,56 +310,139 @@ export class PracticeService {
         }),
       });
 
-      return tx.practiceAttempt.findUniqueOrThrow({
+      const attemptVal = await tx.practiceAttempt.findUniqueOrThrow({
         where: { id: createdAttempt.id },
-        include: ATTEMPT_INCLUDE,
+        include: ATTEMPT_INCLUDE_LEAN,
       });
+      (attemptVal as Record<string, any>).test = test;
+      return attemptVal;
     });
 
     this.testsSnapshotCache = null;
+    this.attemptResultCache.clear();
 
-    return this.toAttemptResult(attempt, submitAttemptDto.timeLimitMinutes);
+    return this.toAttemptResult(
+      attempt as AttemptWithAnswers,
+      submitAttemptDto.timeLimitMinutes,
+    );
   }
 
-  async getLatestAttemptResult(userId: string, slug: string) {
-    const test = await this.findPublishedTest(slug);
-    const attempt = await this.prisma.practiceAttempt.findFirst({
-      where: {
-        userId,
-        testId: test.id,
-        status: 'COMPLETED',
-      },
-      include: ATTEMPT_INCLUDE,
-      orderBy: { completedAt: 'desc' },
-    });
+  async getLatestAttemptResult(
+    userId: string,
+    slug: string,
+  ): Promise<Record<string, any>> {
+    const cacheKey = `${userId}:${slug}:latest`;
+    const now = Date.now();
 
-    if (!attempt) {
-      throw new NotFoundException('Không tìm thấy kết quả làm bài.');
+    const cached = this.attemptResultCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.value;
     }
 
-    return this.toAttemptResult(attempt);
+    const existingPromise = this.attemptResultPromises.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const promise = (async () => {
+      const test = await this.findPublishedTest(slug);
+      const attempt = await this.prisma.practiceAttempt.findFirst({
+        where: {
+          userId,
+          testId: test.id,
+          status: 'COMPLETED',
+        },
+        include: ATTEMPT_INCLUDE_LEAN,
+        orderBy: { completedAt: 'desc' },
+      });
+
+      if (!attempt) {
+        throw new NotFoundException('Không tìm thấy kết quả làm bài.');
+      }
+
+      (attempt as Record<string, any>).test = test;
+      const result = this.toAttemptResult(attempt as AttemptWithAnswers);
+
+      this.attemptResultCache.set(cacheKey, {
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
+        value: result,
+      });
+
+      return result;
+    })();
+
+    this.attemptResultPromises.set(cacheKey, promise);
+    try {
+      return await promise;
+    } finally {
+      this.attemptResultPromises.delete(cacheKey);
+    }
   }
 
-  async getAttemptResult(userId: string, slug: string, attemptId: string) {
-    const test = await this.findPublishedTest(slug);
-    const attempt = await this.prisma.practiceAttempt.findFirst({
-      where: {
-        userId,
-        testId: test.id,
-        publicId: attemptId,
-        status: 'COMPLETED',
-      },
-      include: ATTEMPT_INCLUDE,
-    });
+  async getAttemptResult(
+    userId: string,
+    slug: string,
+    attemptId: string,
+  ): Promise<Record<string, any>> {
+    const cacheKey = `${userId}:${slug}:${attemptId}`;
+    const now = Date.now();
 
-    if (!attempt) {
-      throw new NotFoundException('Không tìm thấy kết quả làm bài.');
+    const cached = this.attemptResultCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.value;
     }
 
-    return this.toAttemptResult(attempt);
+    const existingPromise = this.attemptResultPromises.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const promise = (async () => {
+      const test = await this.findPublishedTest(slug);
+      const attempt = await this.prisma.practiceAttempt.findFirst({
+        where: {
+          userId,
+          testId: test.id,
+          publicId: attemptId,
+          status: 'COMPLETED',
+        },
+        include: ATTEMPT_INCLUDE_LEAN,
+      });
+
+      if (!attempt) {
+        throw new NotFoundException('Không tìm thấy kết quả làm bài.');
+      }
+
+      (attempt as Record<string, any>).test = test;
+      const result = this.toAttemptResult(attempt as AttemptWithAnswers);
+
+      this.attemptResultCache.set(cacheKey, {
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
+        value: result,
+      });
+
+      return result;
+    })();
+
+    this.attemptResultPromises.set(cacheKey, promise);
+    try {
+      return await promise;
+    } finally {
+      this.attemptResultPromises.delete(cacheKey);
+    }
   }
 
   private async findPublishedTest(slug: string) {
+    try {
+      const snapshot = await this.getTestsSnapshot();
+      const cachedTest = snapshot.tests.find((item) => item.slug === slug);
+      if (cachedTest) {
+        return cachedTest;
+      }
+    } catch {
+      // Fallback
+    }
+
     const test = await this.prisma.test.findUnique({
       where: { slug },
       include: TEST_INCLUDE,
@@ -514,12 +634,11 @@ export class PracticeService {
       total: attempt.totalCount,
       durationSeconds: attempt.durationSeconds,
       detailHref: `/practice/${attempt.test.slug}/results/${attempt.publicId}`,
-      scaledScore:
-        this.hasCompleteToeicScoreScope(
-          attempt.answers.map((answer) => answer.question),
-        )
-          ? (attempt.scaledScore ?? undefined)
-          : undefined,
+      scaledScore: this.hasCompleteToeicScoreScope(
+        attempt.answers.map((answer) => answer.question),
+      )
+        ? (attempt.scaledScore ?? undefined)
+        : undefined,
       timestamp: completedAt.toISOString(),
     };
   }
@@ -650,10 +769,7 @@ export class PracticeService {
       (boundedCorrect - previous.raw) / (next.raw - previous.raw);
     const scaled = previous.scaled + (next.scaled - previous.scaled) * progress;
 
-    return Math.max(
-      5,
-      Math.min(495, Math.round(scaled / 5) * 5),
-    );
+    return Math.max(5, Math.min(495, Math.round(scaled / 5) * 5));
   }
 
   private hasCompleteToeicScoreScope(

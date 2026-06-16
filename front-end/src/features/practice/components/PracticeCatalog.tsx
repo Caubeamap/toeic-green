@@ -141,8 +141,8 @@ export function PracticeCatalog() {
           </div>
         </div>
 
-        <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
+        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex-1 min-w-0">
             <h1 className="mb-2 text-headline-lg font-bold text-on-surface">
               {isHistoryView
                 ? "Test History"
@@ -159,7 +159,7 @@ export function PracticeCatalog() {
             </p>
           </div>
 
-          <div className="glass-card grid w-full max-w-4xl grid-cols-1 gap-1 rounded-xl bg-surface-container-low p-1 sm:grid-cols-2 lg:w-auto lg:grid-cols-4">
+          <div className="glass-card grid w-full gap-1 rounded-xl bg-surface-container-low p-1 grid-cols-2 sm:flex sm:w-fit sm:flex-row shrink-0">
             {practiceFilters.map((filter) => (
               <button
                 key={filter}
@@ -168,7 +168,7 @@ export function PracticeCatalog() {
                   setCurrentPage(1);
                 }}
                 className={cn(
-                  "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg px-5 py-2 text-label-md font-semibold text-on-surface-variant transition hover:bg-white/50 hover:text-on-surface",
+                  "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg px-6 py-2 text-label-md font-semibold text-on-surface-variant transition hover:bg-white/50 hover:text-on-surface",
                   activeFilter === filter && "bg-white font-bold text-primary shadow-sm"
                 )}
                 type="button"

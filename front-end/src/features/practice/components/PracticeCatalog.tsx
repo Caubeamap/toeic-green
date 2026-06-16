@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -23,7 +23,7 @@ function getLatestAttemptTimestamp(test: PracticeTest) {
 }
 
 export function PracticeCatalog() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
   const [query, setQuery] = useState("");
   const [tests, setTests] = useState<PracticeTest[]>([]);
@@ -31,24 +31,90 @@ export function PracticeCatalog() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // 1. Tải danh sách đề thi công khai ngay lập tức khi component mount
+  // Dùng ref để theo dõi danh sách đề thi một cách an toàn mà không vi phạm quy tắc render hoặc dependency
+  const testsRef = useRef<PracticeTest[]>([]);
   useEffect(() => {
+    testsRef.current = tests;
+  }, [tests]);
+
+  // 1. Khôi phục dữ liệu từ localStorage để hiển thị tức thì (Stale-While-Revalidate)
+  useEffect(() => {
+    const storedUser = localStorage.getItem("toeic-green-auth");
+    let cacheKey = "toeic-green-practice-tests:public";
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser && parsedUser.id) {
+          cacheKey = `toeic-green-practice-tests:user:${parsedUser.id}`;
+        }
+      } catch {
+        // Bỏ qua lỗi parse
+      }
+    }
+
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsedTests = JSON.parse(cachedData);
+        if (Array.isArray(parsedTests) && parsedTests.length > 0) {
+          // Tránh gọi setState trực tiếp đồng bộ trong effect mount
+          const timer = setTimeout(() => {
+            setTests(parsedTests);
+            setIsLoading(false);
+          }, 0);
+          return () => clearTimeout(timer);
+        }
+      } catch {
+        // Bỏ qua lỗi parse
+      }
+    }
+  }, []);
+
+  // 2. Tải danh sách đề thi thực tế từ API và đồng bộ hóa cache
+  useEffect(() => {
+    // Đọc trực tiếp localStorage để phát hiện sớm nếu có phiên đăng nhập cũ chưa được khôi phục
+    const hasStoredUser = typeof window !== "undefined" && !!localStorage.getItem("toeic-green-auth");
+
+    // Nếu đang trong quá trình khôi phục phiên ngầm và có thông tin user cũ,
+    // hoãn việc gửi request lấy danh sách đề thi công khai để tránh làm giao diện bị nhảy trạng thái (flicker).
+    if (isAuthLoading && hasStoredUser) {
+      return;
+    }
+
     let cancelled = false;
 
-    async function loadInitialTests() {
-      // Nếu đã có dữ liệu đề thi, không cần tải lại bản sơ bộ
-      if (tests.length > 0) return;
-
-      setIsLoading(true);
+    async function loadTests() {
+      // Chỉ hiển thị loading screen nếu chưa có dữ liệu trong cache
+      if (testsRef.current.length === 0) {
+        setIsLoading(true);
+      }
       setErrorMessage(null);
 
       try {
-        const initialTests = await listPracticeTests();
+        const result = isAuthenticated
+          ? await listPracticeTestsWithProgress()
+          : await listPracticeTests();
+
         if (!cancelled) {
-          setTests(initialTests);
+          setTests(result);
+
+          // Cập nhật lại cache trong localStorage
+          const storedUser = localStorage.getItem("toeic-green-auth");
+          let cacheKey = "toeic-green-practice-tests:public";
+          if (isAuthenticated && storedUser) {
+            try {
+              const parsedUser = JSON.parse(storedUser);
+              if (parsedUser && parsedUser.id) {
+                cacheKey = `toeic-green-practice-tests:user:${parsedUser.id}`;
+              }
+            } catch {
+              // Bỏ qua lỗi
+            }
+          }
+          localStorage.setItem(cacheKey, JSON.stringify(result));
         }
       } catch (error) {
-        if (!cancelled) {
+        if (!cancelled && testsRef.current.length === 0) {
           setErrorMessage(
             getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
           );
@@ -60,38 +126,12 @@ export function PracticeCatalog() {
       }
     }
 
-    loadInitialTests();
+    loadTests();
 
     return () => {
       cancelled = true;
     };
-  }, [tests.length]);
-
-  // 2. Chạy ngầm tải tiến trình bài làm khi xác thực hoàn tất
-  useEffect(() => {
-    if (isAuthLoading || !isAuthenticated) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadProgressTests() {
-      try {
-        const progressTests = await listPracticeTestsWithProgress();
-        if (!cancelled) {
-          setTests(progressTests);
-        }
-      } catch {
-        // Lỗi chạy ngầm thì bỏ qua, giữ nguyên danh sách đề đã có
-      }
-    }
-
-    loadProgressTests();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, isAuthLoading]);
+  }, [isAuthenticated, isAuthLoading, user]);
 
   const historyTests = useMemo(
     () =>

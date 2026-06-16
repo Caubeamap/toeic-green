@@ -64,7 +64,7 @@ describe('Backend security baseline (e2e)', () => {
   });
 
   it('protects routes by default with the global JWT guard', async () => {
-    const response = await request(app.getHttpServer()).get('/api').expect(401);
+    const response = await request(app.getHttpServer()).get('/api/profile').expect(401);
 
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');

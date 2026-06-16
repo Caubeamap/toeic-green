@@ -113,10 +113,12 @@ export function PracticeExamSession({
   test,
   questions,
   customTimeLimit,
+  isDevMode = false,
 }: {
   test: PracticeTest;
   questions: ToeicQuestion[];
   customTimeLimit?: number;
+  isDevMode?: boolean;
 }) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -129,16 +131,6 @@ export function PracticeExamSession({
   const [submitted, setSubmitted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
-
-  const [isDevMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("dev") === "true" || params.get("bypass") === "true") {
-        return true;
-      }
-    }
-    return false;
-  });
 
   // Photo viewer modal state (Part 1)
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);

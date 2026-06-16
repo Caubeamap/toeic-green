@@ -26,6 +26,8 @@ function TestPageContent() {
   const partsParam = searchParams.get("parts");
   const timeParam = searchParams.get("time");
   const modeParam = searchParams.get("mode");
+  const isDevMode =
+    searchParams.get("dev") === "true" || searchParams.get("bypass") === "true";
 
   const filteredQuestions = useMemo(() => {
     if (modeParam === "full" || !partsParam) {
@@ -131,6 +133,7 @@ function TestPageContent() {
       test={test}
       questions={filteredQuestions}
       customTimeLimit={customTimeLimit}
+      isDevMode={isDevMode}
     />
   );
 }

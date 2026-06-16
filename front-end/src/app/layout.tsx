@@ -44,32 +44,40 @@ export default function RootLayout({
                   'data-gr-ext-installed',
                   'data-clean-paper'
                 ];
-                const clean = (el) => {
-                  if (!el) return;
-                  const attrs = el.attributes;
+                const isBadAttr = (name) =>
+                  name.startsWith('bis_') ||
+                  name.startsWith('__processed_') ||
+                  name.startsWith('cz-') ||
+                  name.startsWith('data-new-gr-') ||
+                  name.startsWith('data-gr-') ||
+                  badAttrs.includes(name);
+                const cleanElement = (element) => {
+                  if (!element || element.nodeType !== Node.ELEMENT_NODE) return;
+                  const attrs = element.attributes;
                   for (let i = attrs.length - 1; i >= 0; i--) {
                     const name = attrs[i].name;
-                    if (
-                      name.startsWith('bis_') ||
-                      name.startsWith('__processed_') ||
-                      name.startsWith('cz-') ||
-                      name.startsWith('data-new-gr-') ||
-                      name.startsWith('data-gr-') ||
-                      badAttrs.includes(name)
-                    ) {
-                      el.removeAttribute(name);
+                    if (isBadAttr(name)) {
+                      element.removeAttribute(name);
                     }
                   }
                 };
-                clean(document.documentElement);
-                const observer = new MutationObserver(() => {
-                  clean(document.documentElement);
-                  clean(document.body);
+                const cleanTree = (root) => {
+                  cleanElement(root);
+                  if (!root || !root.querySelectorAll) return;
+                  root.querySelectorAll('*').forEach(cleanElement);
+                };
+                cleanTree(document.documentElement);
+                const observer = new MutationObserver((records) => {
+                  records.forEach((record) => {
+                    if (record.type === 'attributes') {
+                      cleanElement(record.target);
+                    }
+                    record.addedNodes.forEach(cleanTree);
+                  });
                 });
                 observer.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
                 window.addEventListener('DOMContentLoaded', () => {
-                  clean(document.documentElement);
-                  clean(document.body);
+                  cleanTree(document.documentElement);
                 });
               })();
             `

@@ -8,10 +8,16 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 export function configureApp(app: NestExpressApplication) {
   app.use(helmet());
+  app.use(
+    compression({
+      threshold: 1024, // Chỉ nén các response có kích thước > 1KB
+    }),
+  );
   app.useBodyParser('json', { limit: '100kb' });
   app.useBodyParser('urlencoded', { extended: true, limit: '100kb' });
   app.use(

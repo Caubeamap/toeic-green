@@ -1,5 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsString, Length, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  Length,
+  MaxLength,
+} from 'class-validator';
 import { normalizeEmail } from '../../../common/utils/normalize-email';
 
 export class VerifyResetOtpDto {

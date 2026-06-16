@@ -64,7 +64,10 @@ export class AuthController {
   @Post('verify-reset-otp')
   @HttpCode(HttpStatus.OK)
   async verifyResetOtp(@Body() verifyOtpDto: VerifyResetOtpDto) {
-    return this.passwordResetService.verifyOtp(verifyOtpDto.email, verifyOtpDto.otp);
+    return this.passwordResetService.verifyOtp(
+      verifyOtpDto.email,
+      verifyOtpDto.otp,
+    );
   }
 
   @Public()

@@ -80,11 +80,7 @@ export async function loadUserProfile(user: MockUser): Promise<UserProfile> {
   const promise = api
     .get<ProfileResponse>("/profile")
     .then(cacheUserProfileResponse)
-    .catch((error) => {
-      console.error(
-        "Failed to load user profile from api, using default",
-        error,
-      );
+    .catch(() => {
       return getDefaultUserProfile(user);
     })
     .finally(() => {

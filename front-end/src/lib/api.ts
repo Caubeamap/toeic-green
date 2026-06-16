@@ -64,8 +64,7 @@ export async function refreshSession<
         setAccessToken(data.accessToken);
         return data;
       })
-      .catch((error: unknown) => {
-        console.error("Failed to refresh token", error);
+      .catch(() => {
         notifyAuthFailure();
         return null;
       })

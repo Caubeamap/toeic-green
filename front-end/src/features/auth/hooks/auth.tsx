@@ -195,8 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
-    } catch (err) {
-      console.error("Logout error", err);
+    } catch {
     } finally {
       setAccessToken(null);
       clearUserProfileCache();

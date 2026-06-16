@@ -80,8 +80,7 @@ function clearPersistentPracticeHistory() {
   try {
     window.localStorage.removeItem(PRACTICE_ATTEMPTS_KEY);
     window.localStorage.removeItem(LATEST_PRACTICE_RESULT_KEY);
-  } catch (error) {
-    console.error("Failed to clear persistent practice history", error);
+  } catch {
   }
 }
 
@@ -100,8 +99,7 @@ function readPracticeAttempts() {
 
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter(isStoredPracticeAttempt) : [];
-  } catch (error) {
-    console.error("Failed to load practice attempts", error);
+  } catch {
     return [];
   }
 }
@@ -209,8 +207,7 @@ export function loadPracticeAttempts(): StoredPracticeAttempt[] {
   try {
     clearPersistentPracticeHistory();
     return sortPracticeAttempts(readPracticeAttempts()).slice(0, MAX_STORED_ATTEMPTS);
-  } catch (error) {
-    console.error("Failed to load practice attempts", error);
+  } catch {
     return [];
   }
 }
@@ -229,8 +226,7 @@ export function savePracticeAttemptResult(test: PracticeTest, result: SavedPract
     ];
 
     writePracticeAttempts(sortPracticeAttempts(nextAttempts).slice(0, MAX_STORED_ATTEMPTS));
-  } catch (error) {
-    console.error("Failed to save practice attempt", error);
+  } catch {
   }
 }
 

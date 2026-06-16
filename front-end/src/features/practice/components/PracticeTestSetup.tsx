@@ -427,27 +427,9 @@ function RecentAttempts({ attempts }: { attempts: PracticeAttempt[] }) {
                   </span>
                   {(() => {
                     if (attempt.mode === "Full test") return null;
-                    
-                    const storedAttempt = attempt as { result?: { parts?: string[]; answers?: Record<string, string> } };
-                    const resultObj = storedAttempt.result;
-                    let labels: string[] = [];
-                    
-                    if (resultObj) {
-                      if (resultObj.parts && resultObj.parts.length > 0) {
-                        labels = resultObj.parts.map((p: string) => {
-                          const num = p.replace("part-", "");
-                          return `Part ${num}`;
-                        });
-                      } else if (resultObj.answers) {
-                        labels = getPartsFromAnswers(resultObj.answers);
-                      }
-                    }
-                    
-                    if (labels.length === 0) {
-                      labels = attempt.scopeLabels || [];
-                    }
-                    
-                    labels.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                    const labels = [...(attempt.scopeLabels || [])].sort((a, b) =>
+                      a.localeCompare(b, undefined, { numeric: true })
+                    );
 
                     return labels.map((label) => (
                       <span
@@ -642,25 +624,4 @@ function ReadinessRow({ label }: { label: string }) {
       <span className="text-sm font-semibold text-on-surface">{label}</span>
     </div>
   );
-}
-
-function getPartsFromAnswers(answers: Record<string, string>): string[] {
-  if (!answers) return [];
-  const partIds = new Set<string>();
-  
-  Object.keys(answers).forEach((qId) => {
-    const match = qId.match(/-q(\d+)$/i);
-    if (match) {
-      const qNum = parseInt(match[1], 10);
-      if (qNum >= 1 && qNum <= 6) partIds.add("Part 1");
-      else if (qNum >= 7 && qNum <= 31) partIds.add("Part 2");
-      else if (qNum >= 32 && qNum <= 70) partIds.add("Part 3");
-      else if (qNum >= 71 && qNum <= 100) partIds.add("Part 4");
-      else if (qNum >= 101 && qNum <= 130) partIds.add("Part 5");
-      else if (qNum >= 131 && qNum <= 146) partIds.add("Part 6");
-      else if (qNum >= 147 && qNum <= 200) partIds.add("Part 7");
-    }
-  });
-  
-  return Array.from(partIds);
 }

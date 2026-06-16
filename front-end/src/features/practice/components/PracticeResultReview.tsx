@@ -32,12 +32,40 @@ const PART1_IMAGES: Record<number, string> = {
    Scoring Logic Helpers
    ═══════════════════════════════════════════════════════════════ */
 
+function roundToNearestFive(value: number) {
+  return Math.round(value / 5) * 5;
+}
+
 function estimateSectionScore(correct: number): number {
-  if (correct === 0) return 5;
-  if (correct <= 10) return 5 + (correct - 1) * 5;
-  if (correct <= 50) return 50 + (correct - 10) * 5;
-  if (correct <= 90) return 250 + (correct - 50) * 5;
-  return 450 + (correct - 90) * 4.5;
+  const rawScoreAnchors = [
+    { raw: 0, scaled: 5 },
+    { raw: 10, scaled: 35 },
+    { raw: 20, scaled: 80 },
+    { raw: 30, scaled: 130 },
+    { raw: 40, scaled: 185 },
+    { raw: 50, scaled: 250 },
+    { raw: 60, scaled: 310 },
+    { raw: 70, scaled: 365 },
+    { raw: 80, scaled: 420 },
+    { raw: 90, scaled: 465 },
+    { raw: 100, scaled: 495 },
+  ];
+
+  const boundedCorrect = Math.max(0, Math.min(100, correct));
+  const nextAnchorIndex = rawScoreAnchors.findIndex(
+    (anchor) => boundedCorrect <= anchor.raw
+  );
+
+  if (nextAnchorIndex <= 0) {
+    return rawScoreAnchors[0].scaled;
+  }
+
+  const previous = rawScoreAnchors[nextAnchorIndex - 1];
+  const next = rawScoreAnchors[nextAnchorIndex];
+  const progress = (boundedCorrect - previous.raw) / (next.raw - previous.raw);
+  const scaled = previous.scaled + (next.scaled - previous.scaled) * progress;
+
+  return Math.max(5, Math.min(495, roundToNearestFive(scaled)));
 }
 
 function calculateScore(questions: ToeicQuestion[], answers: Record<string, string>) {
@@ -57,17 +85,21 @@ function calculateScore(questions: ToeicQuestion[], answers: Record<string, stri
     }
   });
 
-  const lcScaled = Math.round(estimateSectionScore(lcCorrect) / 5) * 5;
-  const rcScaled = Math.round(estimateSectionScore(rcCorrect) / 5) * 5;
+  const hasFullListeningSection = lcTotal === 100;
+  const hasFullReadingSection = rcTotal === 100;
+  const lcScaled = hasFullListeningSection ? estimateSectionScore(lcCorrect) : null;
+  const rcScaled = hasFullReadingSection ? estimateSectionScore(rcCorrect) : null;
+  const totalScore =
+    lcScaled !== null && rcScaled !== null ? lcScaled + rcScaled : null;
 
   return {
     lcCorrect,
     rcCorrect,
     lcTotal,
     rcTotal,
-    lcScaled: Math.min(495, lcScaled),
-    rcScaled: Math.min(495, rcScaled),
-    totalScore: Math.min(990, lcScaled + rcScaled)
+    lcScaled,
+    rcScaled,
+    totalScore
   };
 }
 
@@ -587,6 +619,16 @@ export function PracticeResultReview({
 
   // Calculate section scores
   const scorePercent = Math.round((result.correct / result.total) * 100);
+  const hasToeicTotalScore = stats.totalScore !== null;
+  const mainScoreValue = hasToeicTotalScore
+    ? String(stats.totalScore)
+    : `${result.correct}/${result.total}`;
+  const mainScoreLabel = hasToeicTotalScore
+    ? "Điểm TOEIC ước tính"
+    : "Câu đúng";
+  const scoreDescription = hasToeicTotalScore
+    ? "Bài làm đã được lưu lại. Xem lại từng câu, nghe lại audio và đọc phần giải thích để biết mình cần cải thiện ở đâu."
+    : "Bài làm đã được lưu lại. Kéo xuống để xem lại đáp án, nghe lại audio và ghi chú những phần cần luyện thêm.";
 
   return (
     <>
@@ -618,8 +660,8 @@ export function PracticeResultReview({
                 >
                   <div className="grid h-[85%] w-[85%] place-items-center rounded-full bg-white text-center">
                     <div>
-                      <p className="text-4xl font-black tracking-tight text-primary">{stats.totalScore}</p>
-                      <p className="text-[10px] font-black uppercase text-muted tracking-wider mt-0.5">Điểm ước tính</p>
+                      <p className="text-4xl font-black tracking-tight text-primary">{mainScoreValue}</p>
+                      <p className="text-[10px] font-black uppercase text-muted tracking-wider mt-0.5">{mainScoreLabel}</p>
                     </div>
                   </div>
                 </div>
@@ -649,7 +691,7 @@ export function PracticeResultReview({
                     <h2 className="text-xl font-black text-ink">Kết quả làm bài</h2>
                   </div>
                   <p className="mt-2 text-xs text-muted leading-relaxed font-medium">
-                    Bài thi TOEIC ước lượng điểm sơ bộ, không phải thang điểm chính thức của ETS. Xem lại các câu sai bên dưới để cải thiện.
+                    {scoreDescription}
                   </p>
                 </div>
 
@@ -659,14 +701,26 @@ export function PracticeResultReview({
                     icon={<Headphones className="h-4 w-4" />}
                     title="Nghe"
                     value={stats.lcTotal > 0 ? `${stats.lcCorrect}/${stats.lcTotal} câu` : "Không chọn"}
-                    subValue={stats.lcTotal > 0 ? `~ ${stats.lcScaled} điểm` : "0 điểm"}
+                    subValue={
+                      stats.lcScaled !== null
+                        ? `~ ${stats.lcScaled} điểm`
+                        : stats.lcTotal > 0
+                        ? "Chưa đủ 100 câu"
+                        : "Không có dữ liệu"
+                    }
                     tone="green"
                   />
                   <ResultMetricCard
                     icon={<BookOpen className="h-4 w-4" />}
                     title="Đọc"
                     value={stats.rcTotal > 0 ? `${stats.rcCorrect}/${stats.rcTotal} câu` : "Không chọn"}
-                    subValue={stats.rcTotal > 0 ? `~ ${stats.rcScaled} điểm` : "0 điểm"}
+                    subValue={
+                      stats.rcScaled !== null
+                        ? `~ ${stats.rcScaled} điểm`
+                        : stats.rcTotal > 0
+                        ? "Chưa đủ 100 câu"
+                        : "Không có dữ liệu"
+                    }
                     tone="blue"
                   />
                   <ResultMetricCard

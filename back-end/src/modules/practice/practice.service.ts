@@ -351,7 +351,12 @@ export class PracticeService {
       total: attempt.totalCount,
       durationSeconds: attempt.durationSeconds,
       detailHref: `/practice/${attempt.test.slug}/results/${attempt.publicId}`,
-      scaledScore: attempt.scaledScore ?? undefined,
+      scaledScore:
+        this.hasCompleteToeicScoreScope(
+          attempt.answers.map((answer) => answer.question),
+        )
+          ? (attempt.scaledScore ?? undefined)
+          : undefined,
       timestamp: completedAt.toISOString(),
     };
   }
@@ -436,7 +441,7 @@ export class PracticeService {
       [5, 6, 7].includes(question.testPart.partNumber),
     );
 
-    if (listening.length === 0 || reading.length === 0) {
+    if (!this.hasCompleteToeicScoreScope(questions)) {
       return null;
     }
 
@@ -454,23 +459,51 @@ export class PracticeService {
   }
 
   private estimateSectionScore(correct: number) {
-    if (correct === 0) {
-      return 5;
+    const rawScoreAnchors = [
+      { raw: 0, scaled: 5 },
+      { raw: 10, scaled: 35 },
+      { raw: 20, scaled: 80 },
+      { raw: 30, scaled: 130 },
+      { raw: 40, scaled: 185 },
+      { raw: 50, scaled: 250 },
+      { raw: 60, scaled: 310 },
+      { raw: 70, scaled: 365 },
+      { raw: 80, scaled: 420 },
+      { raw: 90, scaled: 465 },
+      { raw: 100, scaled: 495 },
+    ];
+    const boundedCorrect = Math.max(0, Math.min(100, correct));
+    const nextAnchorIndex = rawScoreAnchors.findIndex(
+      (anchor) => boundedCorrect <= anchor.raw,
+    );
+
+    if (nextAnchorIndex <= 0) {
+      return rawScoreAnchors[0].scaled;
     }
 
-    if (correct <= 10) {
-      return 5 + (correct - 1) * 5;
-    }
+    const previous = rawScoreAnchors[nextAnchorIndex - 1];
+    const next = rawScoreAnchors[nextAnchorIndex];
+    const progress =
+      (boundedCorrect - previous.raw) / (next.raw - previous.raw);
+    const scaled = previous.scaled + (next.scaled - previous.scaled) * progress;
 
-    if (correct <= 50) {
-      return 50 + (correct - 10) * 5;
-    }
+    return Math.max(
+      5,
+      Math.min(495, Math.round(scaled / 5) * 5),
+    );
+  }
 
-    if (correct <= 90) {
-      return 250 + (correct - 50) * 5;
-    }
+  private hasCompleteToeicScoreScope(
+    questions: Array<{ testPart: { partNumber: number } }>,
+  ) {
+    const listeningCount = questions.filter((question) =>
+      [1, 2, 3, 4].includes(question.testPart.partNumber),
+    ).length;
+    const readingCount = questions.filter((question) =>
+      [5, 6, 7].includes(question.testPart.partNumber),
+    ).length;
 
-    return Math.min(495, Math.round((450 + (correct - 90) * 4.5) / 5) * 5);
+    return listeningCount === 100 && readingCount === 100;
   }
 
   private getScopeLabels(attempt: AttemptWithAnswers) {

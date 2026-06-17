@@ -571,23 +571,9 @@ export function PracticeExamSession({
       const correspondingQ = questions.find((q) => q.questionNumber === qNum);
       if (!correspondingQ) return match;
 
-      const btnClass = "part6-blank rounded-lg text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-highest text-on-surface-variant ring-outline-variant hover:bg-surface-container-highest/80";
-      const textVal = `_____ (${qNum})`;
-      return `<button type="button" data-qnum="${qNum}" class="${btnClass}">${textVal}</button>`;
+      return `<span class="part6-blank">______(${qNum})</span>`;
     });
   }, [questions]);
-
-  const handlePassageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    const button = target.closest("button[data-qnum]");
-    if (button) {
-      const qNum = parseInt(button.getAttribute("data-qnum") || "", 10);
-      const correspondingQ = questions.find((q) => q.questionNumber === qNum);
-      if (correspondingQ) {
-        goTo(questions.indexOf(correspondingQ));
-      }
-    }
-  }, [questions, goTo]);
 
   function formatAudioTime(secs: number) {
     const m = Math.floor(secs / 60);
@@ -1011,8 +997,7 @@ export function PracticeExamSession({
             {currentQuestion.partId === "part-6" && (
               <div className="space-y-4">
                 <div 
-                  className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto leading-relaxed cursor-pointer"
-                  onClick={handlePassageClick}
+                  className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto leading-relaxed"
                 >
                   <div 
                     className="part6-passage passage-content text-sm font-medium text-ink"

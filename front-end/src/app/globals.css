@@ -228,15 +228,12 @@ textarea {
 }
 
 .part6-blank {
-  display: inline-flex;
-  min-height: 2rem;
-  min-width: 5.75rem;
-  align-items: center;
-  justify-content: center;
-  margin: 0.24rem 0.28rem;
-  padding: 0 0.75rem;
-  vertical-align: middle;
-  line-height: 1;
+  display: inline;
+  margin: 0 0.18rem;
+  color: inherit;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  vertical-align: baseline;
   white-space: nowrap;
 }
 
@@ -246,8 +243,7 @@ textarea {
   }
 
   .part6-blank {
-    min-height: 2.125rem;
-    margin-block: 0.28rem;
+    margin-inline: 0.14rem;
   }
 }
 

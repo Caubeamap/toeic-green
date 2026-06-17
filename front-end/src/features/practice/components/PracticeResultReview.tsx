@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Award,
@@ -557,43 +557,8 @@ export function PracticeResultReview({
       const correspondingQ = activeQuestions.find((q) => q.questionNumber === qNum);
       if (!correspondingQ) return match;
 
-      const isCurrent = correspondingQ.id === currentQuestion.id;
-      
-      // Correct check
-      let isCorrect = false;
-      let isAnswered = false;
-      let selected = "";
-      if (result) {
-        selected = result.answers[correspondingQ.id] || "";
-        isAnswered = !!selected;
-        isCorrect = selected === correspondingQ.correctAnswer;
-      }
-
-      const btnClass = cn(
-        "part6-blank rounded-lg text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary",
-        isCurrent ? "ring-2 ring-primary shadow-glow" : "",
-        isAnswered
-          ? isCorrect
-            ? "bg-green-500 text-white ring-green-600 shadow-sm"
-            : "bg-red-500 text-white ring-red-600 shadow-sm"
-          : "bg-surface-container-highest text-muted ring-outline-variant"
-      );
-
-      const textVal = `(${qNum})${isAnswered ? ` [ ${selected} ]` : ""}`;
-      return `<button type="button" data-qnum="${qNum}" class="${btnClass}">${textVal}</button>`;
+      return `<span class="part6-blank">______(${qNum})</span>`;
     });
-  };
-
-  const handlePassageClickReview = (e: MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    const button = target.closest("button[data-qnum]");
-    if (button) {
-      const qNum = parseInt(button.getAttribute("data-qnum") || "", 10);
-      const correspondingQ = activeQuestions.find((q) => q.questionNumber === qNum);
-      if (correspondingQ) {
-        goTo(activeQuestions.indexOf(correspondingQ));
-      }
-    }
   };
 
   if (questions.length === 0 || !stats) {
@@ -960,22 +925,13 @@ export function PracticeResultReview({
                     </div>
                     
                     <div 
-                      className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] leading-relaxed cursor-pointer"
-                      onClick={leftPanelLang === "en" ? handlePassageClickReview : undefined}
+                      className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] leading-relaxed"
                     >
                       {leftPanelLang === "en" ? (
                         <div 
                           className="part6-passage passage-content text-sm font-medium text-ink"
                           dangerouslySetInnerHTML={{ 
-                            __html: getPart6HtmlReview((() => {
-                              const smartExplanation = getSmartExplanation(currentQuestion, currentQuestion.passage || "");
-                              const quotes = extractQuotesFromExplanation(smartExplanation);
-                              let html = currentQuestion.passage || "";
-                              for (const q of quotes) {
-                                html = highlightHtmlTextSafe(html, q);
-                              }
-                              return html;
-                            })()) 
+                            __html: getPart6HtmlReview(currentQuestion.passage || "")
                           }}
                         />
                       ) : (

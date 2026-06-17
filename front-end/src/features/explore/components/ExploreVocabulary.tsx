@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -94,8 +96,37 @@ function getCollectionProgress(
   return Math.round((ratedWords.length / words.length) * 100);
 }
 
-export function ExploreVocabulary() {
-  const [view, setView] = useState<ExploreView>("collections");
+type ExploreVocabularyProps = {
+  initialCollectionSlug?: string;
+  initialView?: ExploreView;
+};
+
+function getCollectionRouteId(collection: ExploreCollectionSummary) {
+  return collection.slug || collection.id;
+}
+
+function getCollectionHref(collection: ExploreCollectionSummary) {
+  return `/explore/${encodeURIComponent(getCollectionRouteId(collection))}`;
+}
+
+function findCollectionByRouteId(
+  collections: ExploreCollectionSummary[],
+  routeId: string
+) {
+  return collections.find(
+    (collection) => collection.id === routeId || collection.slug === routeId
+  );
+}
+
+export function ExploreVocabulary({
+  initialCollectionSlug,
+  initialView
+}: ExploreVocabularyProps = {}) {
+  const router = useRouter();
+  const routeCollectionId = initialCollectionSlug?.trim() ?? "";
+  const resolvedInitialView: ExploreView =
+    initialView ?? (routeCollectionId ? "detail" : "collections");
+  const [view, setView] = useState<ExploreView>(resolvedInitialView);
   const [query, setQuery] = useState("");
   const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
   const [collections, setCollections] = useState<ExploreCollectionSummary[]>([]);
@@ -124,21 +155,28 @@ export function ExploreVocabulary() {
         if (!mounted) return;
 
         const storedCollectionId = storedProgress.activeCollectionId;
-        const initialCollectionId =
-          loadedCollections.find((collection) => collection.id === storedCollectionId)
-            ?.id ??
-          loadedCollections[0]?.id ??
-          "";
+        const routeCollection = routeCollectionId
+          ? findCollectionByRouteId(loadedCollections, routeCollectionId)
+          : undefined;
+        const storedCollection = storedCollectionId
+          ? findCollectionByRouteId(loadedCollections, storedCollectionId)
+          : undefined;
+        const initialCollectionId = routeCollectionId
+          ? routeCollection?.id ?? routeCollectionId
+          : storedCollection?.id ?? loadedCollections[0]?.id ?? "";
 
         setCollections(loadedCollections);
         setProgress(storedProgress);
         setSelectedCollectionId(initialCollectionId);
+        setView(resolvedInitialView);
         setProgressLoaded(true);
         setCatalogStatus("ready");
       } catch {
         if (!mounted) return;
         setProgress(loadExploreProgress());
         setProgressLoaded(true);
+        setSelectedCollectionId(routeCollectionId);
+        setView(resolvedInitialView);
         setCatalogStatus("error");
       }
     }
@@ -148,7 +186,7 @@ export function ExploreVocabulary() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [routeCollectionId, resolvedInitialView]);
 
   useEffect(() => {
     if (progressLoaded) {
@@ -157,10 +195,9 @@ export function ExploreVocabulary() {
   }, [progress, progressLoaded]);
 
   const selectedSummary = useMemo(() => {
-    return (
-      collections.find((collection) => collection.id === selectedCollectionId) ??
-      collections[0]
-    );
+    if (!selectedCollectionId) return collections[0];
+
+    return findCollectionByRouteId(collections, selectedCollectionId);
   }, [collections, selectedCollectionId]);
 
   const selectedCollection = useMemo<ExploreCollection | undefined>(() => {
@@ -239,17 +276,76 @@ export function ExploreVocabulary() {
   const selectedWordStatus = selectedSummary
     ? wordStatusByCollection[selectedSummary.id] ?? "idle"
     : "idle";
+  const isDetailView = view === "detail";
+  const isCollectionRouteMissing =
+    Boolean(routeCollectionId) &&
+    catalogStatus === "ready" &&
+    !selectedSummary;
+  const selectedRouteId = selectedSummary
+    ? getCollectionRouteId(selectedSummary)
+    : "";
+  const detailHref = selectedRouteId
+    ? `/explore/${encodeURIComponent(selectedRouteId)}`
+    : "/explore";
+  const reviewHref = selectedRouteId ? `${detailHref}/review` : "/explore";
 
-  function openCollection(collectionId: string) {
-    setSelectedCollectionId(collectionId);
-    setView("detail");
+  useEffect(() => {
+    if (
+      (view !== "detail" && view !== "review") ||
+      !selectedSummary ||
+      selectedWordStatus !== "idle"
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void ensureCollectionWords(selectedSummary.id);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [ensureCollectionWords, selectedSummary, selectedWordStatus, view]);
+
+  useEffect(() => {
+    if (view !== "review" || !selectedSummary) return;
+
+    const id = selectedSummary.id;
+    setProgress((current) => {
+      const alreadyStudying = current.studyingCollectionIds.includes(id);
+      if (alreadyStudying && current.activeCollectionId === id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        activeCollectionId: id,
+        studyingCollectionIds: alreadyStudying
+          ? current.studyingCollectionIds
+          : [...current.studyingCollectionIds, id]
+      };
+    });
+  }, [view, selectedSummary]);
+
+  function prepareCollectionOpen(collectionId: string) {
+    const collection = findCollectionByRouteId(collections, collectionId);
+    const nextCollectionId = collection?.id ?? collectionId;
+
+    setSelectedCollectionId(nextCollectionId);
     setCurrentWordIndex(0);
     setShowAnswer(false);
     setProgress((current) => ({
       ...current,
-      activeCollectionId: collectionId
+      activeCollectionId: nextCollectionId
     }));
-    void ensureCollectionWords(collectionId);
+
+    if (collection) {
+      void ensureCollectionWords(collection.id);
+    }
+  }
+
+  function returnToCollections() {
+    setView("collections");
+    setCurrentWordIndex(0);
+    setShowAnswer(false);
   }
 
   async function startReview(collectionId = selectedSummary?.id ?? "") {
@@ -269,6 +365,20 @@ export function ExploreVocabulary() {
         ? current.studyingCollectionIds
         : [...current.studyingCollectionIds, collectionId]
     }));
+
+    if (reviewHref !== "/explore") {
+      router.push(reviewHref);
+    }
+  }
+
+  function closeReview() {
+    setView("detail");
+    setCurrentWordIndex(0);
+    setShowAnswer(false);
+
+    if (detailHref !== "/explore") {
+      router.push(detailHref);
+    }
   }
 
   function toggleSaved(collectionId: string) {
@@ -359,8 +469,9 @@ export function ExploreVocabulary() {
                     <CollectionCard
                       key={collection.id}
                       collection={collection}
+                      href={getCollectionHref(collection)}
                       isSaved={progress.savedCollectionIds.includes(collection.id)}
-                      onOpen={() => openCollection(collection.id)}
+                      onOpen={() => prepareCollectionOpen(collection.id)}
                       onToggleSaved={() => toggleSaved(collection.id)}
                     />
                   ))}
@@ -377,16 +488,66 @@ export function ExploreVocabulary() {
           </>
         ) : null}
 
-        {view === "detail" && selectedCollection ? (
+        {isDetailView && catalogStatus === "loading" ? (
+          <CollectionRouteMessage
+            title="Đang tải bộ từ vựng"
+            description="TOEIC Green đang chuẩn bị dữ liệu cho đường dẫn này."
+            isLoading
+          />
+        ) : null}
+
+        {isDetailView && catalogStatus === "error" ? (
+          <CollectionRouteMessage
+            title="Chưa tải được dữ liệu flashcard"
+            description="Không thể tải danh sách bộ từ từ máy chủ. Hãy kiểm tra lại backend hoặc kết nối mạng."
+            onBack={returnToCollections}
+          />
+        ) : null}
+
+        {isDetailView && selectedCollection ? (
           <CollectionWordsPage
             collection={selectedCollection}
             progressPercent={selectedProgress}
             isSaved={progress.savedCollectionIds.includes(selectedCollection.id)}
-            isLoadingWords={selectedWordStatus === "loading"}
+            isLoadingWords={
+              selectedWordStatus === "idle" || selectedWordStatus === "loading"
+            }
             hasLoadError={selectedWordStatus === "error"}
-            onBack={() => setView("collections")}
+            onBack={returnToCollections}
             onStart={() => void startReview(selectedCollection.id)}
             onToggleSaved={() => toggleSaved(selectedCollection.id)}
+          />
+        ) : null}
+
+        {isDetailView && isCollectionRouteMissing ? (
+          <CollectionRouteMessage
+            title="Không tìm thấy bộ từ vựng"
+            description="Đường dẫn này không khớp với bộ từ nào đang được xuất bản."
+            onBack={returnToCollections}
+          />
+        ) : null}
+
+        {view === "review" && catalogStatus === "loading" ? (
+          <CollectionRouteMessage
+            title="Đang tải flashcards"
+            description="TOEIC Green đang chuẩn bị dữ liệu luyện tập cho đường dẫn này."
+            isLoading
+          />
+        ) : null}
+
+        {view === "review" && catalogStatus === "error" ? (
+          <CollectionRouteMessage
+            title="Chưa tải được dữ liệu flashcard"
+            description="Không thể tải danh sách bộ từ từ máy chủ. Hãy kiểm tra lại backend hoặc kết nối mạng."
+            onBack={returnToCollections}
+          />
+        ) : null}
+
+        {view === "review" && isCollectionRouteMissing ? (
+          <CollectionRouteMessage
+            title="Không tìm thấy bộ từ vựng"
+            description="Đường dẫn này không khớp với bộ từ nào đang được xuất bản."
+            onBack={returnToCollections}
           />
         ) : null}
 
@@ -399,13 +560,14 @@ export function ExploreVocabulary() {
               knownWords={knownWords}
               progressPercent={selectedProgress}
               showAnswer={showAnswer}
+              backHref={detailHref}
               onToggleAnswer={() => setShowAnswer((value) => !value)}
               onMoveWord={moveWord}
               onRate={rateCurrentWord}
-              onClose={() => setView("detail")}
+              onClose={closeReview}
             />
           ) : (
-            <ReviewLoading onClose={() => setView("detail")} />
+            <ReviewLoading backHref={detailHref} onClose={closeReview} />
           )
         ) : null}
       </div>
@@ -442,20 +604,23 @@ function ExploreHeader({ compact }: { compact: boolean }) {
 
 function CollectionCard({
   collection,
+  href,
   isSaved,
   onOpen,
   onToggleSaved
 }: {
   collection: ExploreCollectionSummary;
+  href: string;
   isSaved: boolean;
   onOpen: () => void;
   onToggleSaved: () => void;
 }) {
   return (
-    <article className="group flex min-h-[232px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-soft">
-      <button
-        type="button"
+    <article className="group flex min-h-[190px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-soft">
+      <Link
+        href={href}
         onClick={onOpen}
+        prefetch={false}
         className="flex flex-1 flex-col text-left"
       >
         <div className="grid min-h-[36px] grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
@@ -467,11 +632,7 @@ function CollectionCard({
           </span>
         </div>
 
-        <div className="mt-0.5 space-y-2">
-          <p className="line-clamp-2 text-sm leading-5 text-muted">
-            {collection.description}
-          </p>
-
+        <div className="mt-3">
           <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-slate-600">
             <span className="inline-flex items-center gap-1.5">
               <BookOpen size={16} />
@@ -483,15 +644,17 @@ function CollectionCard({
             </span>
           </div>
         </div>
-      </button>
+      </Link>
 
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
         <div className="flex min-w-0 items-center gap-2">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-container text-[9px] font-black uppercase text-primary shadow-soft">
-            {collection.author.slice(0, 2)}
+            TG
           </span>
-          <span className="truncate text-sm font-extrabold leading-5 text-ink">
-            {collection.author}
+          <span className="text-sm font-extrabold leading-5 text-ink">
+            TOEIC
+            <br />
+            Green
           </span>
         </div>
 
@@ -509,17 +672,53 @@ function CollectionCard({
           >
             <Bookmark size={17} fill={isSaved ? "currentColor" : "none"} />
           </button>
-          <button
-            type="button"
+          <Link
+            href={href}
             onClick={onOpen}
+            prefetch={false}
             className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
           >
             Xem từ
             <ArrowRight size={15} />
-          </button>
+          </Link>
         </div>
       </div>
     </article>
+  );
+}
+
+function CollectionRouteMessage({
+  title,
+  description,
+  isLoading = false,
+  onBack
+}: {
+  title: string;
+  description: string;
+  isLoading?: boolean;
+  onBack?: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white px-6 py-12 text-center shadow-soft">
+      {isLoading ? (
+        <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+      ) : (
+        <Library className="mx-auto h-10 w-10 text-slate-300" />
+      )}
+      <h3 className="mt-4 text-lg font-extrabold text-ink">{title}</h3>
+      <p className="mt-2 text-sm text-muted">{description}</p>
+      {onBack ? (
+        <Link
+          href="/explore"
+          onClick={onBack}
+          prefetch={false}
+          className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
+        >
+          <ArrowLeft size={16} />
+          Quay lại Explore
+        </Link>
+      ) : null}
+    </div>
   );
 }
 
@@ -547,14 +746,15 @@ function CollectionWordsPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <button
-        type="button"
+      <Link
+        href="/explore"
         onClick={onBack}
+        prefetch={false}
         className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-muted transition hover:border-primary/35 hover:text-primary"
       >
         <ArrowLeft size={16} />
         Quay lại Explore
-      </button>
+      </Link>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
         <div className="relative h-40 overflow-hidden bg-slate-900 md:h-48">
@@ -732,6 +932,7 @@ function FlashcardReview({
   knownWords,
   progressPercent,
   showAnswer,
+  backHref,
   onToggleAnswer,
   onMoveWord,
   onRate,
@@ -743,6 +944,7 @@ function FlashcardReview({
   knownWords: number;
   progressPercent: number;
   showAnswer: boolean;
+  backHref: string;
   onToggleAnswer: () => void;
   onMoveWord: (direction: "previous" | "next") => void;
   onRate: (rating: FlashcardRating) => void;
@@ -750,14 +952,15 @@ function FlashcardReview({
 }) {
   return (
     <div className="mx-auto max-w-5xl">
-      <button
-        type="button"
+      <Link
+        href={backHref}
         onClick={onClose}
+        prefetch={false}
         className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-muted transition hover:border-primary/35 hover:text-primary"
       >
         <ArrowLeft size={16} />
         Xem danh sách từ
-      </button>
+      </Link>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -970,17 +1173,24 @@ function EmptyState({
   );
 }
 
-function ReviewLoading({ onClose }: { onClose: () => void }) {
+function ReviewLoading({
+  backHref,
+  onClose
+}: {
+  backHref: string;
+  onClose: () => void;
+}) {
   return (
     <div className="mx-auto max-w-5xl">
-      <button
-        type="button"
+      <Link
+        href={backHref}
         onClick={onClose}
+        prefetch={false}
         className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-muted transition hover:border-primary/35 hover:text-primary"
       >
         <ArrowLeft size={16} />
         Xem danh sách từ
-      </button>
+      </Link>
       <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-soft">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
         <p className="mt-3 text-sm font-bold text-muted">

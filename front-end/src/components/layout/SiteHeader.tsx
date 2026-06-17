@@ -15,6 +15,12 @@ export function SiteHeader() {
   const { user, isLoading, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
+  function isActivePath(href: string) {
+    if (href === "/") return pathname === "/";
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   function handleLogout() {
     logout();
     setOpen(false);
@@ -38,7 +44,7 @@ export function SiteHeader() {
               href={item.href}
               className={cn(
                 "border-b-2 border-transparent pb-1 text-label-md font-bold text-on-surface-variant transition hover:text-primary",
-                pathname === item.href && "border-primary text-primary"
+                isActivePath(item.href) && "border-primary text-primary"
               )}
             >
               {item.label}
@@ -138,7 +144,7 @@ export function SiteHeader() {
                 href={item.href}
                 className={cn(
                   "rounded-2xl px-4 py-3 text-sm font-bold text-on-surface hover:bg-primary-container/30",
-                  pathname === item.href && "bg-primary-container/30 text-primary"
+                  isActivePath(item.href) && "bg-primary-container/30 text-primary"
                 )}
                 onClick={() => setOpen(false)}
               >

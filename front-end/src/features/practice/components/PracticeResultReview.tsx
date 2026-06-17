@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlState } from "@/lib/url-state";
 import {
   Award,
   CheckCircle2,
@@ -380,11 +381,11 @@ export function PracticeResultReview({
   attemptResult: PracticeAttemptResult;
 }) {
   const router = useRouter();
+  const { searchParams, setParams } = useUrlState();
   const result = attemptResult.result;
   const test = attemptResult.test;
   const questions = attemptResult.questions;
   const displayTestTitle = useMemo(() => formatPracticeTestTitle(test), [test]);
-  const [reviewIndex, setReviewIndex] = useState(0);
   const [activePassageTab, setActivePassageTab] = useState(0);
   const [prevGroupId, setPrevGroupId] = useState<string | undefined>(undefined);
   const [showTranscriptMap, setShowTranscriptMap] = useState<Record<string, boolean>>({});
@@ -425,9 +426,17 @@ export function PracticeResultReview({
     return calculateScore(activeQuestions, result.answers);
   }, [result, activeQuestions]);
 
-  // Selected review question
-  const currentQuestion = activeQuestions[reviewIndex];
+  // Selected review question — câu đang xem lấy từ URL (?question=, 1-based),
+  // kẹp trong [1, totalQuestions] để link sai/quá giới hạn vẫn an toàn.
   const totalQuestions = activeQuestions.length;
+  const reviewIndex = Math.min(
+    Math.max(
+      (Number.parseInt(searchParams.get("question") ?? "1", 10) || 1) - 1,
+      0
+    ),
+    Math.max(totalQuestions - 1, 0)
+  );
+  const currentQuestion = activeQuestions[reviewIndex];
   const hasReviewContextPanel = currentQuestion?.partId !== "part-5";
 
   // Resolve audio URL for the current active question/group
@@ -531,10 +540,10 @@ export function PracticeResultReview({
   // Navigation handlers
   const goTo = useCallback((index: number) => {
     if (index >= 0 && index < totalQuestions) {
-      setReviewIndex(index);
+      setParams({ question: index === 0 ? null : index + 1 });
       scrollToReviewCard(activeQuestions[index].questionNumber);
     }
-  }, [activeQuestions, scrollToReviewCard, totalQuestions]);
+  }, [activeQuestions, scrollToReviewCard, setParams, totalQuestions]);
 
   const canGoPrevious = reviewIndex > 0;
   const canGoNext = reviewIndex < totalQuestions - 1;

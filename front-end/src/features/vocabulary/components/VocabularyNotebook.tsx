@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Plus, RotateCcw, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUrlState } from "@/lib/url-state";
 import type { SortOption, StatusFilter, VocabularyWord } from "../types";
 import { computeStats, filterWords, sortWords } from "../helpers";
 import { loadWords, saveWords } from "../services/storage";
@@ -13,15 +14,41 @@ import { VocabularyCard } from "./VocabularyCard";
 import { VocabularyDetailDrawer } from "./VocabularyDetailDrawer";
 import { AddVocabularyModal } from "./AddVocabularyModal";
 
+const STATUS_FILTER_VALUES: StatusFilter[] = [
+  "all",
+  "learning",
+  "mastered",
+  "favorites"
+];
+const SORT_VALUES: SortOption[] = ["recent", "az"];
+
 export function VocabularyNotebook() {
   // ── State ──────────────────────────────────────────────────────
   const [words, setWords] = useState<VocabularyWord[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sort, setSort] = useState<SortOption>("recent");
   const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Tìm kiếm / lọc / sắp xếp lấy từ URL (?q=, ?status=, ?sort=) để bookmark & refresh giữ nguyên.
+  const { searchParams, setParams } = useUrlState();
+  const statusParam = searchParams.get("status");
+  const sortParam = searchParams.get("sort");
+  const query = searchParams.get("q") ?? "";
+  const statusFilter: StatusFilter = STATUS_FILTER_VALUES.includes(
+    statusParam as StatusFilter
+  )
+    ? (statusParam as StatusFilter)
+    : "all";
+  const sort: SortOption = SORT_VALUES.includes(sortParam as SortOption)
+    ? (sortParam as SortOption)
+    : "recent";
+
+  const setQuery = (value: string) =>
+    setParams({ q: value || null }, { replace: true });
+  const setStatusFilter = (value: StatusFilter) =>
+    setParams({ status: value === "all" ? null : value });
+  const setSort = (value: SortOption) =>
+    setParams({ sort: value === "recent" ? null : value });
 
   // Load words from storage on client mount
   useEffect(() => {
@@ -95,10 +122,9 @@ export function VocabularyNotebook() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setQuery("");
-    setStatusFilter("all");
-    setSort("recent");
-  }, []);
+    // Xóa cả 3 param trong một lần điều hướng để tránh đẩy nhiều entry vào history.
+    setParams({ q: null, status: null, sort: null });
+  }, [setParams]);
 
   return (
     <section className="min-h-screen bg-surface pb-20">

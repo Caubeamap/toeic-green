@@ -27,6 +27,7 @@ import {
   type PracticeTest
 } from "../lib/practice-tests";
 import { cn } from "@/lib/utils";
+import { useUrlState } from "@/lib/url-state";
 
 type TabId = "practice" | "full-test" | "discussion";
 
@@ -37,7 +38,15 @@ const tabs: Array<{ id: TabId; label: string }> = [
 ];
 
 export function PracticeTestSetup({ test }: { test: PracticeTest }) {
-  const [activeTab, setActiveTab] = useState<TabId>("practice");
+  // Tab đang xem lấy từ URL (?tab=) để chia sẻ/refresh/back-forward đều đúng.
+  const { searchParams, setParams } = useUrlState();
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabId = tabs.some((tab) => tab.id === tabParam)
+    ? (tabParam as TabId)
+    : "practice";
+  const setActiveTab = (id: TabId) =>
+    setParams({ tab: id === "practice" ? null : id });
+
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState(test.minutes);
   const [showDevelopmentNotice, setShowDevelopmentNotice] = useState(false);

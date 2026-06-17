@@ -24,6 +24,7 @@ import {
   XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUrlNumber, useUrlParam } from "@/lib/url-state";
 import { POS_LABELS } from "@/features/vocabulary/types";
 import { playAudio } from "@/features/vocabulary/services/storage";
 import { loadExploreCollection, loadExploreCollections } from "../services/catalog";
@@ -127,7 +128,7 @@ export function ExploreVocabulary({
   const resolvedInitialView: ExploreView =
     initialView ?? (routeCollectionId ? "detail" : "collections");
   const [view, setView] = useState<ExploreView>(resolvedInitialView);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlParam("q", { replace: true });
   const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
   const [collections, setCollections] = useState<ExploreCollectionSummary[]>([]);
   const [wordsByCollection, setWordsByCollection] = useState<
@@ -747,17 +748,20 @@ function CollectionWordsPage({
   onStart: () => void;
   onToggleSaved: () => void;
 }) {
-  const [currentPage, setCurrentPage] = useState(1);
   const listTopRef = useRef<HTMLDivElement | null>(null);
 
-
-
+  const WORDS_PER_PAGE = 20;
   const hasWords = collection.words.length > 0;
   const isStartDisabled = isLoadingWords || hasLoadError || !hasWords;
-
-  const WORDS_PER_PAGE = 20;
   const totalWords = collection.words.length;
   const totalPages = Math.ceil(totalWords / WORDS_PER_PAGE);
+
+  // Trang hiện tại lấy từ URL (?page=) để bookmark/refresh/back-forward đều đúng.
+  const [currentPage, setCurrentPage] = useUrlNumber("page", {
+    defaultValue: 1,
+    min: 1,
+    max: Math.max(totalPages, 1)
+  });
 
   const paginatedWords = useMemo(() => {
     const start = (currentPage - 1) * WORDS_PER_PAGE;
@@ -767,7 +771,7 @@ function CollectionWordsPage({
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Smooth scroll back to list title
+    // Cuộn mượt về đầu danh sách sau khi đổi trang.
     listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 

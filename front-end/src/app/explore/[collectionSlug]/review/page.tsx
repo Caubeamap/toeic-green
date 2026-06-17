@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ExploreVocabulary } from "@/features/explore";
@@ -22,10 +23,12 @@ export default async function ExploreReviewPage({
     <>
       <SiteHeader />
       <main className="pt-20">
-        <ExploreVocabulary
-          initialCollectionSlug={collectionSlug}
-          initialView="review"
-        />
+        <Suspense fallback={<div className="min-h-screen bg-[#f5f7f9]" />}>
+          <ExploreVocabulary
+            initialCollectionSlug={collectionSlug}
+            initialView="review"
+          />
+        </Suspense>
       </main>
       <SiteFooter />
     </>

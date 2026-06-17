@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useUrlState } from "@/lib/url-state";
 import { practiceFilters, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
 import {
   cachePracticeTestsForCurrentUser,
@@ -29,12 +30,34 @@ function getLatestAttemptTimestamp(test: PracticeTest) {
 
 export function PracticeCatalog() {
   const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
-  const [activeFilter, setActiveFilter] = useState<PracticeFilter>("Listening & Reading");
-  const [query, setQuery] = useState("");
+  const { searchParams, setParams } = useUrlState();
   const [tests, setTests] = useState<PracticeTest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Bộ lọc, tìm kiếm và trang đều lấy từ URL (?filter=, ?q=, ?page=)
+  const filterParam = searchParams.get("filter");
+  const activeFilter: PracticeFilter = (
+    practiceFilters as readonly PracticeFilter[]
+  ).includes((filterParam ?? "") as PracticeFilter)
+    ? (filterParam as PracticeFilter)
+    : "Listening & Reading";
+  const query = searchParams.get("q") ?? "";
+
+  const setFilter = (filter: PracticeFilter) => {
+    // Đổi bộ lọc thì luôn quay về trang 1.
+    setParams({
+      filter: filter === "Listening & Reading" ? null : filter,
+      page: null
+    });
+  };
+  const setQuery = (value: string) => {
+    // Gõ tìm kiếm dùng replace để không làm rác lịch sử trình duyệt.
+    setParams({ q: value || null, page: null }, { replace: true });
+  };
+  const setPage = (page: number) => {
+    setParams({ page: page <= 1 ? null : page });
+  };
 
   // Dùng ref để theo dõi danh sách đề thi một cách an toàn mà không vi phạm quy tắc render hoặc dependency
   const testsRef = useRef<PracticeTest[]>([]);
@@ -128,20 +151,25 @@ export function PracticeCatalog() {
     });
   }, [activeFilter, historyTests, query, tests]);
 
+  const itemsPerPage = 8;
+  const totalPages = Math.ceil(visibleTests.length / itemsPerPage);
+  // Kẹp trang trong [1, totalPages] để URL ?page= sai/quá giới hạn vẫn an toàn.
+  const currentPage = Math.min(
+    Math.max(Number.parseInt(searchParams.get("page") ?? "1", 10) || 1, 1),
+    Math.max(totalPages, 1)
+  );
+
+  const paginatedTests = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return visibleTests.slice(start, start + itemsPerPage);
+  }, [visibleTests, currentPage]);
+
   useEffect(() => {
     const section = document.getElementById("practice");
     if (section) {
       section.scrollIntoView({ behavior: "smooth" });
     }
   }, [currentPage]);
-
-  const itemsPerPage = 8;
-  const totalPages = Math.ceil(visibleTests.length / itemsPerPage);
-
-  const paginatedTests = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return visibleTests.slice(start, start + itemsPerPage);
-  }, [visibleTests, currentPage]);
 
   const isHistoryView = activeFilter === "Test History";
   const isCompletedView = activeFilter === "Completed";
@@ -157,10 +185,7 @@ export function PracticeCatalog() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
             <input
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(event) => setQuery(event.target.value)}
               className="glass-card w-full rounded-2xl px-12 py-4 text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/30"
               placeholder="Tìm kiếm đề thi TOEIC..."
               type="text"
@@ -196,10 +221,7 @@ export function PracticeCatalog() {
             {practiceFilters.map((filter) => (
               <button
                 key={filter}
-                onClick={() => {
-                  setActiveFilter(filter);
-                  setCurrentPage(1);
-                }}
+                onClick={() => setFilter(filter)}
                 className={cn(
                   "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg px-6 py-2 text-label-md font-semibold text-on-surface-variant transition hover:bg-white/50 hover:text-on-surface",
                   activeFilter === filter && "bg-white font-bold text-primary shadow-sm"
@@ -238,7 +260,7 @@ export function PracticeCatalog() {
           <div className="mt-12 flex items-center justify-center gap-2">
             <button
               aria-label="Previous"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              onClick={() => setPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
               type="button"
@@ -252,7 +274,7 @@ export function PracticeCatalog() {
                 <button
                   key={pageNumber}
                   aria-label={`Page ${pageNumber}`}
-                  onClick={() => setCurrentPage(pageNumber)}
+                  onClick={() => setPage(pageNumber)}
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white",
                     currentPage === pageNumber && "border-primary bg-primary text-white hover:bg-primary"
@@ -266,7 +288,7 @@ export function PracticeCatalog() {
 
             <button
               aria-label="Next"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
               type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -108,7 +108,11 @@ export default function AttemptResultPage() {
 
   // Hiển thị giao diện kết quả ngay khi có dữ liệu (bỏ qua isAuthLoading)
   if (result) {
-    return <PracticeResultReview attemptResult={result} />;
+    return (
+      <Suspense fallback={<div className="min-h-screen" />}>
+        <PracticeResultReview attemptResult={result} />
+      </Suspense>
+    );
   }
 
   return (

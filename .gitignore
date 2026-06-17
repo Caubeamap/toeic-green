@@ -16,7 +16,7 @@ CODEX.md
 CLAUDE.md
 .agent/
 toeic-crawler/
-
+flashcard-crawler/
 
 # TypeScript build info
 *.tsbuildinfo

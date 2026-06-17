@@ -570,7 +570,7 @@ export function PracticeExamSession({
       const correspondingQ = questions.find((q) => q.questionNumber === qNum);
       if (!correspondingQ) return match;
 
-      const btnClass = "mx-1 inline-flex h-7 items-center justify-center rounded-lg px-2.5 text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-highest text-on-surface-variant ring-outline-variant hover:bg-surface-container-highest/80";
+      const btnClass = "part6-blank rounded-lg text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-highest text-on-surface-variant ring-outline-variant hover:bg-surface-container-highest/80";
       const textVal = `_____ (${qNum})`;
       return `<button type="button" data-qnum="${qNum}" class="${btnClass}">${textVal}</button>`;
     });
@@ -1014,7 +1014,7 @@ export function PracticeExamSession({
                   onClick={handlePassageClick}
                 >
                   <div 
-                    className="text-sm font-medium leading-relaxed text-ink passage-content"
+                    className="part6-passage passage-content text-sm font-medium text-ink"
                     dangerouslySetInnerHTML={{ __html: getPart6Html(currentQuestion.passage || "") }}
                   />
                 </div>

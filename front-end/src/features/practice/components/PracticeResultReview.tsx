@@ -568,8 +568,8 @@ export function PracticeResultReview({
       }
 
       const btnClass = cn(
-        "mx-1 inline-flex h-7 items-center justify-center rounded-lg px-2.5 text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary",
-        isCurrent ? "scale-105 ring-primary" : "",
+        "part6-blank rounded-lg text-xs font-black ring-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary",
+        isCurrent ? "ring-2 ring-primary shadow-glow" : "",
         isAnswered
           ? isCorrect
             ? "bg-green-500 text-white ring-green-600 shadow-sm"
@@ -963,7 +963,7 @@ export function PracticeResultReview({
                     >
                       {leftPanelLang === "en" ? (
                         <div 
-                          className="text-sm font-medium text-ink passage-content"
+                          className="part6-passage passage-content text-sm font-medium text-ink"
                           dangerouslySetInnerHTML={{ 
                             __html: getPart6HtmlReview((() => {
                               const smartExplanation = getSmartExplanation(currentQuestion, currentQuestion.passage || "");

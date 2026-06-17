@@ -223,6 +223,34 @@ textarea {
   line-height: 1.78;
 }
 
+.part6-passage {
+  line-height: 2.2;
+}
+
+.part6-blank {
+  display: inline-flex;
+  min-height: 2rem;
+  min-width: 5.75rem;
+  align-items: center;
+  justify-content: center;
+  margin: 0.24rem 0.28rem;
+  padding: 0 0.75rem;
+  vertical-align: middle;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .part6-passage {
+    line-height: 2.3;
+  }
+
+  .part6-blank {
+    min-height: 2.125rem;
+    margin-block: 0.28rem;
+  }
+}
+
 .passage-content p {
   margin-bottom: 1.25rem !important;
 }

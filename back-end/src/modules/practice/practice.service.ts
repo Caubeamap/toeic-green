@@ -415,23 +415,72 @@ export class PracticeService implements OnModuleInit {
     const promise = (async () => {
       const test = await this.findPublishedTest(slug);
 
-      // Fast index scan to find only the latest completed attempt id
-      const attemptMetadata = await this.prisma.practiceAttempt.findFirst({
-        where: {
-          userId,
-          testId: test.id,
-          status: 'COMPLETED',
-        },
-        orderBy: { completedAt: 'desc' },
-        select: { id: true },
-      });
+      // Single database roundtrip raw JOIN query using a fast index-backed subquery to find the latest attempt
+      const rows = await this.prisma.$queryRaw<AttemptResultRow[]>(Prisma.sql`
+        SELECT 
+          pa.id as "attempt_id",
+          pa.public_id as "attempt_public_id",
+          pa.user_id as "attempt_user_id",
+          pa.test_id as "attempt_test_id",
+          pa.mode as "attempt_mode",
+          pa.status as "attempt_status",
+          pa.correct_count as "attempt_correct_count",
+          pa.total_count as "attempt_total_count",
+          pa.scaled_score as "attempt_scaled_score",
+          pa.duration_seconds as "attempt_duration_seconds",
+          pa.started_at as "attempt_started_at",
+          pa.completed_at as "attempt_completed_at",
+          
+          aa.selected_answer as "answer_selected_answer",
+          aa.is_correct as "answer_is_correct",
+          aa.is_flagged as "answer_is_flagged",
+          aa.time_spent_ms as "answer_time_spent_ms",
+          aa.answered_at as "answer_answered_at",
+          
+          q.id as "question_id",
+          q.test_part_id as "question_test_part_id",
+          q.group_id as "question_group_id",
+          q.question_number as "question_question_number",
+          q.stem as "question_stem",
+          q.option_a as "question_option_a",
+          q.option_b as "question_option_b",
+          q.option_c as "question_option_c",
+          q.option_d as "question_option_d",
+          q.correct_answer as "question_correct_answer",
+          q.explanation as "question_explanation",
+          q.image_url as "question_image_url",
+          q.audio_url as "question_audio_url",
+          q.created_at as "question_created_at",
+          
+          tp.id as "part_id",
+          tp.part_number as "part_part_number",
+          tp.section as "part_section",
+          tp.label as "part_label",
+          tp.description as "part_description",
+          tp.question_count as "part_question_count",
+          
+          qg.id as "group_id",
+          qg.passage as "group_passage",
+          qg.audio_url as "group_audio_url",
+          qg.image_url as "group_image_url",
+          qg.transcript as "group_transcript",
+          qg.sort_order as "group_sort_order"
+        FROM practice_attempts pa
+        LEFT JOIN attempt_answers aa ON pa.id = aa.attempt_id
+        LEFT JOIN questions q ON aa.question_id = q.id
+        LEFT JOIN test_parts tp ON q.test_part_id = tp.id
+        LEFT JOIN question_groups qg ON q.group_id = qg.id
+        WHERE pa.id = (
+          SELECT id FROM practice_attempts
+          WHERE user_id = ${userId}::uuid
+            AND test_id = ${test.id}
+            AND status = 'COMPLETED'
+          ORDER BY completed_at DESC
+          LIMIT 1
+        )
+        ORDER BY q.question_number ASC, q.id ASC
+      `);
 
-      if (!attemptMetadata) {
-        throw new NotFoundException('Không tìm thấy kết quả làm bài.');
-      }
-
-      // Single database roundtrip raw JOIN query for answers and questions context
-      const rows = await this.queryAttemptResult(attemptMetadata.id);
       const attempt = this.reconstructAttempt(rows, test);
 
       if (!attempt) {
@@ -477,23 +526,67 @@ export class PracticeService implements OnModuleInit {
     const promise = (async () => {
       const test = await this.findPublishedTest(slug);
 
-      // Fast index scan to find the completed attempt id by public UUID
-      const attemptMetadata = await this.prisma.practiceAttempt.findFirst({
-        where: {
-          userId,
-          testId: test.id,
-          publicId: attemptId,
-          status: 'COMPLETED',
-        },
-        select: { id: true },
-      });
+      // Single database roundtrip raw JOIN query filtering by public UUID and userId
+      const rows = await this.prisma.$queryRaw<AttemptResultRow[]>(Prisma.sql`
+        SELECT 
+          pa.id as "attempt_id",
+          pa.public_id as "attempt_public_id",
+          pa.user_id as "attempt_user_id",
+          pa.test_id as "attempt_test_id",
+          pa.mode as "attempt_mode",
+          pa.status as "attempt_status",
+          pa.correct_count as "attempt_correct_count",
+          pa.total_count as "attempt_total_count",
+          pa.scaled_score as "attempt_scaled_score",
+          pa.duration_seconds as "attempt_duration_seconds",
+          pa.started_at as "attempt_started_at",
+          pa.completed_at as "attempt_completed_at",
+          
+          aa.selected_answer as "answer_selected_answer",
+          aa.is_correct as "answer_is_correct",
+          aa.is_flagged as "answer_is_flagged",
+          aa.time_spent_ms as "answer_time_spent_ms",
+          aa.answered_at as "answer_answered_at",
+          
+          q.id as "question_id",
+          q.test_part_id as "question_test_part_id",
+          q.group_id as "question_group_id",
+          q.question_number as "question_question_number",
+          q.stem as "question_stem",
+          q.option_a as "question_option_a",
+          q.option_b as "question_option_b",
+          q.option_c as "question_option_c",
+          q.option_d as "question_option_d",
+          q.correct_answer as "question_correct_answer",
+          q.explanation as "question_explanation",
+          q.image_url as "question_image_url",
+          q.audio_url as "question_audio_url",
+          q.created_at as "question_created_at",
+          
+          tp.id as "part_id",
+          tp.part_number as "part_part_number",
+          tp.section as "part_section",
+          tp.label as "part_label",
+          tp.description as "part_description",
+          tp.question_count as "part_question_count",
+          
+          qg.id as "group_id",
+          qg.passage as "group_passage",
+          qg.audio_url as "group_audio_url",
+          qg.image_url as "group_image_url",
+          qg.transcript as "group_transcript",
+          qg.sort_order as "group_sort_order"
+        FROM practice_attempts pa
+        LEFT JOIN attempt_answers aa ON pa.id = aa.attempt_id
+        LEFT JOIN questions q ON aa.question_id = q.id
+        LEFT JOIN test_parts tp ON q.test_part_id = tp.id
+        LEFT JOIN question_groups qg ON q.group_id = qg.id
+        WHERE pa.public_id = ${attemptId}::uuid
+          AND pa.user_id = ${userId}::uuid
+          AND pa.status = 'COMPLETED'
+        ORDER BY q.question_number ASC, q.id ASC
+      `);
 
-      if (!attemptMetadata) {
-        throw new NotFoundException('Không tìm thấy kết quả làm bài.');
-      }
-
-      // Single database roundtrip raw JOIN query for answers and questions context
-      const rows = await this.queryAttemptResult(attemptMetadata.id);
       const attempt = this.reconstructAttempt(rows, test);
 
       if (!attempt) {
@@ -516,68 +609,6 @@ export class PracticeService implements OnModuleInit {
     } finally {
       this.attemptResultPromises.delete(cacheKey);
     }
-  }
-
-  private async queryAttemptResult(
-    attemptId: bigint,
-  ): Promise<AttemptResultRow[]> {
-    return this.prisma.$queryRaw<AttemptResultRow[]>(Prisma.sql`
-      SELECT 
-        pa.id as "attempt_id",
-        pa.public_id as "attempt_public_id",
-        pa.user_id as "attempt_user_id",
-        pa.test_id as "attempt_test_id",
-        pa.mode as "attempt_mode",
-        pa.status as "attempt_status",
-        pa.correct_count as "attempt_correct_count",
-        pa.total_count as "attempt_total_count",
-        pa.scaled_score as "attempt_scaled_score",
-        pa.duration_seconds as "attempt_duration_seconds",
-        pa.started_at as "attempt_started_at",
-        pa.completed_at as "attempt_completed_at",
-        
-        aa.selected_answer as "answer_selected_answer",
-        aa.is_correct as "answer_is_correct",
-        aa.is_flagged as "answer_is_flagged",
-        aa.time_spent_ms as "answer_time_spent_ms",
-        aa.answered_at as "answer_answered_at",
-        
-        q.id as "question_id",
-        q.test_part_id as "question_test_part_id",
-        q.group_id as "question_group_id",
-        q.question_number as "question_question_number",
-        q.stem as "question_stem",
-        q.option_a as "question_option_a",
-        q.option_b as "question_option_b",
-        q.option_c as "question_option_c",
-        q.option_d as "question_option_d",
-        q.correct_answer as "question_correct_answer",
-        q.explanation as "question_explanation",
-        q.image_url as "question_image_url",
-        q.audio_url as "question_audio_url",
-        q.created_at as "question_created_at",
-        
-        tp.id as "part_id",
-        tp.part_number as "part_part_number",
-        tp.section as "part_section",
-        tp.label as "part_label",
-        tp.description as "part_description",
-        tp.question_count as "part_question_count",
-        
-        qg.id as "group_id",
-        qg.passage as "group_passage",
-        qg.audio_url as "group_audio_url",
-        qg.image_url as "group_image_url",
-        qg.transcript as "group_transcript",
-        qg.sort_order as "group_sort_order"
-      FROM practice_attempts pa
-      LEFT JOIN attempt_answers aa ON pa.id = aa.attempt_id
-      LEFT JOIN questions q ON aa.question_id = q.id
-      LEFT JOIN test_parts tp ON q.test_part_id = tp.id
-      LEFT JOIN question_groups qg ON q.group_id = qg.id
-      WHERE pa.id = ${attemptId}
-      ORDER BY q.question_number ASC, q.id ASC
-    `);
   }
 
   private reconstructAttempt(

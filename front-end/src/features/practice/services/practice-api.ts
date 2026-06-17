@@ -213,6 +213,17 @@ export async function submitPracticeAttempt(
   ).then((result) => {
     clearPracticeTestCaches();
     attemptResultCache.clear();
+
+    // Lưu kết quả mới nộp vào localStorage để trang kết quả load tức thì
+    if (typeof window !== "undefined" && result?.attempt?.id) {
+      const cacheKey = `toeic-green-attempt-result:${result.attempt.id}`;
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(result));
+      } catch {
+        // Bỏ qua lỗi
+      }
+    }
+
     return result;
   });
 }

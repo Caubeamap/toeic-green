@@ -243,6 +243,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(null);
       clearUserProfileCache();
       localStorage.removeItem(STORAGE_KEY);
+      
+      // Xóa sạch cache trong localStorage liên quan đến TOEIC Green để bảo mật thông tin
+      if (typeof window !== "undefined") {
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("toeic-green-")) {
+              localStorage.removeItem(key);
+            }
+          }
+        } catch {
+          // Bỏ qua lỗi truy cập storage
+        }
+      }
+
       setState({ status: "unauthenticated" });
     }
   }, []);

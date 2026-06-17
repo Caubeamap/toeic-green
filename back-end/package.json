@@ -24,7 +24,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "pretest:e2e": "npm run prisma:generate",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:toeic": "node prisma/seed-toeic-tests.cjs"
+    "seed:toeic": "node prisma/seed-toeic-tests.cjs",
+    "r2:flashcards": "node prisma/scripts/upload-flashcard-images-to-r2.cjs",
+    "seed:flashcards": "node prisma/scripts/seed-flashcard-vocabulary.cjs"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",

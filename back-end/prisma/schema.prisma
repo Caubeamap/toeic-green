@@ -231,38 +231,81 @@ model UserVocabulary {
 }
 
 model ExploreCollection {
-  id          Int     @id @default(autoincrement())
-  slug        String  @unique
-  title       String
-  description String?
-  category    String?
-  level       String?
-  wordCount   Int     @default(0) @map("word_count")
-  isPublished Boolean @default(true) @map("is_published")
-  sortOrder   Int     @default(0) @map("sort_order")
+  id                Int       @id @default(autoincrement())
+  source            String    @default("study4")
+  sourceListId      String?   @map("source_list_id")
+  slug              String    @unique
+  title             String
+  description       String?
+  category          String?
+  level             String?
+  author            String?
+  sourceUrl         String?   @map("source_url")
+  tags              String[]  @default([])
+  wordCount         Int       @default(0) @map("word_count")
+  expectedWordCount Int?      @map("expected_word_count")
+  estimatedMinutes  Int       @default(10) @map("estimated_minutes")
+  totalPages        Int?      @map("total_pages")
+  coverImageUrl     String?   @map("cover_image_url")
+  coverImageKey     String?   @map("cover_image_key")
+  isPublished       Boolean   @default(true) @map("is_published")
+  sortOrder         Int       @default(0) @map("sort_order")
+  crawledAt         DateTime? @map("crawled_at") @db.Timestamptz
+  importedAt        DateTime  @default(now()) @map("imported_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   words    ExploreWord[]
   progress ExploreProgress[]
 
+  @@unique([source, sourceListId])
+  @@index([isPublished, sortOrder])
+  @@index([category])
   @@map("explore_collections")
 }
 
 model ExploreWord {
-  id                 BigInt  @id @default(autoincrement())
-  collectionId       Int     @map("collection_id")
+  id                 BigInt   @id @default(autoincrement())
+  collectionId       Int      @map("collection_id")
+  sourceIndex        Int?     @map("source_index")
+  sortOrder          Int      @default(0) @map("sort_order")
+  sublist            String?
   word               String
+  normalizedWord     String   @map("normalized_word")
   phonetic           String?
-  partOfSpeech       String? @map("part_of_speech")
+  partOfSpeech       String?  @map("part_of_speech")
   meaning            String
   example            String?
-  exampleTranslation String? @map("example_translation")
-  imageUrl           String? @map("image_url")
-  audioUrl           String? @map("audio_url")
+  exampleTranslation String?  @map("example_translation")
+  sourceImagePath    String?  @map("source_image_path")
+  imageKey           String?  @map("image_key")
+  imageUrl           String?  @map("image_url")
+  audioUrl           String?  @map("audio_url")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   collection ExploreCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  examples   ExploreWordExample[]
   ratings    WordRating[]
 
+  @@unique([collectionId, sourceIndex])
+  @@index([collectionId, sortOrder])
+  @@index([collectionId, normalizedWord])
+  @@index([normalizedWord])
   @@map("explore_words")
+}
+
+model ExploreWordExample {
+  id             BigInt  @id @default(autoincrement())
+  exploreWordId  BigInt  @map("explore_word_id")
+  text           String
+  translation    String?
+  sortOrder      Int     @default(0) @map("sort_order")
+
+  exploreWord ExploreWord @relation(fields: [exploreWordId], references: [id], onDelete: Cascade)
+
+  @@unique([exploreWordId, sortOrder])
+  @@index([exploreWordId])
+  @@map("explore_word_examples")
 }
 
 model ExploreProgress {

@@ -18,13 +18,20 @@ export function PracticeStartClient({ testId }: { testId: string }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    // Đọc trực tiếp localStorage để phát hiện sớm phiên đăng nhập cũ chưa được khôi phục.
+    const hasStoredUser =
+      typeof window !== "undefined" && !!localStorage.getItem("toeic-green-auth");
+
+    // Chỉ chờ khôi phục phiên khi đúng là người dùng cũ đang được hydrate, để khách
+    // vãng lai / lần tải nguội vẫn nhận ngay dữ liệu đề thi công khai mà không phải
+    // đợi refresh token.
+    if (isAuthLoading && hasStoredUser) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadTest() {
-      if (isAuthLoading) {
-        return;
-      }
-
       setIsLoading(true);
       setErrorMessage(null);
 

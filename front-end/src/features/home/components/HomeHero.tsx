@@ -53,6 +53,7 @@ export function HomeHero() {
               width={760}
               height={570}
               priority
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="aspect-[4/3] w-full object-cover"
             />
           </div>

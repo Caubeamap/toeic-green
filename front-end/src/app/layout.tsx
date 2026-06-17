@@ -23,9 +23,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const mediaOrigin = process.env.NEXT_PUBLIC_MEDIA_ORIGIN;
+
   return (
     <html lang="vi" className="scroll-smooth" suppressHydrationWarning>
       <head>
+        {mediaOrigin ? <link rel="preconnect" href={mediaOrigin} /> : null}
         <Script
           id="clean-extension-hydration-attrs"
           strategy="beforeInteractive"
@@ -71,8 +74,12 @@ export default function RootLayout({
                   });
                 });
                 observer.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
-                window.addEventListener('DOMContentLoaded', () => {
+                // The observer only needs to run until React finishes hydrating.
+                // Keeping a full-subtree observer alive for the whole session taxes
+                // the main thread (hurts INP), so disconnect shortly after load.
+                window.addEventListener('load', () => {
                   cleanTree(document.documentElement);
+                  setTimeout(() => observer.disconnect(), 2000);
                 });
               })();
             `

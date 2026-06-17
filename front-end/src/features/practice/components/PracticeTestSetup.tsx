@@ -187,7 +187,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
             <div className="overflow-hidden rounded-[28px] border border-white/70 bg-white/65 shadow-soft backdrop-blur-xl">
               <div className="relative h-48">
                 <Image
-                  src="/images/footer-study-visual.png"
+                  src="/images/footer-study-visual.webp"
                   alt="TOEIC Green study setup"
                   fill
                   priority

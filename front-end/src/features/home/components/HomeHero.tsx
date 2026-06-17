@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MaterialSymbolIcon } from "@/components/common/MaterialSymbolIcon";
 
-const heroImage = "/images/toeic-hero-workspace.png";
+const heroImage = "/images/toeic-hero-workspace.webp";
 
 export function HomeHero() {
   return (

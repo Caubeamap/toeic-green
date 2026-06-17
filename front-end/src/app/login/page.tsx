@@ -50,7 +50,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="hidden lg:block">
             <div className="relative min-h-[620px] overflow-hidden rounded-[28px] border border-white/70 shadow-glass">
               <Image
-                src="/images/footer-study-visual.png"
+                src="/images/footer-study-visual.webp"
                 alt="TOEIC Green focused study workspace"
                 fill
                 priority

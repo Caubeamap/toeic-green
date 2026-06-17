@@ -71,7 +71,7 @@ export function SiteFooter() {
 
           <div className="relative min-h-[240px] overflow-hidden rounded-[28px] border border-white/70 shadow-soft">
             <Image
-              src="/images/footer-study-visual.png"
+              src="/images/footer-study-visual.webp"
               alt="TOEIC Green study workspace"
               fill
               sizes="(min-width: 1024px) 48vw, 100vw"

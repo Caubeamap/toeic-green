@@ -18,8 +18,5 @@ CLAUDE.md
 toeic-crawler/
 
 
-
-
-# TOEIC questions data and images (served by backend later)
-front-end/public/images/toeic/
-front-end/public/data/
+# TypeScript build info
+*.tsbuildinfo

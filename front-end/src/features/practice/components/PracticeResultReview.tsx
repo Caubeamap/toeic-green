@@ -437,6 +437,7 @@ export function PracticeResultReview({
   // Selected review question
   const currentQuestion = activeQuestions[reviewIndex];
   const totalQuestions = activeQuestions.length;
+  const hasReviewContextPanel = currentQuestion?.partId !== "part-5";
 
   // Resolve audio URL for the current active question/group
   const currentQuestionAudioUrl = useMemo(() => {
@@ -787,13 +788,19 @@ export function PracticeResultReview({
             <div className="h-[min(82vh,860px)] min-h-[680px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/86 relative flex flex-1 [contain:layout_paint] [transform:translateZ(0)]">
             
             {/* 2-Column Split Review Panels */}
-            <div className="flex flex-1 overflow-hidden h-full">
+            <div
+              className={cn(
+                "flex flex-1 overflow-hidden h-full min-w-0",
+                hasReviewContextPanel ? "flex-col lg:flex-row" : "flex-col"
+              )}
+            >
               
               {/* Review Left Column (Passage / Media / Photos) */}
               <div
                 ref={leftPanelRef}
                 className={cn(
-                  "w-[48%] overflow-y-auto border-r border-outline-variant/20 p-4 md:p-6 bg-surface-container-low flex flex-col justify-start",
+                  "h-[46%] w-full min-w-0 overflow-y-auto border-b border-outline-variant/20 bg-surface-container-low p-4 md:p-6 lg:h-full lg:flex-none lg:border-b-0 lg:border-r",
+                  "lg:w-[60%] xl:w-[62%] 2xl:w-[64%] flex flex-col justify-start",
                   "overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]",
                   currentQuestion.partId === "part-5" && "hidden"
                 )}
@@ -1067,7 +1074,12 @@ export function PracticeResultReview({
               {/* Review Right Column (Question Card) */}
               <main
                 ref={rightPanelRef}
-                className="flex-1 overflow-y-auto overscroll-contain p-4 md:p-6 [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]"
+                className={cn(
+                  "min-w-0 overflow-y-auto overscroll-contain p-4 xl:p-5 [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]",
+                  hasReviewContextPanel
+                    ? "w-full flex-1 lg:flex-none lg:w-[40%] xl:w-[38%] 2xl:w-[36%]"
+                    : "w-full flex-1"
+                )}
               >
                 <div className="max-w-3xl mx-auto space-y-6 pb-8">
                   

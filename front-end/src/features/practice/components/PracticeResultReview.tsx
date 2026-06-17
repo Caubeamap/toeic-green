@@ -23,15 +23,6 @@ import { isQuestionNumberOnlyStem } from "@/features/practice/lib/toeic-question
 import { formatPracticeTestTitle } from "@/features/practice/lib/practice-tests";
 import { cn } from "@/lib/utils";
 
-const PART1_IMAGES: Record<number, string> = {
-  1: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80",
-  2: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80",
-  3: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80",
-  4: "https://images.unsplash.com/photo-1506015391300-4802dc74de2e?auto=format&fit=crop&w=800&q=80",
-  5: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-  6: "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=800&q=80",
-};
-
 /* ═══════════════════════════════════════════════════════════════
    Scoring Logic Helpers
    ═══════════════════════════════════════════════════════════════ */
@@ -822,8 +813,9 @@ export function PracticeResultReview({
                     <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[480px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
+                        src={currentQuestion.image_url ?? undefined}
                         alt="Question Visual"
+                        decoding="async"
                         className="w-full h-[380px] object-contain bg-zinc-50"
                       />
                     </div>

@@ -55,16 +55,6 @@ const PART_SHORT_LABELS: Record<string, string> = {
   "part-7": "Part 7",
 };
 
-// Part 1 specific images (Unsplash Office/Business situations matching questions)
-const PART1_IMAGES: Record<number, string> = {
-  1: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80", // Q1: Two people shaking hands
-  2: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80", // Q2: Shelves fully stocked
-  3: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80", // Q3: Presenter pointing at screen
-  4: "https://images.unsplash.com/photo-1506015391300-4802dc74de2e?auto=format&fit=crop&w=800&q=80", // Q4: Parked cars along curb
-  5: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80", // Q5: Office chairs around table
-  6: "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=800&q=80", // Q6: Diners in a restaurant
-};
-
 /* ═══════════════════════════════════════════════════════════════
    Countdown Timer Hook
    ═══════════════════════════════════════════════════════════════ */
@@ -892,8 +882,9 @@ export function PracticeExamSession({
                 <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
+                    src={currentQuestion.image_url ?? undefined}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
+                    decoding="async"
                     className="h-[min(70vh,700px)] min-h-[420px] w-full object-contain bg-zinc-50"
                   />
                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
@@ -966,6 +957,7 @@ export function PracticeExamSession({
                     <img
                       src={currentQuestion.image_url}
                       alt="Attached chart/graphic"
+                      decoding="async"
                       className="w-full h-[240px] object-contain"
                     />
                     <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
@@ -1496,8 +1488,9 @@ export function PracticeExamSession({
           <div className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/20 bg-black shadow-soft">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={currentQuestion.image_url || PART1_IMAGES[currentQuestion.questionNumber] || "https://images.unsplash.com/photo-1497366216548-37526070297c"}
+              src={currentQuestion.image_url ?? undefined}
               alt="Zoomed Photo"
+              decoding="async"
               className="max-h-[85vh] w-auto object-contain"
             />
             <button

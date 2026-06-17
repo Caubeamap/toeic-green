@@ -41,9 +41,9 @@ const config: Config = {
         frost: "#fbf9f8"
       },
       fontSize: {
-        "display-lg": ["42px", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "800" }],
+        "display-lg": ["42px", { lineHeight: "1.15", fontWeight: "700" }],
         "display-lg-mobile": ["28px", { lineHeight: "1.2", fontWeight: "800" }],
-        "headline-lg": ["28px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "headline-lg": ["28px", { lineHeight: "1.2", fontWeight: "700" }],
         "headline-md": ["20px", { lineHeight: "1.35", fontWeight: "700" }],
         "body-lg": ["17px", { lineHeight: "1.6", fontWeight: "400" }],
         "body-md": ["15px", { lineHeight: "1.6", fontWeight: "400" }],
@@ -51,7 +51,12 @@ const config: Config = {
         "label-sm": ["12px", { lineHeight: "1.2", fontWeight: "700" }]
       },
       fontFamily: {
-        sans: ["var(--font-be-vietnam)", "Be Vietnam Pro", "Inter", "sans-serif"]
+        sans: ["var(--font-manrope)", "Manrope", "Inter", "sans-serif"]
+      },
+      fontWeight: {
+        black: "800",
+        extrabold: "700",
+        bold: "700"
       },
       maxWidth: {
         "container-max": "1280px"

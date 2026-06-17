@@ -1,21 +1,14 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro, Merriweather } from "next/font/google";
+import { Manrope } from "next/font/google";
 import Script from "next/script";
 import { AppBackground } from "@/components/layout/AppBackground";
 import { AppProviders } from "@/components/layout/AppProviders";
 import "./globals.css";
 
-const beVietnamPro = Be_Vietnam_Pro({
+const manrope = Manrope({
   subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-  variable: "--font-be-vietnam",
-  display: "swap"
-});
-
-const merriweather = Merriweather({
-  subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "700"],
-  variable: "--font-merriweather",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
   display: "swap"
 });
 
@@ -87,7 +80,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${beVietnamPro.variable} ${merriweather.variable} bg-background font-sans text-on-surface antialiased`}
+        className={`${manrope.variable} bg-background font-sans text-on-surface antialiased`}
         suppressHydrationWarning
       >
         <AppProviders>

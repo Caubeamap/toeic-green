@@ -219,8 +219,8 @@ textarea {
 
 /* premium style for reading passages (Part 6 & Part 7) */
 .passage-content {
-  font-family: var(--font-merriweather), Georgia, serif;
-  line-height: 1.8;
+  font-family: var(--font-manrope), Manrope, Inter, sans-serif;
+  line-height: 1.78;
 }
 
 .passage-content p {
@@ -247,7 +247,7 @@ textarea {
 .passage-content th {
   background-color: #f0f4f1 !important; /* Subtle theme-matching green-gray background */
   color: #1a1a1a !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   padding: 12px 16px !important;
   border-bottom: 2px solid rgba(0, 110, 25, 0.15) !important;
 }
@@ -276,7 +276,7 @@ textarea {
 .passage-content h2, 
 .passage-content h3, 
 .passage-content h4 {
-  font-weight: 800 !important;
+  font-weight: 700 !important;
   color: #1a1a1a !important;
   margin-top: 1.5rem !important;
   margin-bottom: 0.75rem !important;
@@ -314,4 +314,3 @@ input:-webkit-autofill:active {
   -webkit-text-fill-color: #1a1a1a !important;
   transition: background-color 5000s ease-in-out 0s;
 }
-

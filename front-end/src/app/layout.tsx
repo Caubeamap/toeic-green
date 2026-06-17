@@ -26,7 +26,12 @@ export default function RootLayout({
   const mediaOrigin = process.env.NEXT_PUBLIC_MEDIA_ORIGIN;
 
   return (
-    <html lang="vi" className="scroll-smooth" suppressHydrationWarning>
+    <html
+      lang="vi"
+      className="scroll-smooth"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         {mediaOrigin ? <link rel="preconnect" href={mediaOrigin} /> : null}
         <Script

@@ -892,8 +892,8 @@ function CollectionWordsPage({
             ) : null}
 
             {!isLoadingWords && !hasLoadError
-              ? paginatedWords.map((word) => (
-                  <WordListCard key={word.id} word={word} />
+              ? paginatedWords.map((word, index) => (
+                  <WordListCard key={word.id} word={word} priority={index === 0} />
                 ))
               : null}
           </div>
@@ -950,7 +950,13 @@ function CollectionWordsPage({
   );
 }
 
-function WordListCard({ word }: { word: ExploreWord }) {
+function WordListCard({
+  word,
+  priority = false,
+}: {
+  word: ExploreWord;
+  priority?: boolean;
+}) {
   return (
     <article
       className={cn(
@@ -1006,6 +1012,7 @@ function WordListCard({ word }: { word: ExploreWord }) {
           alt={word.word}
           width={240}
           height={160}
+          priority={priority}
           className="h-32 w-full rounded-lg object-cover md:h-28"
         />
       ) : null}

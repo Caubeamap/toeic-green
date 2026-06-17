@@ -9,6 +9,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { PracticeModule } from './modules/practice/practice.module';
+import { ExploreModule } from './modules/explore/explore.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -78,6 +79,7 @@ function createThrottlerStorage(url: string | undefined) {
     AuthModule,
     ProfileModule,
     PracticeModule,
+    ExploreModule,
   ],
   controllers: [],
   providers: [

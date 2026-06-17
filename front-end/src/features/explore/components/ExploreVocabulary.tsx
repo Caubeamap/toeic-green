@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -165,15 +165,38 @@ export function ExploreVocabulary({
           ? routeCollection?.id ?? routeCollectionId
           : storedCollection?.id ?? loadedCollections[0]?.id ?? "";
 
+        let finalProgress = storedProgress;
+        if (resolvedInitialView === "review" && initialCollectionId) {
+          const alreadyStudying = storedProgress.studyingCollectionIds.includes(initialCollectionId);
+          finalProgress = {
+            ...storedProgress,
+            activeCollectionId: initialCollectionId,
+            studyingCollectionIds: alreadyStudying
+              ? storedProgress.studyingCollectionIds
+              : [...storedProgress.studyingCollectionIds, initialCollectionId]
+          };
+        }
+
         setCollections(loadedCollections);
-        setProgress(storedProgress);
+        setProgress(finalProgress);
         setSelectedCollectionId(initialCollectionId);
         setView(resolvedInitialView);
         setProgressLoaded(true);
         setCatalogStatus("ready");
       } catch {
         if (!mounted) return;
-        setProgress(loadExploreProgress());
+        let finalProgress = loadExploreProgress();
+        if (resolvedInitialView === "review" && routeCollectionId) {
+          const alreadyStudying = finalProgress.studyingCollectionIds.includes(routeCollectionId);
+          finalProgress = {
+            ...finalProgress,
+            activeCollectionId: routeCollectionId,
+            studyingCollectionIds: alreadyStudying
+              ? finalProgress.studyingCollectionIds
+              : [...finalProgress.studyingCollectionIds, routeCollectionId]
+          };
+        }
+        setProgress(finalProgress);
         setProgressLoaded(true);
         setSelectedCollectionId(routeCollectionId);
         setView(resolvedInitialView);
@@ -305,25 +328,7 @@ export function ExploreVocabulary({
     return () => window.clearTimeout(timer);
   }, [ensureCollectionWords, selectedSummary, selectedWordStatus, view]);
 
-  useEffect(() => {
-    if (view !== "review" || !selectedSummary) return;
 
-    const id = selectedSummary.id;
-    setProgress((current) => {
-      const alreadyStudying = current.studyingCollectionIds.includes(id);
-      if (alreadyStudying && current.activeCollectionId === id) {
-        return current;
-      }
-
-      return {
-        ...current,
-        activeCollectionId: id,
-        studyingCollectionIds: alreadyStudying
-          ? current.studyingCollectionIds
-          : [...current.studyingCollectionIds, id]
-      };
-    });
-  }, [view, selectedSummary]);
 
   function prepareCollectionOpen(collectionId: string) {
     const collection = findCollectionByRouteId(collections, collectionId);
@@ -506,6 +511,7 @@ export function ExploreVocabulary({
 
         {isDetailView && selectedCollection ? (
           <CollectionWordsPage
+            key={selectedCollection.id}
             collection={selectedCollection}
             progressPercent={selectedProgress}
             isSaved={progress.savedCollectionIds.includes(selectedCollection.id)}
@@ -741,8 +747,39 @@ function CollectionWordsPage({
   onStart: () => void;
   onToggleSaved: () => void;
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const listTopRef = useRef<HTMLDivElement | null>(null);
+
+
+
   const hasWords = collection.words.length > 0;
   const isStartDisabled = isLoadingWords || hasLoadError || !hasWords;
+
+  const WORDS_PER_PAGE = 20;
+  const totalWords = collection.words.length;
+  const totalPages = Math.ceil(totalWords / WORDS_PER_PAGE);
+
+  const paginatedWords = useMemo(() => {
+    const start = (currentPage - 1) * WORDS_PER_PAGE;
+    const end = start + WORDS_PER_PAGE;
+    return collection.words.slice(start, end);
+  }, [collection.words, currentPage]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Smooth scroll back to list title
+    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const start = Math.max(1, currentPage - 3);
+    const end = Math.min(totalPages, currentPage + 4);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -781,7 +818,7 @@ function CollectionWordsPage({
         </div>
 
         <div className="p-5 md:p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div ref={listTopRef} className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="text-xl font-extrabold text-ink">
                 Danh sách từ vựng
@@ -851,11 +888,58 @@ function CollectionWordsPage({
             ) : null}
 
             {!isLoadingWords && !hasLoadError
-              ? collection.words.map((word) => (
+              ? paginatedWords.map((word) => (
                   <WordListCard key={word.id} word={word} />
                 ))
               : null}
           </div>
+
+          {/* Pagination Controls */}
+          {!isLoadingWords && !hasLoadError && totalPages > 1 ? (
+            <div className="mt-8 flex items-center justify-center gap-1.5 border-t border-slate-100 pt-6">
+              {currentPage > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
+                  title="Trang trước"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              ) : null}
+
+              {getPageNumbers().map((pageNum) => {
+                const isActive = pageNum === currentPage;
+
+                return (
+                  <button
+                    key={`page-${pageNum}`}
+                    type="button"
+                    onClick={() => handlePageChange(pageNum)}
+                    className={cn(
+                      "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border text-sm font-bold transition px-3",
+                      isActive
+                        ? "bg-primary border-primary text-white hover:bg-primary/90 shadow-sm"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              {currentPage < totalPages ? (
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
+                  title="Trang sau"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

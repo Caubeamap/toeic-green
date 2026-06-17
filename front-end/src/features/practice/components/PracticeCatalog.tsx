@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -14,7 +14,12 @@ import { useAuth } from "@/features/auth";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { practiceFilters, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
-import { listPracticeTests, listPracticeTestsWithProgress } from "../services/practice-api";
+import {
+  cachePracticeTestsForCurrentUser,
+  listPracticeTests,
+  listPracticeTestsWithProgress,
+  readCachedPracticeTestsForCurrentUser
+} from "../services/practice-api";
 
 function getLatestAttemptTimestamp(test: PracticeTest) {
   const [latestAttempt] = test.recentAttempts ?? [];
@@ -39,34 +44,13 @@ export function PracticeCatalog() {
 
   // 1. Khôi phục dữ liệu từ localStorage để hiển thị tức thì (Stale-While-Revalidate)
   useEffect(() => {
-    const storedUser = localStorage.getItem("toeic-green-auth");
-    let cacheKey = "toeic-green-practice-tests:public";
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser && parsedUser.id) {
-          cacheKey = `toeic-green-practice-tests:user:${parsedUser.id}`;
-        }
-      } catch {
-        // Bỏ qua lỗi parse
-      }
-    }
-
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
-      try {
-        const parsedTests = JSON.parse(cachedData);
-        if (Array.isArray(parsedTests) && parsedTests.length > 0) {
-          // Tránh gọi setState trực tiếp đồng bộ trong effect mount
-          const timer = setTimeout(() => {
-            setTests(parsedTests);
-            setIsLoading(false);
-          }, 0);
-          return () => clearTimeout(timer);
-        }
-      } catch {
-        // Bỏ qua lỗi parse
-      }
+    const restoredTests = readCachedPracticeTestsForCurrentUser();
+    if (restoredTests && restoredTests.length > 0) {
+      const timer = setTimeout(() => {
+        setTests(restoredTests);
+        setIsLoading(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -94,24 +78,10 @@ export function PracticeCatalog() {
         const result = isAuthenticated
           ? await listPracticeTestsWithProgress()
           : await listPracticeTests();
+        const syncedResult = cachePracticeTestsForCurrentUser(result);
 
         if (!cancelled) {
-          setTests(result);
-
-          // Cập nhật lại cache trong localStorage
-          const storedUser = localStorage.getItem("toeic-green-auth");
-          let cacheKey = "toeic-green-practice-tests:public";
-          if (isAuthenticated && storedUser) {
-            try {
-              const parsedUser = JSON.parse(storedUser);
-              if (parsedUser && parsedUser.id) {
-                cacheKey = `toeic-green-practice-tests:user:${parsedUser.id}`;
-              }
-            } catch {
-              // Bỏ qua lỗi
-            }
-          }
-          localStorage.setItem(cacheKey, JSON.stringify(result));
+          setTests(syncedResult);
         }
       } catch (error) {
         if (!cancelled && testsRef.current.length === 0) {
@@ -310,7 +280,7 @@ export function PracticeCatalog() {
   );
 }
 
-function PracticeTestCard({ test }: { test: PracticeTest }) {
+const PracticeTestCard = memo(function PracticeTestCard({ test }: { test: PracticeTest }) {
   const completed = test.status === "Completed";
   const actionLabel = completed ? "Xem chi tiết" : "Bắt đầu làm";
 
@@ -369,9 +339,9 @@ function PracticeTestCard({ test }: { test: PracticeTest }) {
       </div>
     </article>
   );
-}
+});
 
-function HistoryList({ tests }: { tests: PracticeTest[] }) {
+const HistoryList = memo(function HistoryList({ tests }: { tests: PracticeTest[] }) {
   if (tests.length === 0) {
     return (
       <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
@@ -435,4 +405,4 @@ function HistoryList({ tests }: { tests: PracticeTest[] }) {
       })}
     </div>
   );
-}
+});

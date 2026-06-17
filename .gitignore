@@ -13,8 +13,12 @@ stitch_toeic_green_learning_hub/
 .cursor/
 tasks/
 CODEX.md
+CLAUDE.md
 .agent/
 toeic-crawler/
+
+
+
 
 # TOEIC questions data and images (served by backend later)
 front-end/public/images/toeic/

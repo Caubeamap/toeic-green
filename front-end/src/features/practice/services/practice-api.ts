@@ -5,11 +5,22 @@ import type { ToeicQuestion } from "../lib/toeic-questions";
 
 const TEST_CACHE_TTL_MS = 60_000;
 const QUESTION_CACHE_TTL_MS = 10 * 60_000;
+const AUTH_STORAGE_KEY = "toeic-green-auth";
+const PRACTICE_TESTS_PUBLIC_STORAGE_KEY = "toeic-green-practice-tests:public";
+const PRACTICE_TESTS_USER_STORAGE_PREFIX = "toeic-green-practice-tests:user:";
+const PRACTICE_STATUS_USER_STORAGE_PREFIX = "toeic-green-practice-status:user:";
+const MAX_LOCAL_STATUS_OVERRIDES = 20;
 
 type CacheEntry<T> = {
   expiresAt: number;
   value?: T;
   promise?: Promise<T>;
+};
+
+type PracticeStatusOverride = {
+  attempt: PracticeAttempt;
+  cachedAt: number;
+  testId: string;
 };
 
 let testsCache: CacheEntry<PracticeTest[]> | null = null;
@@ -37,6 +48,235 @@ function setTestCache(test: PracticeTest) {
       value: test
     });
   }
+}
+
+function getLocalStorage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readJsonFromStorage<T>(key: string): T | null {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const raw = storage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonToStorage(key: string, value: unknown) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+
+function getStoredUserId() {
+  const storedUser = readJsonFromStorage<{ id?: unknown }>(AUTH_STORAGE_KEY);
+  return typeof storedUser?.id === "string" ? storedUser.id : null;
+}
+
+function getUserPracticeTestsStorageKey(userId: string) {
+  return `${PRACTICE_TESTS_USER_STORAGE_PREFIX}${userId}`;
+}
+
+function getUserPracticeStatusStorageKey(userId: string) {
+  return `${PRACTICE_STATUS_USER_STORAGE_PREFIX}${userId}`;
+}
+
+function isPracticeTestList(value: unknown): value is PracticeTest[] {
+  return Array.isArray(value) && value.every((item) => {
+    if (!item || typeof item !== "object") {
+      return false;
+    }
+
+    const test = item as Partial<PracticeTest>;
+    return (
+      typeof test.id === "string" &&
+      typeof test.title === "string" &&
+      typeof test.status === "string"
+    );
+  });
+}
+
+function readPracticeTestsStorage(userId = getStoredUserId()) {
+  const keys = userId
+    ? [getUserPracticeTestsStorageKey(userId), PRACTICE_TESTS_PUBLIC_STORAGE_KEY]
+    : [PRACTICE_TESTS_PUBLIC_STORAGE_KEY];
+
+  for (const key of keys) {
+    const tests = readJsonFromStorage<unknown>(key);
+    if (isPracticeTestList(tests) && tests.length > 0) {
+      return tests;
+    }
+  }
+
+  return null;
+}
+
+function readPracticeStatusOverrides(userId = getStoredUserId()) {
+  if (!userId) {
+    return new Map<string, PracticeStatusOverride>();
+  }
+
+  const stored = readJsonFromStorage<Record<string, PracticeStatusOverride>>(
+    getUserPracticeStatusStorageKey(userId)
+  );
+  const overrides = new Map<string, PracticeStatusOverride>();
+
+  if (!stored || typeof stored !== "object") {
+    return overrides;
+  }
+
+  Object.values(stored).forEach((override) => {
+    if (
+      override &&
+      typeof override.testId === "string" &&
+      override.attempt &&
+      typeof override.attempt.id === "string"
+    ) {
+      overrides.set(override.testId, override);
+    }
+  });
+
+  return overrides;
+}
+
+function writePracticeStatusOverride(
+  userId: string,
+  override: PracticeStatusOverride
+) {
+  const overrides = readPracticeStatusOverrides(userId);
+  overrides.set(override.testId, override);
+
+  const compactEntries = Array.from(overrides.entries())
+    .sort(([, a], [, b]) => b.cachedAt - a.cachedAt)
+    .slice(0, MAX_LOCAL_STATUS_OVERRIDES);
+
+  writeJsonToStorage(
+    getUserPracticeStatusStorageKey(userId),
+    Object.fromEntries(compactEntries)
+  );
+}
+
+function getAttemptTimestamp(attempt: PracticeAttempt) {
+  return attempt.timestamp ?? attempt.attemptedAt ?? "";
+}
+
+function mergeAttemptIntoTest(test: PracticeTest, attempt: PracticeAttempt): PracticeTest {
+  const existingAttempts = test.recentAttempts ?? [];
+  const alreadyHasAttempt = existingAttempts.some((item) => item.id === attempt.id);
+  const recentAttempts = [attempt, ...existingAttempts.filter((item) => item.id !== attempt.id)]
+    .sort((a, b) => getAttemptTimestamp(b).localeCompare(getAttemptTimestamp(a)))
+    .slice(0, 5);
+  const latestAttempt = recentAttempts[0] ?? attempt;
+
+  return {
+    ...test,
+    status: "Completed",
+    attempts: alreadyHasAttempt ? test.attempts : test.attempts + 1,
+    recentAttempts,
+    completedAt: latestAttempt.attemptedAt ?? test.completedAt
+  };
+}
+
+export function mergePracticeTestsWithLocalStatus(
+  tests: PracticeTest[],
+  userId = getStoredUserId()
+) {
+  const overrides = readPracticeStatusOverrides(userId);
+  if (overrides.size === 0) {
+    return tests;
+  }
+
+  let changed = false;
+  const mergedTests = tests.map((test) => {
+    const override = overrides.get(test.id);
+    if (!override) {
+      return test;
+    }
+
+    changed = true;
+    return mergeAttemptIntoTest(test, override.attempt);
+  });
+
+  return changed ? mergedTests : tests;
+}
+
+export function readCachedPracticeTestsForCurrentUser() {
+  const userId = getStoredUserId();
+  const cachedTests = readPracticeTestsStorage(userId);
+  return cachedTests ? mergePracticeTestsWithLocalStatus(cachedTests, userId) : null;
+}
+
+export function cachePracticeTestsForCurrentUser(tests: PracticeTest[]) {
+  const userId = getStoredUserId();
+  const mergedTests = mergePracticeTestsWithLocalStatus(tests, userId);
+  const cacheKey = userId
+    ? getUserPracticeTestsStorageKey(userId)
+    : PRACTICE_TESTS_PUBLIC_STORAGE_KEY;
+
+  writeJsonToStorage(cacheKey, mergedTests);
+  return mergedTests;
+}
+
+function buildSubmittedAttempt(result: PracticeAttemptResult): PracticeAttempt {
+  const testId = result.attempt.testId ?? result.test.id;
+  const timestamp = result.attempt.timestamp ?? result.result.timestamp;
+
+  return {
+    ...result.attempt,
+    testId,
+    testTitle: result.attempt.testTitle ?? result.result.testTitle,
+    timestamp,
+    detailHref:
+      result.attempt.detailHref || `/practice/${testId}/results/${result.attempt.id}`
+  };
+}
+
+function cacheSubmittedPracticeAttempt(result: PracticeAttemptResult) {
+  const userId = getStoredUserId();
+  if (!userId) {
+    return;
+  }
+
+  const attempt = buildSubmittedAttempt(result);
+  const override: PracticeStatusOverride = {
+    attempt,
+    cachedAt: Date.now(),
+    testId: attempt.testId ?? result.test.id
+  };
+
+  writePracticeStatusOverride(userId, override);
+
+  const baseTests =
+    testsWithProgressCache?.value ??
+    readPracticeTestsStorage(userId) ??
+    testsCache?.value;
+  if (!baseTests) {
+    return;
+  }
+
+  const mergedTests = mergePracticeTestsWithLocalStatus(baseTests, userId);
+
+  writeJsonToStorage(getUserPracticeTestsStorageKey(userId), mergedTests);
 }
 
 function syncProgressCacheToken() {
@@ -153,12 +393,13 @@ export async function listPracticeTestsWithProgress() {
   }
 
   const promise = api.get<PracticeTest[]>("/practice/tests/me").then((tests) => {
-    tests.forEach(setTestCache);
+    const mergedTests = mergePracticeTestsWithLocalStatus(tests);
+    mergedTests.forEach(setTestCache);
     testsWithProgressCache = {
       expiresAt: Date.now() + TEST_CACHE_TTL_MS,
-      value: tests
+      value: mergedTests
     };
-    return tests;
+    return mergedTests;
   });
 
   testsWithProgressCache = {
@@ -211,17 +452,14 @@ export async function submitPracticeAttempt(
     `/practice/tests/${encodeURIComponent(testId)}/attempts`,
     input
   ).then((result) => {
+    cacheSubmittedPracticeAttempt(result);
     clearPracticeTestCaches();
     attemptResultCache.clear();
 
     // Lưu kết quả mới nộp vào localStorage để trang kết quả load tức thì
     if (typeof window !== "undefined" && result?.attempt?.id) {
       const cacheKey = `toeic-green-attempt-result:${result.attempt.id}`;
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(result));
-      } catch {
-        // Bỏ qua lỗi
-      }
+      writeJsonToStorage(cacheKey, result);
     }
 
     return result;

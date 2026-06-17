@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   Award,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   XCircle,
   Clock,
   BookOpen,
@@ -396,7 +398,7 @@ export function PracticeResultReview({
   const [prevGroupId, setPrevGroupId] = useState<string | undefined>(undefined);
   const [showTranscriptMap, setShowTranscriptMap] = useState<Record<string, boolean>>({});
   const [leftPanelLang, setLeftPanelLang] = useState<"en" | "vi">("en");
-  const [isNavOpen, setIsNavOpen] = useState(true);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -541,6 +543,22 @@ export function PracticeResultReview({
       scrollToReviewCard(activeQuestions[index].questionNumber);
     }
   }, [activeQuestions, scrollToReviewCard, totalQuestions]);
+
+  const canGoPrevious = reviewIndex > 0;
+  const canGoNext = reviewIndex < totalQuestions - 1;
+  const reviewPositionLabel = totalQuestions > 0 ? `${reviewIndex + 1}/${totalQuestions}` : "0/0";
+
+  const goPreviousQuestion = useCallback(() => {
+    if (canGoPrevious) {
+      goTo(reviewIndex - 1);
+    }
+  }, [canGoPrevious, goTo, reviewIndex]);
+
+  const goNextQuestion = useCallback(() => {
+    if (canGoNext) {
+      goTo(reviewIndex + 1);
+    }
+  }, [canGoNext, goTo, reviewIndex]);
 
   // Format display helper
   function formatTime(seconds: number) {
@@ -718,31 +736,55 @@ export function PracticeResultReview({
 
         {/* SECTION 2: INTERACTIVE REVIEW & LEARNING VIEW */}
         <section className="container-shell">
-          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="text-lg font-black text-ink flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
               <span>Xem lại đáp án & Giải thích chi tiết</span>
             </h2>
-            {!isNavOpen && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1 rounded-2xl border border-outline-variant/40 bg-white/80 p-1 shadow-soft">
+                <button
+                  type="button"
+                  onClick={goPreviousQuestion}
+                  disabled={!canGoPrevious}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-ink transition-colors hover:bg-primary-container/45 disabled:cursor-not-allowed disabled:text-muted/45 disabled:hover:bg-transparent"
+                  title="Câu trước"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <span>Câu trước</span>
+                </button>
+                <span className="hidden h-5 w-px bg-outline-variant/50 sm:block" />
+                <span className="min-w-16 px-2 text-center text-[11px] font-black text-muted">
+                  {reviewPositionLabel}
+                </span>
+                <span className="hidden h-5 w-px bg-outline-variant/50 sm:block" />
+                <button
+                  type="button"
+                  onClick={goNextQuestion}
+                  disabled={!canGoNext}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-ink transition-colors hover:bg-primary-container/45 disabled:cursor-not-allowed disabled:text-muted/45 disabled:hover:bg-transparent"
+                  title="Câu tiếp"
+                >
+                  <span>Câu tiếp</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsNavOpen(true)}
-                className="flex h-9 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary-container px-4 py-2 text-xs font-bold text-on-primary-container hover:bg-primary-container/80 transition-all shadow-glass backdrop-blur-md"
-                title="Hiện điều hướng câu hỏi"
+                className="flex h-11 items-center gap-1.5 rounded-2xl border border-primary/20 bg-primary-container px-4 py-2 text-xs font-bold text-on-primary-container hover:bg-primary-container/80 transition-all shadow-glass backdrop-blur-md"
+                title="Mở điều hướng câu hỏi"
               >
                 <Flag className="h-3.5 w-3.5" />
-                <span>Hiện điều hướng</span>
+                <span>Điều hướng</span>
               </button>
-            )}
+            </div>
           </div>
 
-          <div className={cn(
-            "grid gap-6 transition-all duration-300 items-start",
-            isNavOpen ? "lg:grid-cols-[1fr_220px]" : "grid-cols-1"
-          )}>
+          <div className="relative grid grid-cols-1 gap-6 items-start">
             
             {/* Container 1: Review Panel (Passage + Question Card) */}
-            <div className="h-[700px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/86 relative flex flex-1 [contain:layout_paint] [transform:translateZ(0)]">
+            <div className="h-[min(82vh,860px)] min-h-[680px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/86 relative flex flex-1 [contain:layout_paint] [transform:translateZ(0)]">
             
             {/* 2-Column Split Review Panels */}
             <div className="flex flex-1 overflow-hidden h-full">
@@ -1027,7 +1069,7 @@ export function PracticeResultReview({
                 ref={rightPanelRef}
                 className="flex-1 overflow-y-auto overscroll-contain p-4 md:p-6 [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]"
               >
-                <div className="max-w-xl mx-auto space-y-6 pb-8">
+                <div className="max-w-3xl mx-auto space-y-6 pb-8">
                   
                   {currentGroupQuestions.map((q) => {
                     const selected = result.answers[q.id];
@@ -1325,35 +1367,56 @@ export function PracticeResultReview({
 
             {/* Sidebar Jump Board on Review */}
             {isNavOpen && (
-              <aside className="w-full lg:w-[220px] shrink-0 border border-white bg-white/86 rounded-3xl flex flex-col h-fit max-h-[700px] overflow-hidden shadow-glass transition-all duration-300 animate-[fadeIn_0.2s_ease-out]">
-                <div className="border-b border-outline-variant/30 p-3 flex items-center justify-between">
+              <div
+                className="fixed inset-0 z-50 flex justify-end bg-transparent p-3 sm:p-5"
+                role="presentation"
+                onClick={() => setIsNavOpen(false)}
+              >
+              <aside
+                className="review-nav-drawer w-full max-w-[360px] border border-primary/15 bg-[#f8fff7]/95 rounded-3xl flex flex-col h-full max-h-[calc(100vh-2rem)] overflow-hidden shadow-[0_20px_60px_rgba(17,24,23,0.14)] ring-1 ring-white/80"
+                role="dialog"
+                aria-modal="false"
+                aria-label="Điều hướng câu hỏi"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="border-b border-primary/10 bg-gradient-to-br from-primary-container/55 via-white/88 to-white/70 p-4 flex items-center justify-between">
                   <div>
-                    <h3 className="text-xs font-black uppercase tracking-wider text-muted">Điều hướng</h3>
-                    <p className="text-[9px] text-muted mt-0.5">Nhấp số câu để xem</p>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-soft">
+                        <Flag className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-black text-ink">Điều hướng câu hỏi</h3>
+                        <p className="text-[10px] font-semibold text-muted mt-0.5">
+                          Đang xem {reviewPositionLabel} · Câu {currentQuestion?.questionNumber ?? "-"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsNavOpen(false)}
-                    className="rounded-lg p-1 text-muted hover:bg-outline-variant/20 hover:text-ink transition-all"
+                    className="rounded-xl p-2 text-muted hover:bg-white/80 hover:text-ink transition-colors"
                     title="Thu nhỏ điều hướng"
+                    aria-label="Đóng điều hướng câu hỏi"
                   >
                     <XCircle className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Grid with correct/incorrect coloring */}
-                <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-4 [scrollbar-gutter:stable] [will-change:scroll-position]">
+                <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 [scrollbar-gutter:stable] [will-change:scroll-position]">
                   
                   {/* Listening List */}
                   {activeListeningQuestions.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
-                        <span className="text-[9px] font-black uppercase text-primary">Listening</span>
-                        <span className="text-[8px] font-bold text-muted">
+                    <div className="rounded-2xl border border-primary/10 bg-white/75 p-3 shadow-soft space-y-2">
+                      <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                        <span className="text-[10px] font-black uppercase text-primary">Listening</span>
+                        <span className="text-[9px] font-bold text-muted">
                           {activeListeningQuestions[0].questionNumber}-{activeListeningQuestions[activeListeningQuestions.length - 1].questionNumber}
                         </span>
                       </div>
-                      <div className="grid grid-cols-6 gap-1">
+                      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
                         {activeListeningQuestions.map((q) => {
                           const idx = activeQuestions.indexOf(q);
                           const isSelected = idx === reviewIndex;
@@ -1364,17 +1427,21 @@ export function PracticeResultReview({
                             <button
                               key={q.id}
                               type="button"
-                              onClick={() => goTo(idx)}
+                              onClick={() => {
+                                goTo(idx);
+                                setIsNavOpen(false);
+                              }}
+                              aria-current={isSelected ? "true" : undefined}
                               className={cn(
-                                "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
+                                "relative flex h-8 w-full items-center justify-center rounded-xl text-[10px] font-black transition-colors",
                                 isSelected
-                                  ? "ring-2 ring-primary ring-offset-1 text-ink"
+                                  ? "ring-2 ring-primary ring-offset-1 text-ink bg-primary-container/60"
                                   : "",
                                 selected
                                   ? isCorrect
                                     ? "bg-green-600 text-white shadow-soft"
                                     : "bg-red-500 text-white shadow-soft"
-                                  : "bg-surface-container-highest/60 text-muted"
+                                  : "bg-surface-container-low text-muted hover:bg-primary-container/35 hover:text-primary"
                               )}
                             >
                               {q.questionNumber}
@@ -1387,14 +1454,14 @@ export function PracticeResultReview({
 
                   {/* Reading List */}
                   {activeReadingQuestions.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center border-b border-outline-variant/15 pb-1">
-                        <span className="text-[9px] font-black uppercase text-secondary">Reading</span>
-                        <span className="text-[8px] font-bold text-muted">
+                    <div className="rounded-2xl border border-secondary/10 bg-white/75 p-3 shadow-soft space-y-2">
+                      <div className="flex justify-between items-center border-b border-secondary/10 pb-2">
+                        <span className="text-[10px] font-black uppercase text-secondary">Reading</span>
+                        <span className="text-[9px] font-bold text-muted">
                           {activeReadingQuestions[0].questionNumber}-{activeReadingQuestions[activeReadingQuestions.length - 1].questionNumber}
                         </span>
                       </div>
-                      <div className="grid grid-cols-6 gap-1">
+                      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
                         {activeReadingQuestions.map((q) => {
                           const idx = activeQuestions.indexOf(q);
                           const isSelected = idx === reviewIndex;
@@ -1405,17 +1472,21 @@ export function PracticeResultReview({
                             <button
                               key={q.id}
                               type="button"
-                              onClick={() => goTo(idx)}
+                              onClick={() => {
+                                goTo(idx);
+                                setIsNavOpen(false);
+                              }}
+                              aria-current={isSelected ? "true" : undefined}
                               className={cn(
-                                "relative flex h-7 w-full items-center justify-center rounded-md text-[9px] font-black transition-colors",
+                                "relative flex h-8 w-full items-center justify-center rounded-xl text-[10px] font-black transition-colors",
                                 isSelected
-                                  ? "ring-2 ring-primary ring-offset-1 text-ink"
+                                  ? "ring-2 ring-primary ring-offset-1 text-ink bg-primary-container/60"
                                   : "",
                                 selected
                                   ? isCorrect
                                     ? "bg-green-600 text-white shadow-soft"
                                     : "bg-red-500 text-white shadow-soft"
-                                  : "bg-surface-container-highest/60 text-muted"
+                                  : "bg-surface-container-low text-muted hover:bg-primary-container/35 hover:text-primary"
                               )}
                             >
                               {q.questionNumber}
@@ -1429,21 +1500,22 @@ export function PracticeResultReview({
                 </div>
 
                 {/* Sidebar Legend for Review */}
-                <div className="border-t border-outline-variant/30 p-3 bg-white/40 space-y-2 text-[9px] font-black text-muted shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded bg-green-600" />
+                <div className="border-t border-primary/10 p-4 bg-white/65 grid grid-cols-3 gap-2 text-[9px] font-black text-muted shrink-0">
+                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-green-50 px-2 py-2 text-green-700">
+                    <span className="h-2 w-2 rounded bg-green-600" />
                     <span>Đúng ({result.correct})</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded bg-red-500" />
+                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-red-50 px-2 py-2 text-red-700">
+                    <span className="h-2 w-2 rounded bg-red-500" />
                     <span>Sai ({result.answered - result.correct})</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded bg-surface-container-highest" />
+                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-container-low px-2 py-2 text-muted">
+                    <span className="h-2 w-2 rounded bg-surface-container-highest" />
                     <span>Chưa làm ({result.total - result.answered})</span>
                   </div>
                 </div>
               </aside>
+              </div>
             )}
 
           </div>

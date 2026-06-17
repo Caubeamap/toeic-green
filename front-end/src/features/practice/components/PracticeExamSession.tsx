@@ -24,7 +24,7 @@ import type { PracticeTest } from "../lib/practice-tests";
 import {
   submitPracticeAttempt
 } from "../services/practice-api";
-import type { ToeicQuestion } from "../lib/toeic-questions";
+import { isQuestionNumberOnlyStem, type ToeicQuestion } from "../lib/toeic-questions";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/api";
 
@@ -1103,6 +1103,9 @@ export function PracticeExamSession({
                 
                 // Hide option text for Part 1 & 2
                 const hideTexts = ["part-1", "part-2"].includes(q.partId);
+                const shouldShowStem =
+                  !(q.partId === "part-2" && hideTexts) &&
+                  !isQuestionNumberOnlyStem(q);
 
                 if (q.partId === "part-1" || q.partId === "part-2") {
                   return (
@@ -1242,7 +1245,7 @@ export function PracticeExamSession({
 
                     {/* Question Stem */}
                     {/* Real TOEIC hides stem for Part 2 and Option texts for Part 1/2 */}
-                    {!(q.partId === "part-2" && hideTexts) && (
+                    {shouldShowStem && (
                       <p className="text-sm font-black leading-relaxed text-ink mb-4">
                         {q.stem}
                       </p>

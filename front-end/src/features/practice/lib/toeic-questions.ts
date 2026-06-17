@@ -12,3 +12,15 @@ export type ToeicQuestion = {
   explanation?: string | null;
   transcript?: string | null;
 };
+
+export function isQuestionNumberOnlyStem(
+  question: Pick<ToeicQuestion, "questionNumber" | "stem">
+) {
+  const stem = question.stem.replace(/\s+/g, " ").trim();
+  if (!stem) return true;
+
+  return new RegExp(
+    `^question\\s+(?:no\\.\\s*)?${question.questionNumber}\\.?$`,
+    "i"
+  ).test(stem);
+}

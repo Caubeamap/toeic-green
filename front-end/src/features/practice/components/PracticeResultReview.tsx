@@ -17,6 +17,7 @@ import {
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import type { PracticeAttemptResult, ToeicQuestion } from "@/features/practice";
+import { isQuestionNumberOnlyStem } from "@/features/practice/lib/toeic-questions";
 import { cn } from "@/lib/utils";
 
 const PART1_IMAGES: Record<number, string> = {
@@ -1074,6 +1075,7 @@ export function PracticeResultReview({
                     const selected = result.answers[q.id];
                     const isCorrect = selected === q.correctAnswer;
                     const isMarked = flagsSet.has(q.id);
+                    const shouldShowStem = !isQuestionNumberOnlyStem(q);
 
                     // Compact review row for Part 1/2
                     if (q.partId === "part-1" || q.partId === "part-2") {
@@ -1243,9 +1245,11 @@ export function PracticeResultReview({
                         </div>
 
                         {/* Question Stem */}
-                        <p className="text-xs font-bold leading-relaxed text-ink mb-4">
-                          {q.stem}
-                        </p>
+                        {shouldShowStem && (
+                          <p className="text-xs font-bold leading-relaxed text-ink mb-4">
+                            {q.stem}
+                          </p>
+                        )}
 
                         {/* Options checkboard */}
                         <div className="grid gap-2.5">

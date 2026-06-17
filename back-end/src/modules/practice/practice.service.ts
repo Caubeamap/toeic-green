@@ -46,50 +46,6 @@ const EXAM_QUESTION_SELECT = {
   },
 } satisfies Prisma.QuestionSelect;
 
-const ATTEMPT_INCLUDE_LEAN = {
-  answers: {
-    include: {
-      question: {
-        include: QUESTIONS_INCLUDE,
-      },
-    },
-    orderBy: {
-      question: {
-        questionNumber: 'asc',
-      },
-    },
-  },
-} satisfies Prisma.PracticeAttemptInclude;
-
-const ATTEMPT_SUMMARY_INCLUDE = {
-  test: {
-    select: {
-      slug: true,
-      title: true,
-      subtitle: true,
-      totalQuestions: true,
-    },
-  },
-  answers: {
-    select: {
-      question: {
-        select: {
-          testPart: {
-            select: {
-              partNumber: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: {
-      question: {
-        questionNumber: 'asc',
-      },
-    },
-  },
-} satisfies Prisma.PracticeAttemptInclude;
-
 const USER_PROGRESS_ATTEMPT_LIMIT = 50;
 const TEST_DETAIL_ATTEMPT_LIMIT = 5;
 const PRACTICE_TEST_CACHE_TTL_MS = 60_000;
@@ -103,12 +59,47 @@ type ExamQuestionWithContext = Prisma.QuestionGetPayload<{
 }>;
 type ToeicQuestionSource = QuestionWithContext | ExamQuestionWithContext;
 type AttemptWithAnswers = Prisma.PracticeAttemptGetPayload<{
-  include: typeof ATTEMPT_INCLUDE_LEAN;
+  include: {
+    answers: { include: { question: { include: typeof QUESTIONS_INCLUDE } } };
+  };
 }> & { test: TestWithParts };
-type AttemptSummaryWithParts = Prisma.PracticeAttemptGetPayload<{
-  include: typeof ATTEMPT_SUMMARY_INCLUDE;
-}>;
-type AttemptSummarySource = AttemptWithAnswers | AttemptSummaryWithParts;
+type AttemptBaseWithParts = {
+  id: bigint;
+  publicId: string;
+  testId: number;
+  mode: string;
+  correctCount: number;
+  totalCount: number;
+  scaledScore: number | null;
+  durationSeconds: number;
+  startedAt: Date;
+  completedAt: Date | null;
+  test: {
+    slug: string;
+    title: string;
+    subtitle: string | null;
+    totalQuestions: number;
+  };
+  partNumbers: number[];
+};
+type AttemptSummarySource = AttemptWithAnswers | AttemptBaseWithParts;
+interface SummaryRow {
+  id: bigint;
+  publicId: string;
+  testId: number;
+  mode: string;
+  correctCount: number;
+  totalCount: number;
+  scaledScore: number | null;
+  durationSeconds: number;
+  startedAt: Date;
+  completedAt: Date | null;
+  testSlug: string;
+  testTitle: string;
+  testSubtitle: string | null;
+  testTotalQuestions: number;
+  partNumbers: number[];
+}
 type PracticeTestsSnapshot = {
   countsByTestId: Map<number, number>;
   tests: TestWithParts[];
@@ -205,7 +196,11 @@ export class PracticeService implements OnModuleInit {
   async listTestsForUser(userId: string) {
     const [snapshot, recentAttempts] = await Promise.all([
       this.getTestsSnapshot(),
-      this.findRecentAttemptSummaries(userId, {}, USER_PROGRESS_ATTEMPT_LIMIT),
+      this.findRecentAttemptSummaries(
+        userId,
+        undefined,
+        USER_PROGRESS_ATTEMPT_LIMIT,
+      ),
     ]);
     const attemptsByTestId = this.groupAttemptsByTestId(recentAttempts);
 
@@ -228,16 +223,7 @@ export class PracticeService implements OnModuleInit {
   async getTestBySlugForUser(userId: string, slug: string) {
     const [snapshot, recentAttempts] = await Promise.all([
       this.getTestsSnapshot(),
-      this.findRecentAttemptSummaries(
-        userId,
-        {
-          test: {
-            slug,
-            isPublished: true,
-          },
-        },
-        TEST_DETAIL_ATTEMPT_LIMIT,
-      ),
+      this.findRecentAttemptSummaries(userId, slug, TEST_DETAIL_ATTEMPT_LIMIT),
     ]);
     const test = this.findTestInSnapshot(snapshot.tests, slug);
 
@@ -299,7 +285,11 @@ export class PracticeService implements OnModuleInit {
   }
 
   async listRecentAttempts(userId: string) {
-    const attempts = await this.findRecentAttemptSummaries(userId, {}, 20);
+    const attempts = await this.findRecentAttemptSummaries(
+      userId,
+      undefined,
+      20,
+    );
 
     return attempts.map((attempt) => this.toAttemptSummary(attempt));
   }
@@ -366,16 +356,34 @@ export class PracticeService implements OnModuleInit {
         }),
       });
 
-      const attemptVal = await tx.practiceAttempt.findUniqueOrThrow({
-        where: { id: createdAttempt.id },
-        include: ATTEMPT_INCLUDE_LEAN,
-      });
-      (attemptVal as Record<string, any>).test = test;
-      return attemptVal;
+      return createdAttempt;
     });
 
+    // Build the result from data already in memory (the questions loaded for
+    // scoring + the created attempt row) instead of issuing a second heavy read
+    // of the attempt and all its answers right after writing them. The questions
+    // are already ordered by questionNumber, matching ATTEMPT_INCLUDE_LEAN.
+    const attemptWithAnswers: AttemptWithAnswers = {
+      ...attempt,
+      test,
+      answers: questions.map((question) => {
+        const selectedAnswer = this.getSelectedAnswer(answers, question);
+
+        return {
+          attemptId: attempt.id,
+          questionId: question.id,
+          selectedAnswer,
+          isCorrect: selectedAnswer === question.correctAnswer,
+          isFlagged: flaggedQuestionIds.has(question.id.toString()),
+          timeSpentMs: null,
+          answeredAt: attempt.completedAt ?? attempt.startedAt,
+          question,
+        } as unknown as AttemptWithAnswers['answers'][number];
+      }),
+    };
+
     const result = this.toAttemptResult(
-      attempt as AttemptWithAnswers,
+      attemptWithAnswers,
       submitAttemptDto.timeLimitMinutes,
     );
 
@@ -800,7 +808,7 @@ export class PracticeService implements OnModuleInit {
   private toPracticeTestWithAttempts(
     test: TestWithParts,
     attempts: number,
-    recentAttempts: AttemptSummaryWithParts[],
+    recentAttempts: AttemptBaseWithParts[],
   ) {
     const summaries = recentAttempts.map((attempt) =>
       this.toAttemptSummary(attempt),
@@ -815,25 +823,73 @@ export class PracticeService implements OnModuleInit {
     };
   }
 
-  private findRecentAttemptSummaries(
+  private async findRecentAttemptSummaries(
     userId: string,
-    where: Prisma.PracticeAttemptWhereInput,
+    slug: string | undefined,
     take: number,
-  ) {
-    return this.prisma.practiceAttempt.findMany({
-      where: {
-        ...where,
-        userId,
-        status: 'COMPLETED',
+  ): Promise<AttemptBaseWithParts[]> {
+    const slugFilter = slug
+      ? Prisma.sql`AND t.slug = ${slug} AND t.is_published = true`
+      : Prisma.empty;
+
+    // One round-trip: attempt + test metadata + the DISTINCT part numbers per
+    // attempt (a tiny int[]), instead of joining every answer row just to derive
+    // which parts the attempt covered.
+    const rows = await this.prisma.$queryRaw<SummaryRow[]>(Prisma.sql`
+      SELECT
+        pa.id AS "id",
+        pa.public_id AS "publicId",
+        pa.test_id AS "testId",
+        pa.mode AS "mode",
+        pa.correct_count AS "correctCount",
+        pa.total_count AS "totalCount",
+        pa.scaled_score AS "scaledScore",
+        pa.duration_seconds AS "durationSeconds",
+        pa.started_at AS "startedAt",
+        pa.completed_at AS "completedAt",
+        t.slug AS "testSlug",
+        t.title AS "testTitle",
+        t.subtitle AS "testSubtitle",
+        t.total_questions AS "testTotalQuestions",
+        COALESCE((
+          SELECT array_agg(DISTINCT tp.part_number)
+          FROM attempt_answers aa
+          JOIN questions q ON q.id = aa.question_id
+          JOIN test_parts tp ON tp.id = q.test_part_id
+          WHERE aa.attempt_id = pa.id
+        ), ARRAY[]::int[]) AS "partNumbers"
+      FROM practice_attempts pa
+      JOIN tests t ON t.id = pa.test_id
+      WHERE pa.user_id = ${userId}::uuid
+        AND pa.status = 'COMPLETED'
+        ${slugFilter}
+      ORDER BY pa.completed_at DESC
+      LIMIT ${take}
+    `);
+
+    return rows.map((row) => ({
+      id: row.id,
+      publicId: row.publicId,
+      testId: row.testId,
+      mode: row.mode,
+      correctCount: row.correctCount,
+      totalCount: row.totalCount,
+      scaledScore: row.scaledScore,
+      durationSeconds: row.durationSeconds,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      test: {
+        slug: row.testSlug,
+        title: row.testTitle,
+        subtitle: row.testSubtitle,
+        totalQuestions: row.testTotalQuestions,
       },
-      include: ATTEMPT_SUMMARY_INCLUDE,
-      orderBy: { completedAt: 'desc' },
-      take,
-    });
+      partNumbers: row.partNumbers ?? [],
+    }));
   }
 
-  private groupAttemptsByTestId(attempts: AttemptSummaryWithParts[]) {
-    const attemptsByTestId = new Map<number, AttemptSummaryWithParts[]>();
+  private groupAttemptsByTestId(attempts: AttemptBaseWithParts[]) {
+    const attemptsByTestId = new Map<number, AttemptBaseWithParts[]>();
 
     attempts.forEach((attempt) => {
       const current = attemptsByTestId.get(attempt.testId) ?? [];
@@ -904,11 +960,10 @@ export class PracticeService implements OnModuleInit {
       total: attempt.totalCount,
       durationSeconds: attempt.durationSeconds,
       detailHref: `/practice/${attempt.test.slug}/results/${attempt.publicId}`,
-      scaledScore: this.hasCompleteToeicScoreScope(
-        attempt.answers.map((answer) => answer.question),
-      )
-        ? (attempt.scaledScore ?? undefined)
-        : undefined,
+      // scaledScore is stored only when the attempt covered a full Listening +
+      // Reading scope (calculateScaledScore returns null otherwise), so a
+      // non-null value already implies a complete scope.
+      scaledScore: attempt.scaledScore ?? undefined,
       timestamp: completedAt.toISOString(),
     };
   }
@@ -1065,10 +1120,18 @@ export class PracticeService implements OnModuleInit {
     );
   }
 
+  private getAttemptPartNumbers(attempt: AttemptSummarySource): number[] {
+    if ('partNumbers' in attempt) {
+      return attempt.partNumbers;
+    }
+
+    return attempt.answers.map((answer) => answer.question.testPart.partNumber);
+  }
+
   private getPartIds(attempt: AttemptSummarySource) {
     const partIds = new Set(
-      attempt.answers.map((answer) =>
-        this.toPartId(answer.question.testPart.partNumber),
+      this.getAttemptPartNumbers(attempt).map((partNumber) =>
+        this.toPartId(partNumber),
       ),
     );
 

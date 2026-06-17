@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,20 +13,21 @@ import {
   CopyCheck,
   Layers,
   Library,
+  Loader2,
   RotateCcw,
   Search,
   Smile,
   ThumbsUp,
-  Users,
   Volume2,
   XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { POS_LABELS } from "@/features/vocabulary/types";
 import { playAudio } from "@/features/vocabulary/services/storage";
-import { exploreCollections } from "../data";
+import { loadExploreCollection, loadExploreCollections } from "../services/catalog";
 import type {
   ExploreCollection,
+  ExploreCollectionSummary,
   ExploreProgress,
   ExploreWord,
   FlashcardRating
@@ -39,45 +40,7 @@ import {
 } from "../services/storage";
 
 type ExploreView = "collections" | "detail" | "review";
-
-type CardPalette = {
-  border: string;
-  surface: string;
-  badge: string;
-};
-
-const palettes: CardPalette[] = [
-  {
-    border: "border-emerald-200 hover:border-emerald-400",
-    surface: "from-emerald-50 to-white",
-    badge: "bg-emerald-50 text-emerald-700"
-  },
-  {
-    border: "border-blue-200 hover:border-blue-400",
-    surface: "from-blue-50 to-white",
-    badge: "bg-blue-50 text-blue-700"
-  },
-  {
-    border: "border-amber-200 hover:border-amber-400",
-    surface: "from-amber-50 to-white",
-    badge: "bg-amber-50 text-amber-700"
-  },
-  {
-    border: "border-violet-200 hover:border-violet-400",
-    surface: "from-violet-50 to-white",
-    badge: "bg-violet-50 text-violet-700"
-  },
-  {
-    border: "border-rose-200 hover:border-rose-400",
-    surface: "from-rose-50 to-white",
-    badge: "bg-rose-50 text-rose-700"
-  },
-  {
-    border: "border-cyan-200 hover:border-cyan-400",
-    surface: "from-cyan-50 to-white",
-    badge: "bg-cyan-50 text-cyan-700"
-  }
-];
+type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 const ratingActions: {
   rating: FlashcardRating;
@@ -122,41 +85,69 @@ function formatNumber(value: number) {
 }
 
 function getCollectionProgress(
-  collection: ExploreCollection,
+  words: ExploreWord[],
   ratingsByWordId: Record<string, FlashcardRating>
 ) {
-  const ratedWords = collection.words.filter((word) => ratingsByWordId[word.id]);
-  return Math.round((ratedWords.length / collection.words.length) * 100);
-}
+  if (words.length === 0) return 0;
 
-function getPalette(index: number) {
-  return palettes[index % palettes.length];
+  const ratedWords = words.filter((word) => ratingsByWordId[word.id]);
+  return Math.round((ratedWords.length / words.length) * 100);
 }
 
 export function ExploreVocabulary() {
   const [view, setView] = useState<ExploreView>("collections");
   const [query, setQuery] = useState("");
+  const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
+  const [collections, setCollections] = useState<ExploreCollectionSummary[]>([]);
+  const [wordsByCollection, setWordsByCollection] = useState<
+    Record<string, ExploreWord[]>
+  >({});
+  const [wordStatusByCollection, setWordStatusByCollection] = useState<
+    Record<string, LoadStatus>
+  >({});
   const [progress, setProgress] = useState<ExploreProgress>(emptyProgress);
   const [progressLoaded, setProgressLoaded] = useState(false);
-  const [selectedCollectionId, setSelectedCollectionId] = useState(
-    exploreCollections[0]?.id ?? ""
-  );
+  const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const storedProgress = loadExploreProgress();
-      setProgress(storedProgress);
+    let mounted = true;
 
-      if (storedProgress.activeCollectionId) {
-        setSelectedCollectionId(storedProgress.activeCollectionId);
+    async function loadInitialData() {
+      try {
+        const [loadedCollections, storedProgress] = await Promise.all([
+          loadExploreCollections(),
+          Promise.resolve(loadExploreProgress())
+        ]);
+
+        if (!mounted) return;
+
+        const storedCollectionId = storedProgress.activeCollectionId;
+        const initialCollectionId =
+          loadedCollections.find((collection) => collection.id === storedCollectionId)
+            ?.id ??
+          loadedCollections[0]?.id ??
+          "";
+
+        setCollections(loadedCollections);
+        setProgress(storedProgress);
+        setSelectedCollectionId(initialCollectionId);
+        setProgressLoaded(true);
+        setCatalogStatus("ready");
+      } catch {
+        if (!mounted) return;
+        setProgress(loadExploreProgress());
+        setProgressLoaded(true);
+        setCatalogStatus("error");
       }
+    }
 
-      setProgressLoaded(true);
-    }, 0);
+    void loadInitialData();
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -165,35 +156,89 @@ export function ExploreVocabulary() {
     }
   }, [progress, progressLoaded]);
 
-  const selectedCollection = useMemo(() => {
+  const selectedSummary = useMemo(() => {
     return (
-      exploreCollections.find((collection) => collection.id === selectedCollectionId) ??
-      exploreCollections[0]
+      collections.find((collection) => collection.id === selectedCollectionId) ??
+      collections[0]
     );
-  }, [selectedCollectionId]);
+  }, [collections, selectedCollectionId]);
+
+  const selectedCollection = useMemo<ExploreCollection | undefined>(() => {
+    if (!selectedSummary) return undefined;
+
+    return {
+      ...selectedSummary,
+      words: wordsByCollection[selectedSummary.id] ?? []
+    };
+  }, [selectedSummary, wordsByCollection]);
+
+  const ensureCollectionWords = useCallback(
+    async (collectionId: string) => {
+      const cachedWords = wordsByCollection[collectionId];
+      if (cachedWords) return cachedWords;
+
+      const summary = collections.find((collection) => collection.id === collectionId);
+      if (!summary) return [];
+
+      setWordStatusByCollection((current) => ({
+        ...current,
+        [collectionId]: "loading"
+      }));
+
+      try {
+        const loadedCollection = await loadExploreCollection(summary);
+
+        setWordsByCollection((current) => ({
+          ...current,
+          [collectionId]: loadedCollection.words
+        }));
+        setWordStatusByCollection((current) => ({
+          ...current,
+          [collectionId]: "ready"
+        }));
+
+        return loadedCollection.words;
+      } catch {
+        setWordStatusByCollection((current) => ({
+          ...current,
+          [collectionId]: "error"
+        }));
+        return [];
+      }
+    },
+    [collections, wordsByCollection]
+  );
 
   const filteredCollections = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return exploreCollections.filter((collection) => {
+    return collections.filter((collection) => {
       return (
         !normalizedQuery ||
-        `${collection.title} ${collection.description} ${collection.tags.join(" ")}`
+        `${collection.title} ${collection.description} ${collection.category} ${collection.tags.join(
+          " "
+        )}`
           .toLowerCase()
           .includes(normalizedQuery)
       );
     });
-  }, [query]);
+  }, [collections, query]);
 
+  const currentWords = selectedCollection?.words ?? [];
   const currentWord =
-    selectedCollection.words[currentWordIndex % selectedCollection.words.length];
+    currentWords.length > 0
+      ? currentWords[currentWordIndex % currentWords.length]
+      : undefined;
   const selectedProgress = getCollectionProgress(
-    selectedCollection,
+    currentWords,
     progress.ratingsByWordId
   );
-  const knownWords = selectedCollection.words.filter(
+  const knownWords = currentWords.filter(
     (word) => progress.ratingsByWordId[word.id] === "known"
   ).length;
+  const selectedWordStatus = selectedSummary
+    ? wordStatusByCollection[selectedSummary.id] ?? "idle"
+    : "idle";
 
   function openCollection(collectionId: string) {
     setSelectedCollectionId(collectionId);
@@ -204,9 +249,15 @@ export function ExploreVocabulary() {
       ...current,
       activeCollectionId: collectionId
     }));
+    void ensureCollectionWords(collectionId);
   }
 
-  function startReview(collectionId = selectedCollection.id) {
+  async function startReview(collectionId = selectedSummary?.id ?? "") {
+    if (!collectionId) return;
+
+    const words = await ensureCollectionWords(collectionId);
+    if (words.length === 0) return;
+
     setSelectedCollectionId(collectionId);
     setView("review");
     setCurrentWordIndex(0);
@@ -229,6 +280,8 @@ export function ExploreVocabulary() {
   }
 
   function rateCurrentWord(rating: FlashcardRating) {
+    if (!currentWord || !selectedCollection) return;
+
     setProgress((current) => ({
       ...current,
       ratingsByWordId: setWordRating(
@@ -244,17 +297,19 @@ export function ExploreVocabulary() {
       activeCollectionId: selectedCollection.id
     }));
 
-    setCurrentWordIndex((index) => (index + 1) % selectedCollection.words.length);
+    setCurrentWordIndex((index) => (index + 1) % currentWords.length);
     setShowAnswer(false);
   }
 
   function moveWord(direction: "previous" | "next") {
+    if (currentWords.length === 0) return;
+
     setCurrentWordIndex((index) => {
       if (direction === "previous") {
-        return index === 0 ? selectedCollection.words.length - 1 : index - 1;
+        return index === 0 ? currentWords.length - 1 : index - 1;
       }
 
-      return (index + 1) % selectedCollection.words.length;
+      return (index + 1) % currentWords.length;
     });
     setShowAnswer(false);
   }
@@ -266,9 +321,7 @@ export function ExploreVocabulary() {
       <div className="container-shell pt-7">
         {view === "collections" ? (
           <>
-            <ExploreHero />
-
-            <div className="mt-6 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-ink">
                   Khám phá bộ từ vựng
@@ -290,57 +343,70 @@ export function ExploreVocabulary() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {filteredCollections.map((collection, index) => (
-                <CollectionCard
-                  key={collection.id}
-                  collection={collection}
-                  palette={getPalette(index)}
-                  isSaved={progress.savedCollectionIds.includes(collection.id)}
-                  onOpen={() => openCollection(collection.id)}
-                  onToggleSaved={() => toggleSaved(collection.id)}
-                />
-              ))}
-            </div>
+            {catalogStatus === "loading" ? <CollectionGridSkeleton /> : null}
 
-            {filteredCollections.length === 0 ? (
-              <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-                <Library className="mx-auto h-10 w-10 text-slate-300" />
-                <h3 className="mt-4 text-lg font-extrabold text-ink">
-                  Chưa có bộ từ phù hợp
-                </h3>
-                <p className="mt-2 text-sm text-muted">
-                  Thử tìm bằng tên bộ từ hoặc kỹ năng TOEIC khác.
-                </p>
-              </div>
+            {catalogStatus === "error" ? (
+              <EmptyState
+                title="Chưa tải được dữ liệu flashcard"
+                description="Kiểm tra lại thư mục dữ liệu tĩnh hoặc chạy lệnh đồng bộ từ flashcard-crawler."
+              />
+            ) : null}
+
+            {catalogStatus === "ready" ? (
+              <>
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredCollections.map((collection) => (
+                    <CollectionCard
+                      key={collection.id}
+                      collection={collection}
+                      isSaved={progress.savedCollectionIds.includes(collection.id)}
+                      onOpen={() => openCollection(collection.id)}
+                      onToggleSaved={() => toggleSaved(collection.id)}
+                    />
+                  ))}
+                </div>
+
+                {filteredCollections.length === 0 ? (
+                  <EmptyState
+                    title="Chưa có bộ từ phù hợp"
+                    description="Thử tìm bằng tên bộ từ, kỹ năng hoặc kỳ thi khác."
+                  />
+                ) : null}
+              </>
             ) : null}
           </>
         ) : null}
 
-        {view === "detail" ? (
+        {view === "detail" && selectedCollection ? (
           <CollectionWordsPage
             collection={selectedCollection}
             progressPercent={selectedProgress}
             isSaved={progress.savedCollectionIds.includes(selectedCollection.id)}
+            isLoadingWords={selectedWordStatus === "loading"}
+            hasLoadError={selectedWordStatus === "error"}
             onBack={() => setView("collections")}
-            onStart={() => startReview(selectedCollection.id)}
+            onStart={() => void startReview(selectedCollection.id)}
             onToggleSaved={() => toggleSaved(selectedCollection.id)}
           />
         ) : null}
 
-        {view === "review" ? (
-          <FlashcardReview
-            collection={selectedCollection}
-            currentWord={currentWord}
-            currentWordIndex={currentWordIndex}
-            knownWords={knownWords}
-            progressPercent={selectedProgress}
-            showAnswer={showAnswer}
-            onToggleAnswer={() => setShowAnswer((value) => !value)}
-            onMoveWord={moveWord}
-            onRate={rateCurrentWord}
-            onClose={() => setView("detail")}
-          />
+        {view === "review" && selectedCollection ? (
+          currentWord ? (
+            <FlashcardReview
+              collection={selectedCollection}
+              currentWord={currentWord}
+              currentWordIndex={currentWordIndex}
+              knownWords={knownWords}
+              progressPercent={selectedProgress}
+              showAnswer={showAnswer}
+              onToggleAnswer={() => setShowAnswer((value) => !value)}
+              onMoveWord={moveWord}
+              onRate={rateCurrentWord}
+              onClose={() => setView("detail")}
+            />
+          ) : (
+            <ReviewLoading onClose={() => setView("detail")} />
+          )
         ) : null}
       </div>
     </section>
@@ -374,53 +440,19 @@ function ExploreHeader({ compact }: { compact: boolean }) {
   );
 }
 
-function ExploreHero() {
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-      <Image
-        src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1400&q=80"
-        alt="Không gian học TOEIC"
-        width={1400}
-        height={260}
-        priority
-        className="h-44 w-full object-cover md:h-52"
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/68 via-black/20 to-transparent" />
-      <div className="absolute inset-y-0 left-0 flex max-w-xl flex-col justify-center px-5 text-white md:px-8">
-        <p className="text-sm font-bold uppercase">TOEIC Green Explore</p>
-        <h2 className="mt-2 text-2xl font-extrabold leading-tight md:text-3xl">
-          Chọn bộ từ, xem nghĩa, rồi luyện flashcard
-        </h2>
-        <p className="mt-3 max-w-md text-sm leading-6 text-white/82">
-          Thiết kế tập trung vào việc học thật: ít bước, rõ nội dung, dễ quay
-          lại bộ đang học.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function CollectionCard({
   collection,
-  palette,
   isSaved,
   onOpen,
   onToggleSaved
 }: {
-  collection: ExploreCollection;
-  palette: CardPalette;
+  collection: ExploreCollectionSummary;
   isSaved: boolean;
   onOpen: () => void;
   onToggleSaved: () => void;
 }) {
   return (
-    <article
-      className={cn(
-        "group flex min-h-[232px] flex-col overflow-hidden rounded-xl border bg-gradient-to-br p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-soft",
-        palette.border,
-        palette.surface
-      )}
-    >
+    <article className="group flex min-h-[232px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-soft">
       <button
         type="button"
         onClick={onOpen}
@@ -430,12 +462,7 @@ function CollectionCard({
           <h3 className="line-clamp-2 min-w-0 text-lg font-extrabold leading-6 text-ink">
             {collection.title}
           </h3>
-          <span
-            className={cn(
-              "inline-flex min-h-8 shrink-0 items-center rounded-lg px-2.5 py-1 text-xs font-extrabold",
-              palette.badge
-            )}
-          >
+          <span className="inline-flex min-h-8 shrink-0 items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-extrabold text-slate-700">
             {collection.level}
           </span>
         </div>
@@ -451,22 +478,20 @@ function CollectionCard({
               {formatNumber(collection.wordCount)} từ
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <Users size={16} />
-              {formatNumber(collection.learners)}
+              <Layers size={16} />
+              {collection.category}
             </span>
           </div>
         </div>
       </button>
 
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/70 pt-4">
-        <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-[#d4f9d2] text-[9px] font-black text-primary shadow-soft">
-            TG
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-container text-[9px] font-black uppercase text-primary shadow-soft">
+            {collection.author.slice(0, 2)}
           </span>
-          <span className="text-sm font-extrabold leading-5 text-ink">
-            TOEIC
-            <br />
-            Green
+          <span className="truncate text-sm font-extrabold leading-5 text-ink">
+            {collection.author}
           </span>
         </div>
 
@@ -476,7 +501,7 @@ function CollectionCard({
             onClick={onToggleSaved}
             title={isSaved ? "Bỏ lưu" : "Lưu bộ từ"}
             className={cn(
-              "grid h-10 w-10 place-items-center rounded-lg border bg-white/90 transition",
+              "grid h-10 w-10 place-items-center rounded-lg border bg-white transition",
               isSaved
                 ? "border-primary text-primary"
                 : "border-slate-200 text-slate-500 hover:border-primary hover:text-primary"
@@ -502,6 +527,8 @@ function CollectionWordsPage({
   collection,
   progressPercent,
   isSaved,
+  isLoadingWords,
+  hasLoadError,
   onBack,
   onStart,
   onToggleSaved
@@ -509,10 +536,15 @@ function CollectionWordsPage({
   collection: ExploreCollection;
   progressPercent: number;
   isSaved: boolean;
+  isLoadingWords: boolean;
+  hasLoadError: boolean;
   onBack: () => void;
   onStart: () => void;
   onToggleSaved: () => void;
 }) {
+  const hasWords = collection.words.length > 0;
+  const isStartDisabled = isLoadingWords || hasLoadError || !hasWords;
+
   return (
     <div className="mx-auto max-w-5xl">
       <button
@@ -525,15 +557,17 @@ function CollectionWordsPage({
       </button>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-        <div className="relative h-40 md:h-48">
-          <Image
-            src={collection.words[0]?.imageUrl}
-            alt={collection.title}
-            fill
-            sizes="(min-width: 1024px) 900px, 100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/72 via-black/35 to-transparent" />
+        <div className="relative h-40 overflow-hidden bg-slate-900 md:h-48">
+          {collection.coverImageUrl ? (
+            <Image
+              src={collection.coverImageUrl}
+              alt={collection.title}
+              fill
+              sizes="(min-width: 1024px) 900px, 100vw"
+              className="object-cover"
+            />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/78 via-black/42 to-black/10" />
           <div className="absolute inset-y-0 left-0 flex max-w-2xl flex-col justify-center px-5 text-white md:px-8">
             <p className="text-sm font-bold uppercase">{collection.category}</p>
             <h2 className="mt-2 text-2xl font-extrabold leading-tight md:text-3xl">
@@ -553,8 +587,7 @@ function CollectionWordsPage({
                 Danh sách từ vựng
               </h3>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-                Xem nhanh nghĩa, ví dụ và hình minh họa trước khi bước vào chế
-                độ flashcard.
+                Xem nhanh nghĩa và ví dụ trước khi bước vào chế độ flashcard.
               </p>
             </div>
             <div className="flex gap-2">
@@ -574,10 +607,15 @@ function CollectionWordsPage({
               <button
                 type="button"
                 onClick={onStart}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
+                disabled={isStartDisabled}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16] disabled:cursor-not-allowed disabled:bg-slate-300"
               >
+                {isLoadingWords ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ArrowRight size={16} />
+                )}
                 Luyện tập flashcards
-                <ArrowRight size={16} />
               </button>
             </div>
           </div>
@@ -596,9 +634,27 @@ function CollectionWordsPage({
           </div>
 
           <div className="mt-6 space-y-4">
-            {collection.words.map((word) => (
-              <WordListCard key={word.id} word={word} />
-            ))}
+            {isLoadingWords ? <WordListSkeleton /> : null}
+
+            {hasLoadError ? (
+              <EmptyState
+                title="Không tải được bộ từ"
+                description="Dữ liệu chi tiết của bộ này chưa sẵn sàng. Hãy chạy lại lệnh đồng bộ flashcard."
+              />
+            ) : null}
+
+            {!isLoadingWords && !hasLoadError && !hasWords ? (
+              <EmptyState
+                title="Bộ từ chưa có dữ liệu"
+                description="Không tìm thấy từ hợp lệ trong file crawl tương ứng."
+              />
+            ) : null}
+
+            {!isLoadingWords && !hasLoadError
+              ? collection.words.map((word) => (
+                  <WordListCard key={word.id} word={word} />
+                ))
+              : null}
           </div>
         </div>
       </section>
@@ -608,14 +664,21 @@ function CollectionWordsPage({
 
 function WordListCard({ word }: { word: ExploreWord }) {
   return (
-    <article className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)] md:grid-cols-[minmax(0,1fr)_180px] md:items-center">
+    <article
+      className={cn(
+        "grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)]",
+        word.imageUrl && "md:grid-cols-[minmax(0,1fr)_180px] md:items-center"
+      )}
+    >
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-extrabold text-ink">{word.word}</h3>
-          <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-extrabold text-blue-700">
+          <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-700">
             {POS_LABELS[word.partOfSpeech]}
           </span>
-          <span className="text-sm font-bold text-muted">{word.phonetic}</span>
+          {word.phonetic ? (
+            <span className="text-sm font-bold text-muted">{word.phonetic}</span>
+          ) : null}
           <button
             type="button"
             onClick={() => playAudio(word.audioUrl)}
@@ -635,20 +698,29 @@ function WordListCard({ word }: { word: ExploreWord }) {
         <p className="mt-3 text-sm font-extrabold text-ink">Định nghĩa:</p>
         <p className="mt-1 text-sm leading-6 text-muted">{word.meaning}</p>
 
-        <p className="mt-3 text-sm font-extrabold text-ink">Ví dụ:</p>
-        <p className="mt-1 text-sm leading-6 text-muted">{word.example}</p>
-        <p className="mt-1 text-sm leading-6 text-slate-500">
-          {word.exampleTranslation}
-        </p>
+        {word.example ? (
+          <>
+            <p className="mt-3 text-sm font-extrabold text-ink">Ví dụ:</p>
+            <p className="mt-1 text-sm leading-6 text-muted">{word.example}</p>
+          </>
+        ) : null}
+
+        {word.exampleTranslation ? (
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            {word.exampleTranslation}
+          </p>
+        ) : null}
       </div>
 
-      <Image
-        src={word.imageUrl}
-        alt={word.word}
-        width={240}
-        height={160}
-        className="h-32 w-full rounded-lg object-cover md:h-28"
-      />
+      {word.imageUrl ? (
+        <Image
+          src={word.imageUrl}
+          alt={word.word}
+          width={240}
+          height={160}
+          className="h-32 w-full rounded-lg object-cover md:h-28"
+        />
+      ) : null}
     </article>
   );
 }
@@ -699,7 +771,8 @@ function FlashcardReview({
               </h2>
             </div>
             <p className="mt-2 text-sm font-semibold text-muted">
-              {currentWordIndex + 1}/{collection.words.length} từ · {knownWords} từ đã biết
+              {currentWordIndex + 1}/{collection.words.length} từ · {knownWords} từ
+              đã biết
             </p>
           </div>
         </div>
@@ -743,34 +816,52 @@ function FlashcardReview({
                   {currentWord.word}
                 </h3>
                 <p className="mt-4 text-lg font-bold text-muted">
-                  ({currentWord.partOfSpeech}) {currentWord.phonetic}
+                  ({POS_LABELS[currentWord.partOfSpeech]}) {currentWord.phonetic}
                 </p>
               </div>
             ) : (
-              <div className="grid w-full gap-6 text-left md:grid-cols-[minmax(0,1fr)_240px] md:items-center">
+              <div
+                className={cn(
+                  "grid w-full gap-6 text-left",
+                  currentWord.imageUrl &&
+                    "md:grid-cols-[minmax(0,1fr)_240px] md:items-center"
+                )}
+              >
                 <div>
                   <h3 className="text-2xl font-extrabold text-ink">
                     {currentWord.word}
                   </h3>
-                  <p className="mt-3 text-sm font-extrabold text-ink">Định nghĩa:</p>
+                  <p className="mt-3 text-sm font-extrabold text-ink">
+                    Định nghĩa:
+                  </p>
                   <p className="mt-1 text-base leading-7 text-muted">
                     {currentWord.meaning}
                   </p>
-                  <p className="mt-4 text-sm font-extrabold text-ink">Ví dụ:</p>
-                  <p className="mt-1 text-base leading-7 text-muted">
-                    {currentWord.example}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {currentWord.exampleTranslation}
-                  </p>
+                  {currentWord.example ? (
+                    <>
+                      <p className="mt-4 text-sm font-extrabold text-ink">
+                        Ví dụ:
+                      </p>
+                      <p className="mt-1 text-base leading-7 text-muted">
+                        {currentWord.example}
+                      </p>
+                    </>
+                  ) : null}
+                  {currentWord.exampleTranslation ? (
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                      {currentWord.exampleTranslation}
+                    </p>
+                  ) : null}
                 </div>
-                <Image
-                  src={currentWord.imageUrl}
-                  alt={currentWord.word}
-                  width={320}
-                  height={220}
-                  className="h-44 w-full rounded-lg object-cover"
-                />
+                {currentWord.imageUrl ? (
+                  <Image
+                    src={currentWord.imageUrl}
+                    alt={currentWord.word}
+                    width={320}
+                    height={220}
+                    className="h-44 w-full rounded-lg object-cover"
+                  />
+                ) : null}
               </div>
             )}
           </button>
@@ -820,6 +911,82 @@ function FlashcardReview({
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function CollectionGridSkeleton() {
+  return (
+    <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="min-h-[232px] rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)]"
+        >
+          <div className="h-5 w-3/4 rounded bg-slate-100" />
+          <div className="mt-4 h-4 w-full rounded bg-slate-100" />
+          <div className="mt-2 h-4 w-2/3 rounded bg-slate-100" />
+          <div className="mt-8 h-4 w-1/2 rounded bg-slate-100" />
+          <div className="mt-14 flex justify-between">
+            <div className="h-8 w-24 rounded bg-slate-100" />
+            <div className="h-10 w-24 rounded bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WordListSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
+        >
+          <div className="h-5 w-44 rounded bg-slate-100" />
+          <div className="mt-4 h-4 w-full rounded bg-slate-100" />
+          <div className="mt-2 h-4 w-5/6 rounded bg-slate-100" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function EmptyState({
+  title,
+  description
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+      <Library className="mx-auto h-10 w-10 text-slate-300" />
+      <h3 className="mt-4 text-lg font-extrabold text-ink">{title}</h3>
+      <p className="mt-2 text-sm text-muted">{description}</p>
+    </div>
+  );
+}
+
+function ReviewLoading({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="mx-auto max-w-5xl">
+      <button
+        type="button"
+        onClick={onClose}
+        className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-muted transition hover:border-primary/35 hover:text-primary"
+      >
+        <ArrowLeft size={16} />
+        Xem danh sách từ
+      </button>
+      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-soft">
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+        <p className="mt-3 text-sm font-bold text-muted">
+          Đang tải dữ liệu flashcard...
+        </p>
+      </div>
     </div>
   );
 }

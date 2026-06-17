@@ -10,21 +10,30 @@ export type ExploreWord = {
   meaning: string;
   example: string;
   exampleTranslation: string;
-  imageUrl: string;
+  imageUrl?: string;
   audioUrl?: string;
+  examples?: Array<{
+    text: string;
+    translation: string;
+  }>;
 };
 
-export type ExploreCollection = {
+export type ExploreCollectionSummary = {
   id: string;
+  slug: string;
   title: string;
   description: string;
   category: string;
   level: string;
   author: string;
   wordCount: number;
-  learners: number;
   estimatedMinutes: number;
   tags: string[];
+  coverImageUrl?: string;
+  sourceUrl?: string;
+};
+
+export type ExploreCollection = ExploreCollectionSummary & {
   words: ExploreWord[];
 };
 

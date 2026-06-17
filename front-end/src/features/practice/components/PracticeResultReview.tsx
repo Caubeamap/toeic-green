@@ -18,6 +18,7 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import type { PracticeAttemptResult, ToeicQuestion } from "@/features/practice";
 import { isQuestionNumberOnlyStem } from "@/features/practice/lib/toeic-questions";
+import { formatPracticeTestTitle } from "@/features/practice/lib/practice-tests";
 import { cn } from "@/lib/utils";
 
 const PART1_IMAGES: Record<number, string> = {
@@ -389,6 +390,7 @@ export function PracticeResultReview({
   const result = attemptResult.result;
   const test = attemptResult.test;
   const questions = attemptResult.questions;
+  const displayTestTitle = useMemo(() => formatPracticeTestTitle(test), [test]);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [activePassageTab, setActivePassageTab] = useState(0);
   const [prevGroupId, setPrevGroupId] = useState<string | undefined>(undefined);
@@ -670,7 +672,7 @@ export function PracticeResultReview({
                   {isFullTest ? "KẾT QUẢ THI FULL TEST" : "KẾT QUẢ LUYỆN TẬP"}
                 </h3>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5 justify-center">
-                  <span className="text-xs text-muted font-bold">{test.title} {test.subtitle}</span>
+                  <span className="text-xs text-muted font-bold">{displayTestTitle}</span>
                   {!isFullTest && activeParts.map((p) => {
                     const num = p.replace("part-", "");
                     return (

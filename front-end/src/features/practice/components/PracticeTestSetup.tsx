@@ -21,7 +21,11 @@ import {
   Users,
   X
 } from "lucide-react";
-import type { PracticeAttempt, PracticeTest } from "../lib/practice-tests";
+import {
+  formatPracticeTestTitle,
+  type PracticeAttempt,
+  type PracticeTest
+} from "../lib/practice-tests";
 import { cn } from "@/lib/utils";
 
 type TabId = "practice" | "full-test" | "discussion";
@@ -67,7 +71,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
     );
   }
 
-  const pageTitle = `${currentTest.title} ${currentTest.subtitle}`;
+  const pageTitle = formatPracticeTestTitle(currentTest);
   const { isAuthenticated } = useAuth();
 
   const queryParams = new URLSearchParams();

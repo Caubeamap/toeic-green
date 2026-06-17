@@ -47,3 +47,37 @@ export const practiceFilters: PracticeFilter[] = [
   "Completed",
   "Test History"
 ];
+
+function normalizeTitlePart(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isGenericPracticeSubtitle(subtitle: string) {
+  const normalized = normalizeTitlePart(subtitle);
+  return (
+    normalized === "toeic green practice" ||
+    normalized === "toeic practice" ||
+    normalized === "practice"
+  );
+}
+
+export function formatPracticeTestTitle(
+  test: Pick<PracticeTest, "title" | "subtitle">
+) {
+  const title = test.title.trim();
+  const subtitle = test.subtitle.trim();
+
+  if (!subtitle) return title;
+
+  const normalizedTitle = normalizeTitlePart(title);
+  const normalizedSubtitle = normalizeTitlePart(subtitle);
+
+  if (
+    normalizedTitle.includes(normalizedSubtitle) ||
+    isGenericPracticeSubtitle(subtitle)
+  ) {
+    return title;
+  }
+
+  return `${title} ${subtitle}`;
+}

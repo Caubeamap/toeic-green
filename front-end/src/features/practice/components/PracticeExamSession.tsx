@@ -20,7 +20,7 @@ import {
   SkipBack,
   SkipForward
 } from "lucide-react";
-import type { PracticeTest } from "../lib/practice-tests";
+import { formatPracticeTestTitle, type PracticeTest } from "../lib/practice-tests";
 import {
   submitPracticeAttempt
 } from "../services/practice-api";
@@ -124,6 +124,7 @@ export function PracticeExamSession({
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
+  const displayTestTitle = useMemo(() => formatPracticeTestTitle(test), [test]);
   
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [flags, setFlags] = useState<FlagSet>(new Set());
@@ -644,7 +645,7 @@ export function PracticeExamSession({
           </button>
           <div>
             <h1 className="text-sm font-extrabold tracking-tight text-ink md:text-base">
-              {test.title} - {test.subtitle}
+              {displayTestTitle}
             </h1>
             <p className="text-[11px] font-black text-primary md:text-xs">
               {PART_SHORT_LABELS[currentQuestion.partId]}: {PART_DESCRIPTIONS[currentQuestion.partId]}

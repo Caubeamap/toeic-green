@@ -34,7 +34,11 @@ async function listAll(prefix) {
   let token;
   do {
     const out = await s3.send(
-      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: token,
+      }),
     );
     for (const obj of out.Contents || []) keys.push(obj.Key);
     token = out.IsTruncated ? out.NextContinuationToken : undefined;
@@ -61,7 +65,9 @@ async function main() {
       console.log(`  deleted ${keys.length}`);
     }
   }
-  console.log(`\nTotal: ${total} orphan objects ${apply ? 'deleted' : '(dry-run; use --apply to delete)'}`);
+  console.log(
+    `\nTotal: ${total} orphan objects ${apply ? 'deleted' : '(dry-run; use --apply to delete)'}`,
+  );
 }
 
 main().catch((err) => {

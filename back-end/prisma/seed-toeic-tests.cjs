@@ -73,9 +73,12 @@ function parseChoices(choices) {
   const parsed = {};
 
   labels.forEach((label, index) => {
-    const raw = typeof choices?.[index] === 'string' ? choices[index].trim() : '';
+    const raw =
+      typeof choices?.[index] === 'string' ? choices[index].trim() : '';
     const match = raw.match(/^([A-D])\.\s*(.*)$/i);
-    parsed[label] = match ? match[2].trim() : raw.replace(/^[A-D]\.\s*/i, '').trim();
+    parsed[label] = match
+      ? match[2].trim()
+      : raw.replace(/^[A-D]\.\s*/i, '').trim();
   });
 
   return parsed;

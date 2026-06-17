@@ -54,7 +54,10 @@ export class ExploreService implements OnModuleInit {
 
   private collectionDetailCache = new Map<
     string,
-    { expiresAt: number; value: ReturnType<ExploreService['toCollectionDetail']> }
+    {
+      expiresAt: number;
+      value: ReturnType<ExploreService['toCollectionDetail']>;
+    }
   >();
 
   constructor(private readonly prisma: PrismaService) {}

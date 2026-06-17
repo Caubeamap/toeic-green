@@ -25,13 +25,23 @@ const publicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '');
 
 function assertR2Config() {
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicUrl) {
-    throw new Error('Missing R2_ACCOUNT_ID/R2_ACCESS_KEY/R2_SECRET_KEY/R2_BUCKET_NAME/R2_PUBLIC_URL.');
+    throw new Error(
+      'Missing R2_ACCOUNT_ID/R2_ACCESS_KEY/R2_SECRET_KEY/R2_BUCKET_NAME/R2_PUBLIC_URL.',
+    );
   }
-  if ([accountId, accessKeyId, secretAccessKey, bucket, publicUrl].some((value) => value.includes('your-'))) {
-    throw new Error('R2 config still contains .env.example placeholder values.');
+  if (
+    [accountId, accessKeyId, secretAccessKey, bucket, publicUrl].some((value) =>
+      value.includes('your-'),
+    )
+  ) {
+    throw new Error(
+      'R2 config still contains .env.example placeholder values.',
+    );
   }
   if (publicUrl.includes('r2.cloudflarestorage.com')) {
-    throw new Error('R2_PUBLIC_URL must be the public r2.dev/custom-domain origin, not the S3 API endpoint.');
+    throw new Error(
+      'R2_PUBLIC_URL must be the public r2.dev/custom-domain origin, not the S3 API endpoint.',
+    );
   }
 }
 
@@ -162,7 +172,9 @@ async function main() {
   assertR2Config();
 
   if (!fs.existsSync(CRAWLER_OUTPUT_DIR)) {
-    throw new Error(`Crawler output directory not found: ${CRAWLER_OUTPUT_DIR}`);
+    throw new Error(
+      `Crawler output directory not found: ${CRAWLER_OUTPUT_DIR}`,
+    );
   }
 
   const { entries, missing } = collectImageEntries();
@@ -170,7 +182,9 @@ async function main() {
   if (missing.length) {
     console.log(`Missing local image files: ${missing.length}`);
   }
-  console.log(`Uploading to R2 bucket "${bucket}" with concurrency ${CONCURRENCY}.`);
+  console.log(
+    `Uploading to R2 bucket "${bucket}" with concurrency ${CONCURRENCY}.`,
+  );
 
   const s3 = new S3Client({
     region: 'auto',
@@ -190,13 +204,15 @@ async function main() {
   for (const [status, count] of Object.entries(tally)) {
     console.log(`  ${status}: ${count}`);
   }
-  console.log(`  uploaded bytes: ${(uploadedBytes / 1024 / 1024).toFixed(1)} MB`);
+  console.log(
+    `  uploaded bytes: ${(uploadedBytes / 1024 / 1024).toFixed(1)} MB`,
+  );
 
   if (failed.length) {
     console.log('\nFailed uploads:');
-    failed.slice(0, 20).forEach((result) =>
-      console.log(`  ${result.key} - ${result.error}`),
-    );
+    failed
+      .slice(0, 20)
+      .forEach((result) => console.log(`  ${result.key} - ${result.error}`));
     process.exitCode = 1;
     return;
   }

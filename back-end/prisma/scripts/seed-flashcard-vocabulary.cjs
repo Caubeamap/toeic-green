@@ -20,11 +20,15 @@ if (!process.env.DATABASE_URL) {
 }
 
 if (!r2PublicUrl || r2PublicUrl.includes('your-')) {
-  throw new Error('R2_PUBLIC_URL is required so imported image_url values point at R2.');
+  throw new Error(
+    'R2_PUBLIC_URL is required so imported image_url values point at R2.',
+  );
 }
 
 if (r2PublicUrl.includes('r2.cloudflarestorage.com')) {
-  throw new Error('R2_PUBLIC_URL must be the public r2.dev/custom-domain origin, not the S3 API endpoint.');
+  throw new Error(
+    'R2_PUBLIC_URL must be the public r2.dev/custom-domain origin, not the S3 API endpoint.',
+  );
 }
 
 function readJson(filePath) {
@@ -105,7 +109,9 @@ function getEstimatedMinutes(wordCount) {
 }
 
 function normalizePartOfSpeech(raw) {
-  const value = String(raw ?? '').trim().toLowerCase();
+  const value = String(raw ?? '')
+    .trim()
+    .toLowerCase();
 
   if (value === 'noun' || value === 'shipment') return 'noun';
   if (value === 'verb') return 'verb';
@@ -116,7 +122,9 @@ function normalizePartOfSpeech(raw) {
 }
 
 function normalizeWord(value) {
-  return String(value ?? '').trim().toLowerCase();
+  return String(value ?? '')
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeDefinition(raw) {
@@ -448,7 +456,9 @@ async function seedCollection(client, list, sortOrder) {
 
 async function main() {
   if (!fs.existsSync(CRAWLER_OUTPUT_DIR)) {
-    throw new Error(`Crawler output directory not found: ${CRAWLER_OUTPUT_DIR}`);
+    throw new Error(
+      `Crawler output directory not found: ${CRAWLER_OUTPUT_DIR}`,
+    );
   }
 
   const index = readJson(path.join(CRAWLER_OUTPUT_DIR, 'lists_index.json'));
@@ -485,7 +495,10 @@ async function main() {
   }
 
   const wordCount = results.reduce((sum, result) => sum + result.words, 0);
-  const exampleCount = results.reduce((sum, result) => sum + result.examples, 0);
+  const exampleCount = results.reduce(
+    (sum, result) => sum + result.examples,
+    0,
+  );
   console.log(
     `\nImported ${results.length} flashcard collections, ${wordCount} words, ${exampleCount} examples.`,
   );

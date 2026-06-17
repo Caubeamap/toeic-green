@@ -29,7 +29,9 @@ if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
   throw new Error('Missing R2_* environment variables.');
 }
 if (accountId.startsWith('your-')) {
-  throw new Error('R2_* values are still the .env.example placeholders. Set real credentials first.');
+  throw new Error(
+    'R2_* values are still the .env.example placeholders. Set real credentials first.',
+  );
 }
 
 const s3 = new S3Client({
@@ -60,7 +62,8 @@ function urlToKey(rawUrl) {
 }
 
 function contentTypeFor(key, headerType) {
-  if (headerType && headerType !== 'application/octet-stream') return headerType;
+  if (headerType && headerType !== 'application/octet-stream')
+    return headerType;
   if (key.endsWith('.png')) return 'image/png';
   if (key.endsWith('.jpg') || key.endsWith('.jpeg')) return 'image/jpeg';
   if (key.endsWith('.mp3')) return 'audio/mpeg';
@@ -72,7 +75,8 @@ async function existsInR2(key) {
     await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     return true;
   } catch (err) {
-    if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) return false;
+    if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404)
+      return false;
     throw err;
   }
 }
@@ -128,7 +132,9 @@ async function runPool(items, worker) {
 async function collectUrls() {
   const [q, g] = await Promise.all([
     prisma.question.findMany({ select: { imageUrl: true, audioUrl: true } }),
-    prisma.questionGroup.findMany({ select: { imageUrl: true, audioUrl: true } }),
+    prisma.questionGroup.findMany({
+      select: { imageUrl: true, audioUrl: true },
+    }),
   ]);
   const set = new Set();
   for (const row of [...q, ...g]) {
@@ -144,8 +150,12 @@ async function main() {
   const urls = await collectUrls();
   const images = urls.filter((u) => u.includes('/img/')).length;
   const audio = urls.filter((u) => u.includes('/sound/')).length;
-  console.log(`Found ${urls.length} distinct URLs (${images} images, ${audio} audio).`);
-  console.log(`Uploading to R2 bucket "${bucket}" with concurrency ${CONCURRENCY}…\n`);
+  console.log(
+    `Found ${urls.length} distinct URLs (${images} images, ${audio} audio).`,
+  );
+  console.log(
+    `Uploading to R2 bucket "${bucket}" with concurrency ${CONCURRENCY}…\n`,
+  );
 
   const results = await runPool(urls, migrateOne);
 
@@ -164,10 +174,14 @@ async function main() {
   const failed = results.filter((r) => r.status === 'failed');
   if (failed.length) {
     console.log('\nFailed URLs (re-run to retry):');
-    failed.slice(0, 20).forEach((r) => console.log(`  ${r.rawUrl} — ${r.error}`));
+    failed
+      .slice(0, 20)
+      .forEach((r) => console.log(`  ${r.rawUrl} — ${r.error}`));
     process.exitCode = 1;
   } else {
-    console.log('\n✅ All media present in R2. Next: confirm R2 public URL, then run rewrite-media-urls.cjs');
+    console.log(
+      '\n✅ All media present in R2. Next: confirm R2 public URL, then run rewrite-media-urls.cjs',
+    );
   }
 }
 

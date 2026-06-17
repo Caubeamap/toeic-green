@@ -18,7 +18,9 @@ const apply = process.argv.includes('--apply');
 
 const publicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '');
 if (!publicUrl || publicUrl.includes('your-')) {
-  throw new Error('R2_PUBLIC_URL is empty or still a placeholder. Set the real public base URL first.');
+  throw new Error(
+    'R2_PUBLIC_URL is empty or still a placeholder. Set the real public base URL first.',
+  );
 }
 if (publicUrl.includes('r2.cloudflarestorage.com')) {
   throw new Error(
@@ -46,26 +48,43 @@ async function countRemaining() {
 async function main() {
   console.log('Source prefix:', SOURCE_PREFIX);
   console.log('Target prefix:', TARGET_PREFIX);
-  console.log('Mode         :', apply ? 'APPLY' : 'DRY-RUN (use --apply to write)');
+  console.log(
+    'Mode         :',
+    apply ? 'APPLY' : 'DRY-RUN (use --apply to write)',
+  );
 
   const before = await countRemaining();
-  console.log(`\nRows still pointing at study4: questions=${before.questions}, question_groups=${before.groups}`);
+  console.log(
+    `\nRows still pointing at study4: questions=${before.questions}, question_groups=${before.groups}`,
+  );
 
   if (!apply) {
     console.log('\nDry-run only. No changes made.');
     return;
   }
 
-  const qImg = await prisma.$executeRaw`UPDATE questions SET image_url = replace(image_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE image_url LIKE ${'%study4.com%'}`;
-  const qAud = await prisma.$executeRaw`UPDATE questions SET audio_url = replace(audio_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE audio_url LIKE ${'%study4.com%'}`;
-  const gImg = await prisma.$executeRaw`UPDATE question_groups SET image_url = replace(image_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE image_url LIKE ${'%study4.com%'}`;
-  const gAud = await prisma.$executeRaw`UPDATE question_groups SET audio_url = replace(audio_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE audio_url LIKE ${'%study4.com%'}`;
+  const qImg =
+    await prisma.$executeRaw`UPDATE questions SET image_url = replace(image_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE image_url LIKE ${'%study4.com%'}`;
+  const qAud =
+    await prisma.$executeRaw`UPDATE questions SET audio_url = replace(audio_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE audio_url LIKE ${'%study4.com%'}`;
+  const gImg =
+    await prisma.$executeRaw`UPDATE question_groups SET image_url = replace(image_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE image_url LIKE ${'%study4.com%'}`;
+  const gAud =
+    await prisma.$executeRaw`UPDATE question_groups SET audio_url = replace(audio_url, ${SOURCE_PREFIX}, ${TARGET_PREFIX}) WHERE audio_url LIKE ${'%study4.com%'}`;
 
-  console.log(`\nUpdated rows: questions.image=${qImg}, questions.audio=${qAud}, groups.image=${gImg}, groups.audio=${gAud}`);
+  console.log(
+    `\nUpdated rows: questions.image=${qImg}, questions.audio=${qAud}, groups.image=${gImg}, groups.audio=${gAud}`,
+  );
 
   const after = await countRemaining();
-  console.log(`Remaining study4 rows: questions=${after.questions}, question_groups=${after.groups}`);
-  console.log(after.questions === 0 && after.groups === 0 ? '\n✅ All media URLs now point at R2.' : '\n⚠️ Some rows still reference study4 — check for other hosts.');
+  console.log(
+    `Remaining study4 rows: questions=${after.questions}, question_groups=${after.groups}`,
+  );
+  console.log(
+    after.questions === 0 && after.groups === 0
+      ? '\n✅ All media URLs now point at R2.'
+      : '\n⚠️ Some rows still reference study4 — check for other hosts.',
+  );
 }
 
 main()

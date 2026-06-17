@@ -46,9 +46,16 @@ async function main() {
   console.log('\n[1] ListBuckets…');
   try {
     const out = await s3.send(new ListBucketsCommand({}));
-    console.log('    buckets:', (out.Buckets || []).map((b) => b.Name).join(', ') || '(none)');
+    console.log(
+      '    buckets:',
+      (out.Buckets || []).map((b) => b.Name).join(', ') || '(none)',
+    );
   } catch (err) {
-    console.log('    ListBuckets failed (may be token-scoped):', err.name, err.message);
+    console.log(
+      '    ListBuckets failed (may be token-scoped):',
+      err.name,
+      err.message,
+    );
   }
 
   console.log(`\n[2] HeadBucket "${bucket}"…`);
@@ -68,7 +75,9 @@ async function main() {
   console.log('    OK — write succeeded.');
 
   console.log('[4] GetObject…');
-  const got = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: testKey }));
+  const got = await s3.send(
+    new GetObjectCommand({ Bucket: bucket, Key: testKey }),
+  );
   const body = await got.Body.transformToString();
   console.log('    read back:', JSON.stringify(body));
 

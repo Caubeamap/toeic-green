@@ -8,8 +8,9 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import type { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -26,7 +27,20 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private passwordResetService: PasswordResetService,
+    private configService: ConfigService,
   ) {}
+
+  /** Thuộc tính cookie refresh_token dùng chung cho cả set và clear (phải khớp
+   *  nhau, nếu không trình duyệt sẽ không xoá đúng cookie). `secure` lấy từ config
+   *  tường minh thay vì so sánh chuỗi NODE_ENV. */
+  private refreshCookieOptions(): CookieOptions {
+    return {
+      httpOnly: true,
+      secure: this.configService.get<boolean>('app.cookieSecure') ?? false,
+      sameSite: 'strict',
+      path: '/',
+    };
+  }
 
   @Public()
   @Throttle({ default: { limit: 3, ttl: 60000 } })
@@ -131,12 +145,7 @@ export class AuthController {
       await this.authService.logout(refreshToken);
     }
 
-    response.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-    });
+    response.clearCookie('refresh_token', this.refreshCookieOptions());
 
     return { message: 'Đăng xuất thành công' };
   }
@@ -152,11 +161,8 @@ export class AuthController {
 
   private setRefreshTokenCookie(response: Response, refreshToken: string) {
     response.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...this.refreshCookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
     });
   }
 }

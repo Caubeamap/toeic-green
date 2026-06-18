@@ -1,10 +1,33 @@
 const MINIMUM_SECRET_LENGTH = 32;
 
+// Các giá trị secret từng được hardcode làm fallback trong mã nguồn (đã có trong
+// git history) → công khai → phải bị từ chối ở MỌI môi trường, kể cả nếu ai đó
+// vô tình đặt lại chúng vào .env.
+const KNOWN_DEFAULT_SECRETS = new Set([
+  'default_jwt_access_secret_2026',
+  'default_jwt_refresh_secret_2026',
+]);
+
 export function validateEnvironment(config: Record<string, unknown>) {
+  // Kiểm tra phổ quát (mọi môi trường): nếu một secret ĐƯỢC cung cấp thì nó phải
+  // đủ mạnh và không phải giá trị default công khai. Khác với production, dev/test
+  // không bắt buộc PHẢI có secret (đã fail-closed ở runtime khi thiếu), nhưng đã
+  // có thì không được yếu/đoán được.
+  assertSecretSafeIfPresent(config, 'JWT_SECRET');
+  assertSecretSafeIfPresent(config, 'JWT_REFRESH_SECRET');
+
+  if (
+    typeof config.JWT_SECRET === 'string' &&
+    config.JWT_SECRET === config.JWT_REFRESH_SECRET
+  ) {
+    throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be different');
+  }
+
   if (config.NODE_ENV !== 'production') {
     return config;
   }
 
+  // Production: bắt buộc PHẢI có secret (không cho phép thiếu để fail-closed im lặng).
   const accessSecret = requireProductionSecret(config, 'JWT_SECRET');
   const refreshSecret = requireProductionSecret(config, 'JWT_REFRESH_SECRET');
 
@@ -16,6 +39,28 @@ export function validateEnvironment(config: Record<string, unknown>) {
   validateMailProvider(config);
 
   return config;
+}
+
+function assertSecretSafeIfPresent(
+  config: Record<string, unknown>,
+  name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET',
+) {
+  const value = config[name];
+  if (value === undefined || value === null) {
+    return;
+  }
+
+  if (typeof value === 'string' && KNOWN_DEFAULT_SECRETS.has(value)) {
+    throw new Error(
+      `${name} must not use a known default value; set a unique strong secret`,
+    );
+  }
+
+  if (typeof value !== 'string' || value.length < MINIMUM_SECRET_LENGTH) {
+    throw new Error(
+      `${name} must be at least ${MINIMUM_SECRET_LENGTH} characters`,
+    );
+  }
 }
 
 function requireProductionSecret(

@@ -10,12 +10,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     private usersService: UsersService,
   ) {
+    const secret = configService.get<string>('jwt.secret');
+    if (!secret) {
+      // Fail closed: không bao giờ dùng secret mặc định công khai để verify token.
+      throw new Error('JWT_SECRET is not configured');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('jwt.secret') ||
-        'default_jwt_access_secret_2026',
+      secretOrKey: secret,
     });
   }
 

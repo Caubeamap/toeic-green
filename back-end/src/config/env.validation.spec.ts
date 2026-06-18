@@ -50,6 +50,24 @@ describe('validateEnvironment', () => {
     ).toThrow('RESEND_API_KEY must be configured');
   });
 
+  it('rejects a known default secret in any environment', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'development',
+        JWT_SECRET: 'default_jwt_access_secret_2026',
+      }),
+    ).toThrow('known default');
+  });
+
+  it('rejects a weak secret even outside production', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'development',
+        JWT_SECRET: 'short',
+      }),
+    ).toThrow('at least 32 characters');
+  });
+
   it('accepts production SMTP mail configuration', () => {
     const config = {
       NODE_ENV: 'production',

@@ -12,6 +12,14 @@ import compression from 'compression';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 export function configureApp(app: NestExpressApplication) {
+  // Sau CDN/reverse-proxy phải tin đúng số hop để lấy client IP thật từ
+  // X-Forwarded-For; nếu không rate-limiter (key theo IP) gom mọi user vào IP của
+  // proxy và chặn nhầm hàng loạt khi có nhiều người dùng. Cấu hình qua TRUST_PROXY.
+  const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+  if (trustProxy !== null) {
+    app.set('trust proxy', trustProxy);
+  }
+
   app.use(helmet());
   app.use(
     compression({
@@ -71,6 +79,20 @@ export function configureApp(app: NestExpressApplication) {
   });
 
   return { frontendUrl };
+}
+
+function parseTrustProxy(value: string | undefined): number | boolean | null {
+  if (value === undefined || value === '') {
+    return null;
+  }
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  const hops = Number.parseInt(value, 10);
+  return Number.isNaN(hops) ? null : hops;
 }
 
 interface ValidationIssue {

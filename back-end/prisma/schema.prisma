@@ -218,9 +218,7 @@ model UserVocabulary {
   exampleTranslation String?   @map("example_translation")
   status             String    @default("LEARNING")
   isFavorite         Boolean   @default(false) @map("is_favorite")
-  note               String?
   audioUrl           String?   @map("audio_url")
-  reviewCount        Int       @default(0) @map("review_count")
   lastReviewedAt     DateTime? @map("last_reviewed_at") @db.Timestamptz
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
 

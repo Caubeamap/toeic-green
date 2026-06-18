@@ -49,11 +49,6 @@ export class UpdateVocabularyDto {
   @IsOptional()
   @IsString()
   @MaxLength(2000)
-  note?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
   audioUrl?: string;
 
   @IsOptional()

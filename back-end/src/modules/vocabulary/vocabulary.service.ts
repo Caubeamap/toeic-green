@@ -35,7 +35,6 @@ export class VocabularyService {
           partOfSpeech: dto.partOfSpeech ?? null,
           example: dto.example ?? null,
           exampleTranslation: dto.exampleTranslation ?? null,
-          note: dto.note ?? null,
           audioUrl: dto.audioUrl ?? null,
           status: this.toDbStatus(dto.status),
           isFavorite: dto.isFavorite ?? false,
@@ -61,7 +60,6 @@ export class VocabularyService {
     if (dto.exampleTranslation !== undefined) {
       data.exampleTranslation = dto.exampleTranslation;
     }
-    if (dto.note !== undefined) data.note = dto.note;
     if (dto.audioUrl !== undefined) data.audioUrl = dto.audioUrl;
     if (dto.isFavorite !== undefined) data.isFavorite = dto.isFavorite;
     if (dto.status !== undefined) {
@@ -140,9 +138,7 @@ export class VocabularyService {
       exampleTranslation: row.exampleTranslation,
       status: row.status === 'MASTERED' ? 'mastered' : 'learning',
       isFavorite: row.isFavorite,
-      note: row.note,
       audioUrl: row.audioUrl,
-      reviewCount: row.reviewCount,
       lastReviewedAt: row.lastReviewedAt
         ? row.lastReviewedAt.toISOString()
         : null,

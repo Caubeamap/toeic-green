@@ -108,13 +108,7 @@ function mapUser(backendUser: BackendUser): MockUser {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(() => {
-    const snapshot = readAuthSessionSnapshot();
-
-    return snapshot
-      ? { status: "loading", user: mapUser(snapshot.user) }
-      : { status: "loading" };
-  });
+  const [state, setState] = useState<AuthState>({ status: "loading" });
   const queryClient = useQueryClient();
 
   /* Khôi phục phiên khi mở web HOÀN TOÀN bằng refresh token (httpOnly cookie):
@@ -126,6 +120,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const snapshot = readAuthSessionSnapshot();
       if (snapshot?.profile) {
         cacheUserProfileResponse(snapshot.profile);
+      }
+      if (snapshot?.user) {
+        await Promise.resolve();
+        setState((current) =>
+          current.status === "loading"
+            ? { status: "loading", user: mapUser(snapshot.user) }
+            : current,
+        );
       }
 
       try {

@@ -90,16 +90,6 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
 
-function getCollectionProgress(
-  words: ExploreWord[],
-  ratingsByWordId: Record<string, FlashcardRating>
-) {
-  if (words.length === 0) return 0;
-
-  const ratedWords = words.filter((word) => ratingsByWordId[word.id]);
-  return Math.round((ratedWords.length / words.length) * 100);
-}
-
 type WordLearnStatus = "known" | "learning" | "new";
 type WordFilter = "all" | WordLearnStatus;
 
@@ -351,10 +341,21 @@ export function ExploreVocabulary({
   const deckSize = reviewDeck.length;
   const currentWord =
     deckSize > 0 ? reviewDeck[currentWordIndex % deckSize] : undefined;
-  const selectedProgress = getCollectionProgress(
-    currentWords,
-    progress.ratingsByWordId
-  );
+  // % tiến độ: dùng wordCount (có sẵn từ summary, tức thì) làm mẫu số thay vì
+  // chờ tải hết danh sách từ nặng → thanh hiển thị nhanh ngay khi có rating.
+  // Trên route chi tiết/review chỉ fetch progress của đúng bộ này nên số key
+  // trong ratingsByWordId = số từ đã rating của bộ hiện tại.
+  const selectedTotalWords = selectedSummary?.wordCount ?? currentWords.length;
+  const selectedProgress =
+    selectedTotalWords > 0
+      ? Math.min(
+          Math.round(
+            (Object.keys(progress.ratingsByWordId).length / selectedTotalWords) *
+              100
+          ),
+          100
+        )
+      : 0;
   const knownWords = currentWords.filter(
     (word) => progress.ratingsByWordId[word.id] === "known"
   ).length;
@@ -1072,7 +1073,7 @@ function CollectionWordsPage({
             </div>
             <div className="mt-2 h-2 rounded-full bg-slate-100">
               <div
-                className="h-2 rounded-full bg-primary"
+                className="h-2 rounded-full bg-primary transition-[width] duration-500 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -1362,7 +1363,7 @@ function FlashcardReview({
 
         <div className="mt-5 h-2 rounded-full bg-slate-100">
           <div
-            className="h-2 rounded-full bg-primary"
+            className="h-2 rounded-full bg-primary transition-[width] duration-500 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

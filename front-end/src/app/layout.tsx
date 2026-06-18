@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import { AppBackground } from "@/components/layout/AppBackground";
 import { AppProviders } from "@/components/layout/AppProviders";
+import { fetchAuthBootstrap } from "@/features/auth/services/auth-server";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -17,12 +18,13 @@ export const metadata: Metadata = {
     "Luyện thi TOEIC online, ghi chú từ vựng hằng ngày và xem giải thích chi tiết sau mỗi bài test."
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const mediaOrigin = process.env.NEXT_PUBLIC_MEDIA_ORIGIN;
+  const initialAuth = await fetchAuthBootstrap();
 
   return (
     <html
@@ -38,7 +40,7 @@ export default function RootLayout({
         className={`${manrope.variable} bg-background font-sans text-on-surface antialiased`}
         suppressHydrationWarning
       >
-        <AppProviders>
+        <AppProviders initialAuth={initialAuth}>
           <AppBackground />
           {children}
         </AppProviders>

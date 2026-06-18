@@ -15,7 +15,6 @@ import {
   api,
   getErrorMessage,
   refreshSession,
-  restoreAccessTokenFromStorage,
   setAccessToken,
 } from "@/lib/api";
 import {
@@ -23,12 +22,7 @@ import {
   clearUserProfileCache,
   type ProfileResponse,
 } from "@/features/profile/services/profile";
-import {
-  clearAuthSessionSnapshot,
-  readAuthSessionSnapshot,
-  writeAuthSessionSnapshot,
-} from "../lib/session-snapshot";
-import { clearPracticeTestsSnapshots } from "@/features/practice/lib/practice-session-snapshot";
+import type { AuthBootstrap } from "../services/auth-server";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -107,27 +101,28 @@ function mapUser(backendUser: BackendUser): MockUser {
   };
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ status: "loading" });
+export function AuthProvider({
+  children,
+  initialAuth,
+}: {
+  children: ReactNode;
+  initialAuth: AuthBootstrap | null;
+}) {
+  const [state, setState] = useState<AuthState>(() =>
+    initialAuth?.user
+      ? { status: "authenticated", user: mapUser(initialAuth.user) }
+      : { status: "loading" },
+  );
   const queryClient = useQueryClient();
 
   /* Khôi phục phiên khi mở web HOÀN TOÀN bằng refresh token (httpOnly cookie):
-     refresh vẫn là nguồn xác thực thật. Snapshot sessionStorage chỉ là UX hint
-     ngắn hạn để F5 không phải hiện skeleton header 1-2s trong lúc chờ mạng. */
+     `initialAuth` được render từ Server Component bằng cookie nên HTML đầu tiên
+     đã có user/profile, không cần lưu token hay snapshot user trong Web Storage.
+     Refresh vẫn chạy nền để mint access token RAM cho các API protected. */
   useEffect(() => {
     async function hydrate() {
-      restoreAccessTokenFromStorage();
-      const snapshot = readAuthSessionSnapshot();
-      if (snapshot?.profile) {
-        cacheUserProfileResponse(snapshot.profile);
-      }
-      if (snapshot?.user) {
-        await Promise.resolve();
-        setState((current) =>
-          current.status === "loading"
-            ? { status: "loading", user: mapUser(snapshot.user) }
-            : current,
-        );
+      if (initialAuth?.profile) {
+        cacheUserProfileResponse(initialAuth.profile);
       }
 
       try {
@@ -140,26 +135,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         cacheUserProfileResponse(data.profile);
-        writeAuthSessionSnapshot(data.user, data.profile);
         setState({ status: "authenticated", user: mapUser(data.user) });
       } catch {
         // Không tìm thấy phiên hoặc refresh token đã hết hạn
-        clearAuthSessionSnapshot();
-        clearPracticeTestsSnapshots();
         clearUserProfileCache();
         setState({ status: "unauthenticated" });
       }
     }
 
     hydrate();
-  }, []);
+  }, [initialAuth]);
 
   /* Lắng nghe sự kiện khi refresh token thất bại để tự động logout */
   useEffect(() => {
     function handleAuthFailure() {
       setAccessToken(null);
-      clearAuthSessionSnapshot();
-      clearPracticeTestsSnapshots();
       clearUserProfileCache();
       queryClient.clear();
       setState({ status: "unauthenticated" });
@@ -182,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
-        writeAuthSessionSnapshot(data.user);
         setState({ status: "authenticated", user });
         return { ok: true };
       } catch (error: unknown) {
@@ -221,8 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       // broadcast → các tab khác cũng đăng xuất theo (đồng bộ phiên chéo tab).
       setAccessToken(null, { broadcast: true });
-      clearAuthSessionSnapshot();
-      clearPracticeTestsSnapshots();
       clearUserProfileCache();
       // Dữ liệu server nằm trong cache React Query (RAM) → xoá sạch để không lẫn
       // sang tài khoản khác trên cùng trình duyệt.
@@ -244,13 +231,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: updates.displayName || state.user.displayName,
       };
 
-      writeAuthSessionSnapshot({
-        id: nextUser.id,
-        email: nextUser.email,
-        displayName: nextUser.displayName,
-        avatarUrl: nextUser.avatarUrl,
-        role: nextUser.role,
-      });
       setState({ status: "authenticated", user: nextUser });
     },
     [state],

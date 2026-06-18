@@ -1,13 +1,8 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/auth";
 import type { PracticeTest } from "../lib/practice-tests";
-import {
-  readPracticeTestsSnapshot,
-  writePracticeTestsSnapshot
-} from "../lib/practice-session-snapshot";
 import {
   getLatestPracticeAttemptResult,
   getPracticeAttemptResult,
@@ -47,13 +42,12 @@ function scopeFor(isAuthenticated: boolean, userId?: string) {
  * - Nếu đã đăng nhập, query "kèm tiến độ" (`/tests/me`) phủ lên để hiện trạng
  *   thái Completed / lịch sử mà không chặn lần paint đầu.
  */
-export function usePracticeCatalog(initialTests?: PracticeTest[]) {
+export function usePracticeCatalog(
+  initialTests?: PracticeTest[],
+  initialProgressTests?: PracticeTest[],
+) {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const userId = user?.id;
-  const progressSnapshot = useMemo(
-    () => (userId ? readPracticeTestsSnapshot(userId) : null),
-    [userId]
-  );
 
   const publicQuery = useQuery({
     queryKey: practiceKeys.tests("public"),
@@ -65,18 +59,9 @@ export function usePracticeCatalog(initialTests?: PracticeTest[]) {
     queryKey: practiceKeys.tests(scopeFor(true, userId)),
     queryFn: listPracticeTestsWithProgress,
     enabled: isAuthenticated && Boolean(userId),
-    initialData: progressSnapshot?.tests,
-    initialDataUpdatedAt: progressSnapshot?.savedAt,
+    initialData: initialProgressTests,
     refetchOnMount: "always"
   });
-
-  useEffect(() => {
-    if (!userId || !progressQuery.data) {
-      return;
-    }
-
-    writePracticeTestsSnapshot(userId, progressQuery.data);
-  }, [userId, progressQuery.data]);
 
   const tests = progressQuery.data ?? publicQuery.data ?? [];
   const isUserProgressPending =

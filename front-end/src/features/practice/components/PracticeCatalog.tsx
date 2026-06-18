@@ -23,16 +23,18 @@ function getLatestAttemptTimestamp(test: PracticeTest) {
 }
 
 export function PracticeCatalog({
-  initialTests
+  initialTests,
+  initialProgressTests
 }: {
   initialTests?: PracticeTest[];
+  initialProgressTests?: PracticeTest[];
 }) {
   const { searchParams, setParams } = useUrlState();
 
   // Hybrid: public list từ SSR (initialData) hiển thị tức thì; tiến độ phủ lên
   // qua React Query khi đã đăng nhập. Cache RAM, không localStorage.
   const { tests, isLoading, isUserProgressPending, error } =
-    usePracticeCatalog(initialTests);
+    usePracticeCatalog(initialTests, initialProgressTests);
   const errorMessage = error
     ? getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
     : null;

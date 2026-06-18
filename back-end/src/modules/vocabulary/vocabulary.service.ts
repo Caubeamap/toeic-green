@@ -15,10 +15,16 @@ type VocabularyRow = Prisma.UserVocabularyGetPayload<object>;
 export class VocabularyService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Sổ tay từ vựng cá nhân: 2000 từ là dư cho người dùng thật, nhưng đặt trần để
+  // một tài khoản bất thường không kéo về payload khổng lồ (bảo vệ bộ nhớ/băng
+  // thông server khi có nhiều người dùng đồng thời).
+  private static readonly MAX_VOCABULARY_ROWS = 2000;
+
   async list(userId: string) {
     const rows = await this.prisma.userVocabulary.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: VocabularyService.MAX_VOCABULARY_ROWS,
     });
 
     return rows.map((row) => this.toResponse(row));
@@ -119,9 +125,7 @@ export class VocabularyService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      return new ConflictException(
-        'Từ này đã có trong sổ từ vựng của bạn.',
-      );
+      return new ConflictException('Từ này đã có trong sổ từ vựng của bạn.');
     }
 
     return error;

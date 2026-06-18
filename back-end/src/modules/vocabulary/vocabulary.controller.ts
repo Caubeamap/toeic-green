@@ -39,10 +39,7 @@ export class VocabularyController {
   }
 
   @Delete(':id')
-  async remove(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-  ) {
+  async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.vocabularyService.remove(userId, id);
   }
 }

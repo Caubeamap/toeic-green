@@ -14,5 +14,5 @@ export default registerAs('mail', () => ({
     `${process.env.FRONTEND_URL || 'http://localhost:6868'}/verify-email`,
   resetPasswordUrl:
     process.env.EMAIL_RESET_PASSWORD_URL ||
-    `${process.env.FRONTEND_URL || 'http://localhost:6868'}/reset-password`,
+    `${process.env.FRONTEND_URL || 'http://localhost:6868'}/forgot-password`,
 }));

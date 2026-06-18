@@ -12,6 +12,11 @@ type FormStatus =
   | { type: "error"; message: string }
   | { type: "success"; message: string };
 
+type ForgotPasswordFormProps = {
+  initialEmail?: string;
+  initialStep?: "email" | "otp";
+};
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function evaluatePassword(value: string) {
@@ -60,9 +65,16 @@ function PasswordCriterion({ met, text }: { met: boolean; text: string }) {
   );
 }
 
-export function ForgotPasswordForm() {
-  const [step, setStep] = useState<"email" | "otp" | "new-password" | "success">("email");
-  const [email, setEmail] = useState("");
+export function ForgotPasswordForm({
+  initialEmail = "",
+  initialStep = "email"
+}: ForgotPasswordFormProps) {
+  const normalizedInitialEmail = initialEmail.trim().toLowerCase();
+  const canStartAtOtp = initialStep === "otp" && EMAIL_REGEX.test(normalizedInitialEmail);
+  const [step, setStep] = useState<"email" | "otp" | "new-password" | "success">(
+    canStartAtOtp ? "otp" : "email"
+  );
+  const [email, setEmail] = useState(normalizedInitialEmail);
   const [otpValues, setOtpValues] = useState<string[]>(Array(6).fill(""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

@@ -106,7 +106,6 @@ export function VocabularyDetailDrawer({
         meaning: form.meaning.trim(),
         example: form.example.trim(),
         exampleTranslation: form.exampleTranslation.trim(),
-        note: form.note?.trim() || undefined,
       });
       setIsEditing(false);
     } catch (error) {
@@ -385,8 +384,6 @@ export function VocabularyDetailDrawer({
                     </span>
                   </>
                 )}
-                <span className="text-zinc-300">·</span>
-                <span>Reviewed {word.reviewCount}×</span>
               </div>
             </section>
 

@@ -16,7 +16,9 @@ import {
   createVocabularyWord,
   deleteVocabularyWord,
   fetchVocabularyWords,
+  readVocabularyCache,
   updateVocabularyWord,
+  writeVocabularyCache,
   type VocabularyInput
 } from "../services/api";
 
@@ -36,7 +38,7 @@ const SORT_VALUES: SortOption[] = ["recent", "az"];
 
 export function VocabularyNotebook() {
   // ── State ──────────────────────────────────────────────────────
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [words, setWords] = useState<VocabularyWord[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
@@ -63,27 +65,46 @@ export function VocabularyNotebook() {
   const setSort = (value: SortOption) =>
     setParams({ sort: value === "recent" ? null : value });
 
-  // Tải sổ từ vựng của user từ DB (trang đã được RequireAuth bảo vệ).
+  // Tải sổ từ vựng (trang đã được RequireAuth bảo vệ). Hiển thị tức thì từ cache
+  // nếu có, rồi revalidate nền từ DB → không bắt người dùng chờ spinner.
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !user) return;
 
     let mounted = true;
-    fetchVocabularyWords()
-      .then((data) => {
-        if (!mounted) return;
-        setWords(data);
+    const timer = window.setTimeout(() => {
+      // Seed tức thì từ cache (nếu có) để khỏi hiện spinner.
+      const cached = readVocabularyCache(user.id);
+      if (cached && mounted) {
+        setWords(cached);
         setIsLoaded(true);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setWords([]);
-        setIsLoaded(true);
-      });
+      }
+
+      // Revalidate nền từ DB.
+      fetchVocabularyWords()
+        .then((data) => {
+          if (!mounted) return;
+          setWords(data);
+          setIsLoaded(true);
+        })
+        .catch(() => {
+          if (!mounted) return;
+          // Lỗi mạng: giữ dữ liệu cache (nếu có), chỉ tắt spinner.
+          setIsLoaded(true);
+        });
+    }, 0);
 
     return () => {
       mounted = false;
+      window.clearTimeout(timer);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
+
+  // Đồng bộ cache mỗi khi danh sách thay đổi (sau CRUD) để lần sau hiện tức thì.
+  useEffect(() => {
+    if (isLoaded && user) {
+      writeVocabularyCache(user.id, words);
+    }
+  }, [words, isLoaded, user]);
 
   // ── Derived data ───────────────────────────────────────────────
   const stats = useMemo(() => computeStats(words), [words]);

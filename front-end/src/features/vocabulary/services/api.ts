@@ -12,9 +12,7 @@ type VocabularyApiWord = {
   exampleTranslation: string | null;
   status: VocabularyStatus;
   isFavorite: boolean;
-  note: string | null;
   audioUrl: string | null;
-  reviewCount: number;
   lastReviewedAt: string | null;
   createdAt: string;
 };
@@ -27,7 +25,6 @@ export type VocabularyInput = {
   partOfSpeech?: PartOfSpeech;
   example?: string;
   exampleTranslation?: string;
-  note?: string;
   audioUrl?: string;
   status?: VocabularyStatus;
   isFavorite?: boolean;
@@ -59,12 +56,55 @@ function mapWord(data: VocabularyApiWord): VocabularyWord {
     tags: [],
     status: data.status === "mastered" ? "mastered" : "learning",
     isFavorite: data.isFavorite,
-    note: data.note ?? undefined,
     audioUrl: data.audioUrl ?? undefined,
     addedAt: data.createdAt,
-    lastReviewedAt: data.lastReviewedAt ?? undefined,
-    reviewCount: data.reviewCount
+    lastReviewedAt: data.lastReviewedAt ?? undefined
   };
+}
+
+/* ──────────────── Cache (stale-while-revalidate, theo user) ────────────────
+ * Hiển thị danh sách tức thì từ cache rồi revalidate nền → không bắt người dùng
+ * chờ spinner ở các lần truy cập sau (kể cả refresh trang). Cache gắn theo userId
+ * nên không rò rỉ dữ liệu giữa các tài khoản; key có tiền tố "toeic-green-" để
+ * được dọn sạch khi đăng xuất.
+ */
+const VOCAB_CACHE_KEY = "toeic-green-vocabulary-cache";
+let memCache: { userId: string; words: VocabularyWord[] } | null = null;
+
+export function readVocabularyCache(userId: string): VocabularyWord[] | null {
+  if (memCache && memCache.userId === userId) return memCache.words;
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(VOCAB_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      userId?: string;
+      words?: VocabularyWord[];
+    };
+    if (parsed.userId !== userId || !Array.isArray(parsed.words)) return null;
+    memCache = { userId, words: parsed.words };
+    return parsed.words;
+  } catch {
+    return null;
+  }
+}
+
+export function writeVocabularyCache(
+  userId: string,
+  words: VocabularyWord[]
+): void {
+  memCache = { userId, words };
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      VOCAB_CACHE_KEY,
+      JSON.stringify({ userId, words })
+    );
+  } catch {
+    // Storage đầy/không khả dụng — bỏ qua, vẫn còn mem cache cho phiên hiện tại.
+  }
 }
 
 export async function fetchVocabularyWords(): Promise<VocabularyWord[]> {

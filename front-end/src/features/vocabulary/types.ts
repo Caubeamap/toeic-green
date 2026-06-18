@@ -17,11 +17,9 @@ export type VocabularyWord = {
   tags: string[];
   status: VocabularyStatus;
   isFavorite: boolean;
-  note?: string;
   audioUrl?: string;
   addedAt: string;
   lastReviewedAt?: string;
-  reviewCount: number;
 };
 
 export const TOEIC_TAGS = [

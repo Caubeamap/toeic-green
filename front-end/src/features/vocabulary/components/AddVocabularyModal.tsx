@@ -20,7 +20,6 @@ type FormData = {
   example: string;
   exampleTranslation: string;
   tags: string[];
-  note: string;
   audioUrl: string;
 };
 
@@ -32,7 +31,6 @@ const INITIAL_FORM: FormData = {
   example: "",
   exampleTranslation: "",
   tags: [],
-  note: "",
   audioUrl: "",
 };
 
@@ -112,7 +110,6 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
       meaning: form.meaning.trim(),
       example: form.example.trim(),
       exampleTranslation: form.exampleTranslation.trim(),
-      note: form.note.trim() || undefined,
       audioUrl: form.audioUrl || undefined,
       status: "learning",
       isFavorite: false,

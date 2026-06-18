@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Loader2, Plus, Search, X } from "lucide-react";
+import { AlertCircle, Loader2, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PartOfSpeech, VocabularyWord } from "../types";
+import { getErrorMessage } from "@/lib/api";
+import type { PartOfSpeech } from "../types";
 import { lookupWord } from "../services/dictionary";
+import type { VocabularyInput } from "../services/api";
 
 type AddModalProps = {
   open: boolean;
   onClose: () => void;
-  onAdd: (word: VocabularyWord) => void;
+  onAdd: (input: VocabularyInput) => Promise<void>;
 };
 
 type FormData = {
@@ -47,6 +49,8 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [isLooking, setIsLooking] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<"idle" | "success" | "not-found">("idle");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -97,37 +101,44 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
     return Object.keys(newErrors).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || isSubmitting) return;
 
-    const newWord: VocabularyWord = {
-      id: crypto.randomUUID(),
+    const input: VocabularyInput = {
       word: form.word.trim(),
       phonetic: form.phonetic.trim() || `/${form.word.trim()}/`,
       partOfSpeech: form.partOfSpeech,
       meaning: form.meaning.trim(),
       example: form.example.trim(),
       exampleTranslation: form.exampleTranslation.trim(),
-      tags: form.tags,
-      status: "learning",
-      isFavorite: false,
       note: form.note.trim() || undefined,
       audioUrl: form.audioUrl || undefined,
-      addedAt: new Date().toISOString(),
-      reviewCount: 0,
+      status: "learning",
+      isFavorite: false,
     };
 
-    onAdd(newWord);
-    setForm(INITIAL_FORM);
-    setErrors({});
-    setLookupStatus("idle");
-    onClose();
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onAdd(input);
+      setForm(INITIAL_FORM);
+      setErrors({});
+      setLookupStatus("idle");
+      onClose();
+    } catch (error) {
+      setSubmitError(
+        getErrorMessage(error, "Không thể lưu từ. Vui lòng thử lại.")
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
 
   function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (submitError) setSubmitError(null);
     if (errors[key]) {
       setErrors((prev) => {
         const copy = { ...prev };
@@ -145,12 +156,12 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/30"
+        className="fixed inset-0 z-[100] bg-black/30"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
         <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
@@ -268,19 +279,30 @@ export function AddVocabularyModal({ open, onClose, onAdd }: AddModalProps) {
 
 
 
+            {/* Lỗi khi lưu (vd từ đã tồn tại trong sổ) */}
+            {submitError && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-600">
+                <AlertCircle size={14} />
+                <span>{submitError}</span>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl px-4 py-2.5 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100"
+                disabled={isSubmitting}
+                className="rounded-xl px-4 py-2.5 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-growth-dark px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#005d16]"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-growth-dark px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#005d16] disabled:cursor-not-allowed disabled:opacity-60"
               >
+                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
                 Add Word
               </button>
             </div>

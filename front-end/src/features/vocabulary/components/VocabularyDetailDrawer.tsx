@@ -1,16 +1,28 @@
 import { useState, useEffect } from "react";
-import { Heart, Volume2, X, Clock, Edit2, AlertCircle } from "lucide-react";
+import {
+  Heart,
+  Volume2,
+  X,
+  Clock,
+  Edit2,
+  AlertCircle,
+  Loader2,
+  Trash2
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/api";
 import type { PartOfSpeech, VocabularyWord } from "../types";
 import { STATUS_CONFIG, POS_LABELS } from "../types";
 import { playAudio } from "../services/storage";
+import type { VocabularyInput } from "../services/api";
 
 type DrawerProps = {
   word: VocabularyWord | null;
   onClose: () => void;
   onToggleFavorite: (id: string) => void;
   onToggleMastered: (id: string) => void;
-  onUpdate: (updatedWord: VocabularyWord) => void;
+  onUpdate: (id: string, patch: Partial<VocabularyInput>) => Promise<void>;
+  onDelete: (id: string) => void;
 };
 
 const POS_OPTIONS: { value: PartOfSpeech; label: string }[] = [
@@ -27,10 +39,14 @@ export function VocabularyDetailDrawer({
   onToggleFavorite,
   onToggleMastered,
   onUpdate,
+  onDelete,
 }: DrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState<VocabularyWord | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof VocabularyWord, string>>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Reset edit form when word changes or drawer opens
   useEffect(() => {
@@ -39,6 +55,8 @@ export function VocabularyDetailDrawer({
         setForm({ ...word });
         setIsEditing(false);
         setErrors({});
+        setSaveError(null);
+        setConfirmDelete(false);
       } else {
         setForm(null);
       }
@@ -75,18 +93,29 @@ export function VocabularyDetailDrawer({
     return Object.keys(newErrors).length === 0;
   }
 
-  function handleSave() {
-    if (!validate() || !form) return;
-    onUpdate({
-      ...form,
-      word: form.word.trim(),
-      phonetic: form.phonetic.trim() || `/${form.word.trim()}/`,
-      meaning: form.meaning.trim(),
-      example: form.example.trim(),
-      exampleTranslation: form.exampleTranslation.trim(),
-      note: form.note?.trim() || undefined,
-    });
-    setIsEditing(false);
+  async function handleSave() {
+    if (!validate() || !form || isSaving) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onUpdate(form.id, {
+        word: form.word.trim(),
+        phonetic: form.phonetic.trim() || `/${form.word.trim()}/`,
+        partOfSpeech: form.partOfSpeech,
+        meaning: form.meaning.trim(),
+        example: form.example.trim(),
+        exampleTranslation: form.exampleTranslation.trim(),
+        note: form.note?.trim() || undefined,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      setSaveError(
+        getErrorMessage(error, "Không thể lưu thay đổi. Vui lòng thử lại.")
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function handleCancel() {
@@ -95,18 +124,19 @@ export function VocabularyDetailDrawer({
     }
     setIsEditing(false);
     setErrors({});
+    setSaveError(null);
   }
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/30 transition-opacity"
+        className="fixed inset-0 z-[100] bg-black/30 transition-opacity"
         onClick={onClose}
       />
 
       {/* Drawer panel */}
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto bg-white shadow-xl sm:rounded-l-3xl">
+      <div className="fixed inset-y-0 right-0 z-[110] w-full max-w-md overflow-y-auto bg-white shadow-xl sm:rounded-l-3xl">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-5 py-4">
           <h2 className="text-lg font-extrabold text-ink">
@@ -199,20 +229,30 @@ export function VocabularyDetailDrawer({
               />
             </FieldGroup>
 
+            {saveError && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-600">
+                <AlertCircle size={14} />
+                <span>{saveError}</span>
+              </div>
+            )}
+
             {/* Actions for editing */}
             <div className="absolute bottom-0 left-0 right-0 border-t border-zinc-100 bg-white p-5 flex gap-2.5">
               <button
                 type="button"
                 onClick={handleCancel}
-                className="flex-1 rounded-xl border border-zinc-200 py-3 text-sm font-bold text-zinc-500 transition hover:bg-zinc-50"
+                disabled={isSaving}
+                className="flex-1 rounded-xl border border-zinc-200 py-3 text-sm font-bold text-zinc-500 transition hover:bg-zinc-50 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex-1 rounded-xl bg-growth-dark py-3 text-sm font-bold text-white transition hover:bg-[#005d16]"
+                disabled={isSaving}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-growth-dark py-3 text-sm font-bold text-white transition hover:bg-[#005d16] disabled:cursor-not-allowed disabled:opacity-60"
               >
+                {isSaving && <Loader2 size={14} className="animate-spin" />}
                 Save Changes
               </button>
             </div>
@@ -348,6 +388,39 @@ export function VocabularyDetailDrawer({
                 <span className="text-zinc-300">·</span>
                 <span>Reviewed {word.reviewCount}×</span>
               </div>
+            </section>
+
+            {/* Xóa từ khỏi sổ */}
+            <section className="border-t border-zinc-100 pt-4">
+              {confirmDelete ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <span className="text-xs font-bold text-red-600">
+                    Xóa từ này khỏi sổ?
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-500 transition hover:bg-white"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={() => onDelete(word.id)}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-red-700"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 transition hover:text-red-600"
+                >
+                  <Trash2 size={14} />
+                  Xóa từ này
+                </button>
+              )}
             </section>
           </div>
         )}

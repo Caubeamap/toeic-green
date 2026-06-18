@@ -548,7 +548,7 @@ function FullTestTab({
 
 function DevelopmentNoticeDialog({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/45 px-4 backdrop-blur-sm">
       <div
         className="w-full max-w-md rounded-3xl border border-white/70 bg-white p-6 shadow-glass"
         role="dialog"

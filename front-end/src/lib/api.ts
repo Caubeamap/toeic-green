@@ -1,8 +1,15 @@
+import { postAuthMessage, subscribeAuthMessages } from "./auth-channel";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2409/api";
 const ACCESS_TOKEN_STORAGE_KEY = "toeic-green-access-token";
+const REFRESH_LOCK = "toeic-green-auth-refresh";
+// Cửa sổ coi token vừa nhận (từ tab khác hoặc lần refresh trước) là còn tươi để
+// bỏ qua một lần gọi /auth/refresh thừa khi đang giữ lock.
+const FRESH_TOKEN_WINDOW_MS = 5_000;
 
 let accessToken: string | null = null;
 let accessTokenVersion = 0;
+let lastTokenAt = 0;
 let refreshPromise: Promise<RefreshResponse | null> | null = null;
 
 function getSessionStorage() {
@@ -17,21 +24,33 @@ function getSessionStorage() {
   }
 }
 
-export function setAccessToken(token: string | null) {
+export function setAccessToken(
+  token: string | null,
+  options: { broadcast?: boolean } = {}
+) {
   if (accessToken !== token) {
     accessTokenVersion += 1;
   }
   accessToken = token;
-
-  const storage = getSessionStorage();
-  if (!storage) {
-    return;
+  if (token) {
+    lastTokenAt = Date.now();
   }
 
-  if (token) {
-    storage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-  } else {
-    storage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  const storage = getSessionStorage();
+  if (storage) {
+    if (token) {
+      storage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+    } else {
+      storage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+    }
+  }
+
+  // Phát thay đổi sang các tab khác (chỉ khi do tab này khởi xướng, không phát
+  // lại khi đang xử lý message nhận được → tránh vòng lặp).
+  if (options.broadcast) {
+    postAuthMessage(
+      token ? { type: "token", token, at: lastTokenAt } : { type: "logout" }
+    );
   }
 }
 
@@ -72,9 +91,40 @@ export function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function notifyAuthFailure() {
-  setAccessToken(null);
+  // Refresh token là cookie dùng chung → phiên chết với mọi tab; phát logout sang
+  // các tab khác để chúng cũng thoát.
+  setAccessToken(null, { broadcast: true });
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("toeic-auth-failed"));
+  }
+}
+
+async function fetchRefresh(): Promise<RefreshResponse | null> {
+  // Nếu một tab khác (hoặc lần chạy trước trong tab này) vừa cấp token mới trong
+  // FRESH_TOKEN_WINDOW_MS thì dùng luôn, khỏi gọi /auth/refresh thừa (giảm đua
+  // rotation). Web Locks ở refreshSession đã đảm bảo các lần refresh tuần tự.
+  if (accessToken && Date.now() - lastTokenAt < FRESH_TOKEN_WINDOW_MS) {
+    return { accessToken };
+  }
+
+  try {
+    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      notifyAuthFailure();
+      return null;
+    }
+
+    const data = (await response.json()) as RefreshResponse;
+    setAccessToken(data.accessToken, { broadcast: true });
+    return data;
+  } catch {
+    notifyAuthFailure();
+    return null;
   }
 }
 
@@ -82,33 +132,39 @@ export async function refreshSession<
   ResponseData extends RefreshResponse = RefreshResponse,
 >(): Promise<ResponseData | null> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${BASE_URL}/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          notifyAuthFailure();
-          return null;
-        }
+    // Single-flight TRONG tab (refreshPromise) + GIỮA các tab (Web Locks nếu có).
+    // Web Locks tuần tự hoá nên hai tab không cùng gửi refresh token cũ một lúc
+    // (nguyên nhân gây replay → logout nhầm). Trình duyệt cũ không có Web Locks
+    // thì lui về single-flight trong tab + cửa sổ token tươi (giảm thiểu đua).
+    const run =
+      typeof navigator !== "undefined" && navigator.locks
+        ? navigator.locks.request(REFRESH_LOCK, () => fetchRefresh())
+        : fetchRefresh();
 
-        const data = (await response.json()) as RefreshResponse;
-        setAccessToken(data.accessToken);
-        return data;
-      })
-      .catch(() => {
-        notifyAuthFailure();
-        return null;
-      })
-      .finally(() => {
-        refreshPromise = null;
-      });
+    refreshPromise = Promise.resolve(run).finally(() => {
+      refreshPromise = null;
+    });
   }
 
   return refreshPromise as Promise<ResponseData | null>;
+}
+
+// Lắng nghe đồng bộ từ các tab khác (chỉ ở trình duyệt, đăng ký một lần/tab).
+if (typeof window !== "undefined") {
+  subscribeAuthMessages((message) => {
+    if (message.type === "token") {
+      if (message.token !== accessToken) {
+        // Nhận token từ tab khác → áp dụng, KHÔNG phát lại (tránh vòng lặp).
+        setAccessToken(message.token);
+      }
+    } else {
+      // Tab khác đã logout/hết phiên → tab này cũng thoát (không phát lại).
+      if (accessToken !== null) {
+        setAccessToken(null);
+      }
+      window.dispatchEvent(new CustomEvent("toeic-auth-failed"));
+    }
+  });
 }
 
 async function refreshAccessToken(): Promise<boolean> {

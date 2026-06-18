@@ -195,7 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.post("/auth/logout");
     } catch {
     } finally {
-      setAccessToken(null);
+      // broadcast → các tab khác cũng đăng xuất theo (đồng bộ phiên chéo tab).
+      setAccessToken(null, { broadcast: true });
       clearUserProfileCache();
       // Dữ liệu server nằm trong cache React Query (RAM) → xoá sạch để không lẫn
       // sang tài khoản khác trên cùng trình duyệt.

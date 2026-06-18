@@ -22,8 +22,9 @@ import {
   loadPracticeAttempts,
   type StoredPracticeAttempt
 } from "@/features/practice/lib/practice-progress";
-import { loadWords } from "@/features/vocabulary/services/storage";
+import { fetchVocabularyWords } from "@/features/vocabulary/services/api";
 import type { VocabularyWord } from "@/features/vocabulary/types";
+import { useAuth } from "@/features/auth/hooks/auth";
 import { cn } from "@/lib/utils";
 
 type ProgressSnapshot = {
@@ -170,28 +171,41 @@ function getStatusMessage({
 }
 
 export function ProgressOverview() {
+  const { isAuthenticated } = useAuth();
   const [snapshot, setSnapshot] = useState<ProgressSnapshot>(emptySnapshot);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    function refreshProgress() {
+    let cancelled = false;
+
+    async function refreshProgress() {
+      // Vocab lấy từ DB; khách chưa đăng nhập thì không gọi API (tránh 401).
+      const words = isAuthenticated
+        ? await fetchVocabularyWords().catch(() => [] as VocabularyWord[])
+        : [];
+      if (cancelled) return;
       setSnapshot({
         attempts: loadPracticeAttempts(),
-        words: loadWords()
+        words
       });
       setIsLoaded(true);
     }
 
-    const timer = window.setTimeout(refreshProgress, 0);
-    window.addEventListener("storage", refreshProgress);
-    window.addEventListener("focus", refreshProgress);
+    const handleRefresh = () => {
+      void refreshProgress();
+    };
+
+    const timer = window.setTimeout(handleRefresh, 0);
+    window.addEventListener("storage", handleRefresh);
+    window.addEventListener("focus", handleRefresh);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
-      window.removeEventListener("storage", refreshProgress);
-      window.removeEventListener("focus", refreshProgress);
+      window.removeEventListener("storage", handleRefresh);
+      window.removeEventListener("focus", handleRefresh);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const progress = useMemo(() => {
     const attempts = [...snapshot.attempts].sort(

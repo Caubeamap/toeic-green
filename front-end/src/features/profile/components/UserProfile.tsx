@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
 import { loadPracticeAttempts } from "@/features/practice";
-import { loadWords } from "@/features/vocabulary/services/storage";
+import { fetchVocabularyWords } from "@/features/vocabulary/services/api";
 import type { VocabularyWord } from "@/features/vocabulary/types";
 import { cn } from "@/lib/utils";
 import { loadUserProfile, getDefaultUserProfile } from "../services/profile";
@@ -66,6 +66,25 @@ export function UserProfile() {
     profile: UserProfileData;
     userId: string;
   } | null>(null);
+  const [vocabWords, setVocabWords] = useState<VocabularyWord[]>([]);
+
+  // Tải từ vựng cá nhân từ DB để tính "Từ vựng đã lưu / Từ đã thuộc".
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    fetchVocabularyWords()
+      .then((data) => {
+        if (!cancelled) setVocabWords(data);
+      })
+      .catch(() => {
+        if (!cancelled) setVocabWords([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -111,10 +130,10 @@ export function UserProfile() {
     }
 
     return {
-      ...getProfileStats(loadWords()),
+      ...getProfileStats(vocabWords),
       attempts: loadPracticeAttempts().length
     };
-  }, [user]);
+  }, [user, vocabWords]);
 
   const profileDetails = useMemo(() => {
     if (!profile) {

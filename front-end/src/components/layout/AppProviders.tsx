@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/features/auth";
 import { makeQueryClient } from "@/lib/query-client";
+import { UserDataPrefetcher } from "./UserDataPrefetcher";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   // QueryClient ổn định theo vòng đời app; bọc ngoài AuthProvider để auth có thể
@@ -30,7 +31,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <UserDataPrefetcher />
+        {children}
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { normalizeEmail } from '../../common/utils/normalize-email';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -25,8 +25,24 @@ interface RefreshTokenPayload {
   exp: number;
 }
 
+type SessionBootstrapResult = {
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+    role: string;
+  };
+  profile: Record<string, unknown> | null;
+};
+
 @Injectable()
 export class AuthService {
+  private bootstrapCache = new Map<
+    string,
+    { expiresAt: number; value: SessionBootstrapResult }
+  >();
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
@@ -145,8 +161,66 @@ export class AuthService {
     }
   }
 
+  async bootstrap(refreshToken: string): Promise<SessionBootstrapResult> {
+    const cacheKey = this.hashToken(refreshToken);
+    const cached = this.bootstrapCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    try {
+      const payload = await this.verifyRefreshToken(refreshToken);
+      const isSessionValid = await this.refreshSessionsService.isValid(
+        payload.sub,
+        payload.jti,
+        refreshToken,
+      );
+      if (!isSessionValid) {
+        throw new UnauthorizedException('Refresh session is no longer valid');
+      }
+
+      const user = await this.usersService.findSessionById(payload.sub);
+      if (!user || user.status !== 'ACTIVE' || !user.emailVerifiedAt) {
+        throw new UnauthorizedException('Tài khoản không còn hoạt động');
+      }
+
+      const result = {
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+        },
+        profile: user.profile
+          ? {
+              ...user.profile,
+              user: {
+                email: user.email,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                role: user.role,
+              },
+            }
+          : null,
+      };
+
+      this.bootstrapCache.set(cacheKey, {
+        expiresAt: Date.now() + 15_000,
+        value: result,
+      });
+
+      return result;
+    } catch {
+      throw new UnauthorizedException(
+        'Refresh Token không hợp lệ hoặc đã hết hạn',
+      );
+    }
+  }
+
   async logout(refreshToken: string) {
     try {
+      this.bootstrapCache.delete(this.hashToken(refreshToken));
       const payload = await this.verifyRefreshToken(refreshToken);
       await this.refreshSessionsService.revoke(
         payload.sub,
@@ -179,6 +253,10 @@ export class AuthService {
     }
 
     return payload;
+  }
+
+  private hashToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   private async generateTokens(userId: string, email: string, role: string) {

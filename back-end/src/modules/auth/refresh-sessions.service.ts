@@ -68,6 +68,21 @@ export class RefreshSessionsService {
     });
   }
 
+  async isValid(userId: string, sessionId: string, token: string) {
+    const session = await this.prisma.refreshSession.findFirst({
+      where: {
+        id: sessionId,
+        userId,
+        tokenHash: this.hashToken(token),
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+
+    return Boolean(session);
+  }
+
   private hashToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
   }

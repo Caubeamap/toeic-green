@@ -1,12 +1,26 @@
-import { Body, Controller, Get, Header, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { AuthService } from '../auth/auth.service';
 import { SubmitPracticeAttemptDto } from './dto/submit-practice-attempt.dto';
 import { PracticeService } from './practice.service';
 
 @Controller('practice')
 export class PracticeController {
-  constructor(private readonly practiceService: PracticeService) {}
+  constructor(
+    private readonly practiceService: PracticeService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Public()
   @Get('tests')
@@ -18,6 +32,18 @@ export class PracticeController {
   @Get('tests/me')
   async listTestsForCurrentUser(@CurrentUser('id') userId: string) {
     return this.practiceService.listTestsForUser(userId);
+  }
+
+  @Public()
+  @Get('tests/bootstrap')
+  async listTestsForBootstrap(@Req() request: Request) {
+    const refreshToken = this.getRefreshToken(request);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Không tìm thấy Refresh Token');
+    }
+
+    const session = await this.authService.bootstrap(refreshToken);
+    return this.practiceService.listTestsForUser(session.user.id);
   }
 
   @Public()
@@ -74,5 +100,13 @@ export class PracticeController {
     @Param('attemptId') attemptId: string,
   ) {
     return this.practiceService.getAttemptResult(userId, slug, attemptId);
+  }
+
+  private getRefreshToken(request: Request) {
+    const requestCookies = request.cookies as
+      | Record<string, string>
+      | undefined;
+
+    return requestCookies?.refresh_token;
   }
 }

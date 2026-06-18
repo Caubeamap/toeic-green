@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -107,6 +108,18 @@ export class AuthController {
       user: result.user,
       accessToken: result.accessToken,
     };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Get('bootstrap')
+  async bootstrap(@Req() request: Request) {
+    const refreshToken = this.getRefreshToken(request);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Không tìm thấy Refresh Token');
+    }
+
+    return this.authService.bootstrap(refreshToken);
   }
 
   @Public()

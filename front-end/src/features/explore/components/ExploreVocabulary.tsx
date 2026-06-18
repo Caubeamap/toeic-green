@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { shuffle } from "@/lib/shuffle";
-import { useUrlNumber, useUrlParam } from "@/lib/url-state";
+import { useUrlParam, useUrlState } from "@/lib/url-state";
 import { useAuth } from "@/features/auth/hooks/auth";
 import { POS_LABELS } from "@/features/vocabulary/types";
 import { playAudio } from "@/features/vocabulary/services/storage";
@@ -99,6 +99,41 @@ function getCollectionProgress(
   const ratedWords = words.filter((word) => ratingsByWordId[word.id]);
   return Math.round((ratedWords.length / words.length) * 100);
 }
+
+type WordLearnStatus = "known" | "learning" | "new";
+type WordFilter = "all" | WordLearnStatus;
+
+/** Suy ra trạng thái học của 1 từ từ rating đã lưu. */
+function getWordStatus(rating: FlashcardRating | undefined): WordLearnStatus {
+  if (rating === "known") return "known";
+  if (rating) return "learning"; // easy / medium / hard = đang ôn
+  return "new";
+}
+
+const STATUS_BADGE: Record<
+  WordLearnStatus,
+  { label: string; className: string }
+> = {
+  known: {
+    label: "Đã biết",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700"
+  },
+  learning: {
+    label: "Đang ôn",
+    className: "border-amber-200 bg-amber-50 text-amber-700"
+  },
+  new: {
+    label: "Chưa học",
+    className: "border-slate-200 bg-slate-50 text-slate-500"
+  }
+};
+
+const WORD_FILTERS: { key: WordFilter; label: string }[] = [
+  { key: "all", label: "Tất cả" },
+  { key: "new", label: "Chưa học" },
+  { key: "learning", label: "Đang ôn" },
+  { key: "known", label: "Đã biết" }
+];
 
 type ExploreVocabularyProps = {
   initialCollectionSlug?: string;
@@ -626,6 +661,7 @@ export function ExploreVocabulary({
           <CollectionWordsPage
             key={selectedCollection.id}
             collection={selectedCollection}
+            ratingsByWordId={progress.ratingsByWordId}
             progressPercent={selectedProgress}
             isSaved={progress.savedCollectionIds.includes(selectedCollection.id)}
             isLoadingWords={
@@ -855,6 +891,7 @@ function CollectionRouteMessage({
 
 function CollectionWordsPage({
   collection,
+  ratingsByWordId,
   progressPercent,
   isSaved,
   isLoadingWords,
@@ -864,6 +901,7 @@ function CollectionWordsPage({
   onToggleSaved
 }: {
   collection: ExploreCollection;
+  ratingsByWordId: Record<string, FlashcardRating>;
   progressPercent: number;
   isSaved: boolean;
   isLoadingWords: boolean;
@@ -873,30 +911,66 @@ function CollectionWordsPage({
   onToggleSaved: () => void;
 }) {
   const listTopRef = useRef<HTMLDivElement | null>(null);
+  const { searchParams, setParams } = useUrlState();
 
   const WORDS_PER_PAGE = 20;
   const hasWords = collection.words.length > 0;
   const isStartDisabled = isLoadingWords || hasLoadError || !hasWords;
-  const totalWords = collection.words.length;
-  const totalPages = Math.ceil(totalWords / WORDS_PER_PAGE);
 
-  // Trang hiện tại lấy từ URL (?page=) để bookmark/refresh/back-forward đều đúng.
-  const [currentPage, setCurrentPage] = useUrlNumber("page", {
-    defaultValue: 1,
-    min: 1,
-    max: Math.max(totalPages, 1)
-  });
+  // Số lượng từ theo từng trạng thái (tính trên toàn bộ list) — cho nhãn bộ lọc.
+  const statusCounts = useMemo(() => {
+    const counts: Record<WordFilter, number> = {
+      all: collection.words.length,
+      known: 0,
+      learning: 0,
+      new: 0
+    };
+    for (const word of collection.words) {
+      counts[getWordStatus(ratingsByWordId[word.id])] += 1;
+    }
+    return counts;
+  }, [collection.words, ratingsByWordId]);
+
+  // Bộ lọc trạng thái lấy từ URL (?filter=) để bookmark/refresh đều đúng.
+  const filterParam = searchParams.get("filter");
+  const activeFilter: WordFilter = WORD_FILTERS.some(
+    (item) => item.key === filterParam
+  )
+    ? (filterParam as WordFilter)
+    : "all";
+
+  const filteredWords = useMemo(() => {
+    if (activeFilter === "all") return collection.words;
+    return collection.words.filter(
+      (word) => getWordStatus(ratingsByWordId[word.id]) === activeFilter
+    );
+  }, [collection.words, ratingsByWordId, activeFilter]);
+
+  const totalPages = Math.max(Math.ceil(filteredWords.length / WORDS_PER_PAGE), 1);
+  // Trang hiện tại lấy từ URL (?page=), kẹp [1, totalPages] cho an toàn.
+  const currentPage = Math.min(
+    Math.max(Number.parseInt(searchParams.get("page") ?? "1", 10) || 1, 1),
+    totalPages
+  );
 
   const paginatedWords = useMemo(() => {
     const start = (currentPage - 1) * WORDS_PER_PAGE;
-    const end = start + WORDS_PER_PAGE;
-    return collection.words.slice(start, end);
-  }, [collection.words, currentPage]);
+    return filteredWords.slice(start, start + WORDS_PER_PAGE);
+  }, [filteredWords, currentPage]);
+
+  const scrollToListTop = () => {
+    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Đổi filter reset page về 1 (atomic) để không rơi vào trang trống.
+  const handleFilterChange = (next: WordFilter) => {
+    setParams({ filter: next === "all" ? null : next, page: null });
+    scrollToListTop();
+  };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    // Cuộn mượt về đầu danh sách sau khi đổi trang.
-    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setParams({ page: page <= 1 ? null : page });
+    scrollToListTop();
   };
 
   const getPageNumbers = () => {
@@ -946,8 +1020,7 @@ function CollectionWordsPage({
               Flashcards: {collection.title}
             </h2>
             <p className="mt-2 text-sm leading-6 text-white/85">
-              Danh sách gồm {formatNumber(collection.wordCount)} từ · khoảng{" "}
-              {collection.estimatedMinutes} phút/lượt học.
+              Danh sách gồm {formatNumber(collection.wordCount)} từ
             </p>
           </div>
         </div>
@@ -1005,6 +1078,39 @@ function CollectionWordsPage({
             </div>
           </div>
 
+          {/* Bộ lọc theo trạng thái học — để xem lại từ "Đã biết" / "Đang ôn". */}
+          {!isLoadingWords && !hasLoadError && hasWords ? (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {WORD_FILTERS.map((item) => {
+                const isActive = activeFilter === item.key;
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => handleFilterChange(item.key)}
+                    className={cn(
+                      "inline-flex items-baseline gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-bold transition",
+                      isActive
+                        ? "border-primary bg-primary text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-primary/40 hover:text-primary"
+                    )}
+                  >
+                    {item.label}
+                    <span
+                      className={cn(
+                        "text-xs font-bold tabular-nums",
+                        isActive ? "text-white/75" : "text-slate-400"
+                      )}
+                    >
+                      {statusCounts[item.key]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
           <div className="mt-6 space-y-4">
             {isLoadingWords ? <WordListSkeleton /> : null}
 
@@ -1022,9 +1128,24 @@ function CollectionWordsPage({
               />
             ) : null}
 
+            {!isLoadingWords &&
+            !hasLoadError &&
+            hasWords &&
+            filteredWords.length === 0 ? (
+              <EmptyState
+                title="Chưa có từ nào ở mục này"
+                description="Hãy chọn bộ lọc khác, hoặc luyện tập để chuyển từ sang trạng thái này."
+              />
+            ) : null}
+
             {!isLoadingWords && !hasLoadError
               ? paginatedWords.map((word, index) => (
-                  <WordListCard key={word.id} word={word} priority={index === 0} />
+                  <WordListCard
+                    key={word.id}
+                    word={word}
+                    priority={index === 0}
+                    status={getWordStatus(ratingsByWordId[word.id])}
+                  />
                 ))
               : null}
           </div>
@@ -1084,10 +1205,13 @@ function CollectionWordsPage({
 function WordListCard({
   word,
   priority = false,
+  status
 }: {
   word: ExploreWord;
   priority?: boolean;
+  status: WordLearnStatus;
 }) {
+  const badge = STATUS_BADGE[status];
   return (
     <article
       className={cn(
@@ -1118,6 +1242,14 @@ function WordListCard({
           >
             <Volume2 size={15} />
           </button>
+          <span
+            className={cn(
+              "ml-auto inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-extrabold",
+              badge.className
+            )}
+          >
+            {badge.label}
+          </span>
         </div>
 
         <p className="mt-3 text-sm font-extrabold text-ink">Định nghĩa:</p>

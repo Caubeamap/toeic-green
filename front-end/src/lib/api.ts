@@ -1,7 +1,6 @@
 import { postAuthMessage, subscribeAuthMessages } from "./auth-channel";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2409/api";
-const ACCESS_TOKEN_STORAGE_KEY = "toeic-green-access-token";
 const REFRESH_LOCK = "toeic-green-auth-refresh";
 // Cửa sổ coi token vừa nhận (từ tab khác hoặc lần refresh trước) là còn tươi để
 // bỏ qua một lần gọi /auth/refresh thừa khi đang giữ lock.
@@ -11,18 +10,6 @@ let accessToken: string | null = null;
 let accessTokenVersion = 0;
 let lastTokenAt = 0;
 let refreshPromise: Promise<RefreshResponse | null> | null = null;
-
-function getSessionStorage() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
 
 export function setAccessToken(
   token: string | null,
@@ -41,15 +28,6 @@ export function setAccessToken(
     lastTokenAt = Date.now();
   }
 
-  const storage = getSessionStorage();
-  if (storage) {
-    if (token) {
-      storage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-    } else {
-      storage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-    }
-  }
-
   // Phát thay đổi sang các tab khác (chỉ khi do tab này khởi xướng, không phát
   // lại khi đang xử lý message nhận được → tránh vòng lặp).
   if (broadcast) {
@@ -61,19 +39,6 @@ export function setAccessToken(
 
 export function getAccessToken(): string | null {
   return accessToken;
-}
-
-export function restoreAccessTokenFromStorage(): string | null {
-  const storage = getSessionStorage();
-  const token = storage?.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? null;
-
-  if (token) {
-    // Token khôi phục từ storage chưa biết tuổi → KHÔNG đánh dấu tươi, để hydrate
-    // luôn refresh thật một lần và lấy đủ user/profile.
-    setAccessToken(token, { markFresh: false });
-  }
-
-  return token;
 }
 
 type RequestOptions = Omit<RequestInit, "body"> & {

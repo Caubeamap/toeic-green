@@ -105,6 +105,15 @@ type PracticeTestsSnapshot = {
   tests: TestWithParts[];
 };
 
+interface UserStatsRow {
+  totalAttempts: number;
+  totalCorrect: number;
+  totalQuestions: number;
+  totalDurationSeconds: number;
+  bestAccuracy: number;
+  bestScaledScore: number | null;
+}
+
 interface AttemptResultRow {
   attempt_id: bigint;
   attempt_public_id: string;
@@ -292,6 +301,45 @@ export class PracticeService implements OnModuleInit {
     );
 
     return attempts.map((attempt) => this.toAttemptSummary(attempt));
+  }
+
+  async getUserStats(userId: string) {
+    // Tổng hợp toàn bộ lượt đã hoàn thành trong một round-trip (index user_id).
+    // Không cap 20 như recent → "Lượt luyện" và độ chính xác phản ánh đúng tất cả.
+    const [row] = await this.prisma.$queryRaw<UserStatsRow[]>(Prisma.sql`
+      SELECT
+        COUNT(*)::int AS "totalAttempts",
+        COALESCE(SUM(correct_count), 0)::int AS "totalCorrect",
+        COALESCE(SUM(total_count), 0)::int AS "totalQuestions",
+        COALESCE(SUM(duration_seconds), 0)::int AS "totalDurationSeconds",
+        COALESCE(MAX(
+          CASE WHEN total_count > 0
+            THEN ROUND(correct_count::numeric * 100 / total_count)
+            ELSE 0 END
+        ), 0)::int AS "bestAccuracy",
+        MAX(scaled_score)::int AS "bestScaledScore"
+      FROM practice_attempts
+      WHERE user_id = ${userId}::uuid
+        AND status = 'COMPLETED'
+    `);
+
+    const totalAttempts = row?.totalAttempts ?? 0;
+    const totalQuestions = row?.totalQuestions ?? 0;
+    const totalCorrect = row?.totalCorrect ?? 0;
+
+    return {
+      totalAttempts,
+      totalCorrect,
+      totalQuestions,
+      totalDurationSeconds: row?.totalDurationSeconds ?? 0,
+      // Tỷ lệ đúng trên tổng số câu đã làm — null khi chưa có lượt nào.
+      averageAccuracy:
+        totalQuestions > 0
+          ? Math.round((totalCorrect / totalQuestions) * 100)
+          : null,
+      bestAccuracy: totalAttempts > 0 ? (row?.bestAccuracy ?? 0) : null,
+      bestScaledScore: row?.bestScaledScore ?? null,
+    };
   }
 
   async submitAttempt(
@@ -947,12 +995,14 @@ export class PracticeService implements OnModuleInit {
   private toAttemptSummary(attempt: AttemptSummarySource) {
     const completedAt = attempt.completedAt ?? attempt.startedAt;
     const scopeLabels = this.getScopeLabels(attempt);
+    // Tiêu đề hiển thị đã là "Practice Toeic Test N"; không nối thêm subtitle
+    // chung ("TOEIC Green Practice") để tránh lặp dư thừa.
     const testTitle = this.toDisplayTitle(attempt.test);
 
     return {
       id: attempt.publicId,
       testId: attempt.test.slug,
-      testTitle: `${testTitle} ${attempt.test.subtitle ?? ''}`.trim(),
+      testTitle,
       attemptedAt: this.formatDate(completedAt),
       mode: attempt.mode === 'FULL_TEST' ? 'Full test' : 'Practice',
       scopeLabels,

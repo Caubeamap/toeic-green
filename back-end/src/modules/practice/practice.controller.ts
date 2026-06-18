@@ -40,6 +40,11 @@ export class PracticeController {
     return this.practiceService.listRecentAttempts(userId);
   }
 
+  @Get('stats/me')
+  async getUserStats(@CurrentUser('id') userId: string) {
+    return this.practiceService.getUserStats(userId);
+  }
+
   @Get('tests/:slug/questions')
   async listQuestions(@Param('slug') slug: string) {
     return this.practiceService.listQuestions(slug);

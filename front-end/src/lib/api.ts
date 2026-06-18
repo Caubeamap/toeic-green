@@ -26,13 +26,18 @@ function getSessionStorage() {
 
 export function setAccessToken(
   token: string | null,
-  options: { broadcast?: boolean } = {}
+  options: { broadcast?: boolean; markFresh?: boolean } = {}
 ) {
+  const { broadcast = false, markFresh = true } = options;
   if (accessToken !== token) {
     accessTokenVersion += 1;
   }
   accessToken = token;
-  if (token) {
+  // `lastTokenAt` đánh dấu token "vừa được refresh" để bỏ qua refresh thừa trong
+  // FRESH_TOKEN_WINDOW. Token KHÔI PHỤC từ storage (markFresh=false) KHÔNG phải vừa
+  // refresh — tuổi của nó không rõ — nên không được đánh dấu tươi, nếu không lần
+  // hydrate đầu sẽ short-circuit và trả về token thiếu user/profile → logout nhầm khi F5.
+  if (token && markFresh) {
     lastTokenAt = Date.now();
   }
 
@@ -47,7 +52,7 @@ export function setAccessToken(
 
   // Phát thay đổi sang các tab khác (chỉ khi do tab này khởi xướng, không phát
   // lại khi đang xử lý message nhận được → tránh vòng lặp).
-  if (options.broadcast) {
+  if (broadcast) {
     postAuthMessage(
       token ? { type: "token", token, at: lastTokenAt } : { type: "logout" }
     );
@@ -63,7 +68,9 @@ export function restoreAccessTokenFromStorage(): string | null {
   const token = storage?.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? null;
 
   if (token) {
-    setAccessToken(token);
+    // Token khôi phục từ storage chưa biết tuổi → KHÔNG đánh dấu tươi, để hydrate
+    // luôn refresh thật một lần và lấy đủ user/profile.
+    setAccessToken(token, { markFresh: false });
   }
 
   return token;

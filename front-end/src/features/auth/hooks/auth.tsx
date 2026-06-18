@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   api,
@@ -61,8 +62,6 @@ type AuthContextValue = {
   ) => void;
 };
 
-const STORAGE_KEY = "toeic-green-auth";
-
 type BackendUser = {
   avatarUrl?: string | null;
   displayName: string;
@@ -102,59 +101,20 @@ function mapUser(backendUser: BackendUser): MockUser {
   };
 }
 
-function isStoredUser(value: unknown): value is MockUser {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const user = value as Partial<MockUser>;
-  return (
-    typeof user.id === "string" &&
-    typeof user.email === "string" &&
-    typeof user.displayName === "string" &&
-    typeof user.role === "string" &&
-    typeof user.avatar === "string"
-  );
-}
-
-function readStoredUser() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed: unknown = JSON.parse(raw);
-    return isStoredUser(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
+  const queryClient = useQueryClient();
 
-  /* Tự động khôi phục phiên (Hydration) bằng Refresh Token khi mở trang web */
+  /* Khôi phục phiên khi mở web HOÀN TOÀN bằng refresh token (httpOnly cookie):
+     storage chỉ giữ access token (sessionStorage). Trong lúc refresh, state ở
+     "loading" → header hiện skeleton ngắn thay vì lưu danh tính xuống đĩa. */
   useEffect(() => {
     async function hydrate() {
-      const storedUser = readStoredUser();
-      const storedToken = restoreAccessTokenFromStorage();
-
-      if (storedUser && storedToken) {
-        setState({ status: "authenticated", user: storedUser });
-      } else if (storedUser) {
-        setState({ status: "loading", user: storedUser });
-      }
+      restoreAccessTokenFromStorage();
 
       try {
-        // Thử refresh token ngầm
         const data = await refreshSession<RefreshResponse>();
 
-        // Lấy thông tin cá nhân hiện tại
         if (!data?.user || !data.profile) {
           throw new Error(
             "Refresh response is missing the current user profile",
@@ -162,14 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         cacheUserProfileResponse(data.profile);
-        const user = mapUser(data.user);
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-        setState({ status: "authenticated", user });
+        setState({ status: "authenticated", user: mapUser(data.user) });
       } catch {
         // Không tìm thấy phiên hoặc refresh token đã hết hạn
         clearUserProfileCache();
-        localStorage.removeItem(STORAGE_KEY);
         setState({ status: "unauthenticated" });
       }
     }
@@ -182,14 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     function handleAuthFailure() {
       setAccessToken(null);
       clearUserProfileCache();
-      localStorage.removeItem(STORAGE_KEY);
+      queryClient.clear();
       setState({ status: "unauthenticated" });
     }
 
     window.addEventListener("toeic-auth-failed", handleAuthFailure);
     return () =>
       window.removeEventListener("toeic-auth-failed", handleAuthFailure);
-  }, []);
+  }, [queryClient]);
 
   const login = useCallback(
     async (
@@ -203,7 +159,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
         setState({ status: "authenticated", user });
         return { ok: true };
       } catch (error: unknown) {
@@ -242,25 +197,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setAccessToken(null);
       clearUserProfileCache();
-      localStorage.removeItem(STORAGE_KEY);
-      
-      // Xóa sạch cache trong localStorage liên quan đến TOEIC Green để bảo mật thông tin
-      if (typeof window !== "undefined") {
-        try {
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith("toeic-green-")) {
-              localStorage.removeItem(key);
-            }
-          }
-        } catch {
-          // Bỏ qua lỗi truy cập storage
-        }
-      }
-
+      // Dữ liệu server nằm trong cache React Query (RAM) → xoá sạch để không lẫn
+      // sang tài khoản khác trên cùng trình duyệt.
+      queryClient.clear();
       setState({ status: "unauthenticated" });
     }
-  }, []);
+  }, [queryClient]);
 
   const updateUser = useCallback(
     (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => {
@@ -275,7 +217,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: updates.displayName || state.user.displayName,
       };
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
       setState({ status: "authenticated", user: nextUser });
     },
     [state],

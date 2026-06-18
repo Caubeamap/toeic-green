@@ -40,5 +40,20 @@ export type {
   SubmitPracticeAttemptInput,
 } from "./services/practice-api";
 
+// React Query hooks (cache RAM, không localStorage)
+export {
+  practiceKeys,
+  useAttemptResult,
+  useLatestAttemptResult,
+  usePracticeCatalog,
+  usePracticeQuestions,
+  usePracticeStats,
+  usePracticeTest,
+  usePracticeTestDetail,
+  usePrefetchQuestions,
+  useRecentAttempts,
+  useSubmitAttempt,
+} from "./hooks/usePractice";
+
 // Questions
 export type { ToeicQuestion } from "./lib/toeic-questions";

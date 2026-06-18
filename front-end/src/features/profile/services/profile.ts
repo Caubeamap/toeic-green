@@ -39,7 +39,9 @@ export function getDefaultUserProfile(user: MockUser): UserProfile {
     bio: "",
     displayName: user.displayName,
     email: user.email,
-    updatedAt: new Date().toISOString(),
+    // Chưa tải được hồ sơ thật → để trống để UI hiển thị "Chưa cập nhật"
+    // thay vì ngày hôm nay (gây hiểu nhầm là vừa cập nhật).
+    updatedAt: "",
   };
 }
 

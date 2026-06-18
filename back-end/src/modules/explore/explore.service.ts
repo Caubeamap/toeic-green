@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { WordRatingValue } from './dto/rate-word.dto';
 
 const COLLECTION_SELECT = {
   id: true,
@@ -177,5 +183,114 @@ export class ExploreService implements OnModuleInit {
     }
 
     return 'phrase';
+  }
+
+  /* ──────────────── User progress (per logged-in user) ──────────────── */
+
+  private async resolveCollectionId(slug: string) {
+    const collection = await this.prisma.exploreCollection.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+
+    if (!collection) {
+      throw new NotFoundException('Không tìm thấy bộ từ vựng.');
+    }
+
+    return collection.id;
+  }
+
+  private parseWordId(wordId: string): bigint {
+    try {
+      return BigInt(wordId);
+    } catch {
+      throw new BadRequestException('Mã từ vựng không hợp lệ.');
+    }
+  }
+
+  async getCollectionProgress(userId: string, slug: string) {
+    const collectionId = await this.resolveCollectionId(slug);
+
+    const [progress, ratings] = await Promise.all([
+      this.prisma.exploreProgress.findUnique({
+        where: { userId_collectionId: { userId, collectionId } },
+        select: { isSaved: true, isStudying: true, lastStudiedAt: true },
+      }),
+      this.prisma.wordRating.findMany({
+        where: { userId, exploreWord: { collectionId } },
+        select: { exploreWordId: true, rating: true },
+      }),
+    ]);
+
+    const ratingsByWordId: Record<string, string> = {};
+    for (const entry of ratings) {
+      ratingsByWordId[entry.exploreWordId.toString()] = entry.rating;
+    }
+
+    return {
+      isSaved: progress?.isSaved ?? false,
+      isStudying: progress?.isStudying ?? false,
+      lastStudiedAt: progress?.lastStudiedAt ?? null,
+      ratings: ratingsByWordId,
+    };
+  }
+
+  async rateWord(userId: string, wordId: string, rating: WordRatingValue) {
+    const exploreWordId = this.parseWordId(wordId);
+
+    const word = await this.prisma.exploreWord.findUnique({
+      where: { id: exploreWordId },
+      select: { collectionId: true },
+    });
+
+    if (!word) {
+      throw new NotFoundException('Không tìm thấy từ vựng.');
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.wordRating.upsert({
+        where: { userId_exploreWordId: { userId, exploreWordId } },
+        create: { userId, exploreWordId, rating },
+        update: { rating },
+      }),
+      this.prisma.exploreProgress.upsert({
+        where: {
+          userId_collectionId: { userId, collectionId: word.collectionId },
+        },
+        create: {
+          userId,
+          collectionId: word.collectionId,
+          isStudying: true,
+          lastStudiedAt: now,
+        },
+        update: { isStudying: true, lastStudiedAt: now },
+      }),
+    ]);
+
+    return { ok: true, wordId, rating };
+  }
+
+  async resetKnownRatings(userId: string, slug: string) {
+    const collectionId = await this.resolveCollectionId(slug);
+
+    const result = await this.prisma.wordRating.deleteMany({
+      where: { userId, rating: 'known', exploreWord: { collectionId } },
+    });
+
+    return { reset: result.count };
+  }
+
+  async setSaved(userId: string, slug: string, isSaved: boolean) {
+    const collectionId = await this.resolveCollectionId(slug);
+
+    await this.prisma.exploreProgress.upsert({
+      where: { userId_collectionId: { userId, collectionId } },
+      create: { userId, collectionId, isSaved },
+      update: { isSaved },
+    });
+
+    return { isSaved };
   }
 }

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/auth";
+import type { PracticeTest } from "../lib/practice-tests";
 import {
   getLatestPracticeAttemptResult,
   getPracticeAttemptResult,
@@ -34,39 +35,67 @@ function scopeFor(isAuthenticated: boolean, userId?: string) {
   return isAuthenticated ? `user:${userId}` : "public";
 }
 
-/** Danh mục đề: chờ auth xác định rồi chọn biến thể public / kèm tiến độ. */
-export function usePracticeCatalog() {
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const query = useQuery({
-    queryKey: practiceKeys.tests(scopeFor(isAuthenticated, user?.id)),
-    queryFn: () =>
-      isAuthenticated ? listPracticeTestsWithProgress() : listPracticeTests(),
-    enabled: !authLoading
+/**
+ * Danh mục đề (hybrid SSR + client):
+ * - Public list dùng `initialData` từ Server Component → hiển thị TỨC THÌ trong
+ *   HTML, không skeleton, không localStorage.
+ * - Nếu đã đăng nhập, query "kèm tiến độ" (`/tests/me`) phủ lên để hiện trạng
+ *   thái Completed / lịch sử mà không chặn lần paint đầu.
+ */
+export function usePracticeCatalog(initialTests?: PracticeTest[]) {
+  const { isAuthenticated, user } = useAuth();
+
+  const publicQuery = useQuery({
+    queryKey: practiceKeys.tests("public"),
+    queryFn: listPracticeTests,
+    initialData: initialTests
   });
 
+  const progressQuery = useQuery({
+    queryKey: practiceKeys.tests(scopeFor(true, user?.id)),
+    queryFn: listPracticeTestsWithProgress,
+    enabled: isAuthenticated && Boolean(user?.id)
+  });
+
+  const tests = progressQuery.data ?? publicQuery.data ?? [];
+
   return {
-    tests: query.data ?? [],
-    isLoading: authLoading || query.isLoading,
-    error: query.error as Error | null
+    tests,
+    // Chỉ "đang tải" khi thật sự chưa có gì để hiển thị (vd SSR fail + guest).
+    isLoading: tests.length === 0 && publicQuery.isLoading,
+    error: (publicQuery.error ?? progressQuery.error) as Error | null
   };
 }
 
-/** Chi tiết một đề (trang chuẩn bị): public hoặc kèm tiến độ tuỳ đăng nhập. */
-export function usePracticeTestDetail(slug: string) {
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const query = useQuery({
-    queryKey: practiceKeys.test(slug, scopeFor(isAuthenticated, user?.id)),
-    queryFn: () =>
-      isAuthenticated
-        ? getPracticeTestWithProgress(slug)
-        : getPracticeTest(slug),
-    enabled: !authLoading && Boolean(slug)
+/**
+ * Chi tiết một đề (trang chuẩn bị) — hybrid như trên: public từ SSR hiển thị
+ * ngay, tiến độ (recentAttempts) phủ lên khi đã đăng nhập.
+ */
+export function usePracticeTestDetail(
+  slug: string,
+  initialTest?: PracticeTest
+) {
+  const { isAuthenticated, user } = useAuth();
+
+  const publicQuery = useQuery({
+    queryKey: practiceKeys.test(slug, "public"),
+    queryFn: () => getPracticeTest(slug),
+    initialData: initialTest,
+    enabled: Boolean(slug)
   });
 
+  const progressQuery = useQuery({
+    queryKey: practiceKeys.test(slug, scopeFor(true, user?.id)),
+    queryFn: () => getPracticeTestWithProgress(slug),
+    enabled: isAuthenticated && Boolean(user?.id) && Boolean(slug)
+  });
+
+  const test = progressQuery.data ?? publicQuery.data ?? null;
+
   return {
-    test: query.data ?? null,
-    isLoading: authLoading || query.isLoading,
-    error: query.error as Error | null
+    test,
+    isLoading: !test && publicQuery.isLoading,
+    error: (publicQuery.error ?? progressQuery.error) as Error | null
   };
 }
 

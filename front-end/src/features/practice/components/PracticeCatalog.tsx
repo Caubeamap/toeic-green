@@ -22,12 +22,16 @@ function getLatestAttemptTimestamp(test: PracticeTest) {
   return latestAttempt?.timestamp ?? test.completedAt ?? "";
 }
 
-export function PracticeCatalog() {
+export function PracticeCatalog({
+  initialTests
+}: {
+  initialTests?: PracticeTest[];
+}) {
   const { searchParams, setParams } = useUrlState();
 
-  // Danh mục đề lấy qua React Query (cache RAM): tự chọn public / kèm tiến độ
-  // theo trạng thái đăng nhập, dedup + revalidate, không còn localStorage.
-  const { tests, isLoading, error } = usePracticeCatalog();
+  // Hybrid: public list từ SSR (initialData) hiển thị tức thì; tiến độ phủ lên
+  // qua React Query khi đã đăng nhập. Cache RAM, không localStorage.
+  const { tests, isLoading, error } = usePracticeCatalog(initialTests);
   const errorMessage = error
     ? getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
     : null;

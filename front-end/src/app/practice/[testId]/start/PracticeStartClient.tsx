@@ -1,12 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { PracticeTestSetup, usePracticeTestDetail } from "@/features/practice";
+import {
+  PracticeTestSetup,
+  usePracticeTestDetail,
+  type PracticeTest
+} from "@/features/practice";
 import { getErrorMessage } from "@/lib/api";
 
-export function PracticeStartClient({ testId }: { testId: string }) {
-  // Chi tiết đề qua React Query (cache RAM): tự chọn public/kèm tiến độ theo auth.
-  const { test, isLoading, error } = usePracticeTestDetail(testId);
+export function PracticeStartClient({
+  testId,
+  initialTest
+}: {
+  testId: string;
+  initialTest?: PracticeTest;
+}) {
+  // Hybrid: chi tiết public từ SSR (initialData) hiển thị ngay; tiến độ phủ lên
+  // qua React Query khi đã đăng nhập. Cache RAM, không localStorage.
+  const { test, isLoading, error } = usePracticeTestDetail(testId, initialTest);
   const errorMessage = error
     ? getErrorMessage(error, "Không tải được thông tin đề thi TOEIC.")
     : null;

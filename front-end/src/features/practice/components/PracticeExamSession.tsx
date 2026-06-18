@@ -11,6 +11,7 @@ import {
   Clock,
   Flag,
   Headphones,
+  Loader2,
   Send,
   X,
   Play,
@@ -572,6 +573,25 @@ export function PracticeExamSession({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
+      {/* Sau khi bấm nộp: phủ màn loading toàn màn hình NGAY (thay vì để màn thi
+          đứng đợi) cho tới khi điều hướng sang trang đáp án. Kết quả đã được
+          write-through vào cache React Query nên trang đáp án hiện gần như tức thì.
+          Nếu nộp lỗi, `submitted` được đặt lại false → overlay tự ẩn, quay lại bài thi. */}
+      {submitted && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-background"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <div className="text-center">
+            <p className="text-lg font-bold text-on-surface">Đang chấm điểm…</p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Vui lòng đợi trong giây lát, hệ thống đang tải đáp án của bạn.
+            </p>
+          </div>
+        </div>
+      )}
       {activeAudioUrl && (
         <audio
           ref={audioRef}

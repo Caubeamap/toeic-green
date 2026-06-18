@@ -59,6 +59,7 @@ describe('Backend security baseline (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.pendingRegistration.deleteMany({ where: { email } });
     await prisma.user.deleteMany({ where: { email } });
     await app.close();
   });
@@ -133,6 +134,10 @@ describe('Backend security baseline (e2e)', () => {
     const registerBody = registerResponse.body as RegisterResponseBody;
 
     expect(registerBody.email).toBe(email);
+    await expect(prisma.user.count({ where: { email } })).resolves.toBe(0);
+    await expect(
+      prisma.pendingRegistration.count({ where: { email } }),
+    ).resolves.toBe(1);
 
     await request(app.getHttpServer())
       .post('/api/auth/register')
@@ -178,6 +183,10 @@ describe('Backend security baseline (e2e)', () => {
       .post('/api/auth/verify-email')
       .send({ token: replacementToken })
       .expect(200);
+    await expect(prisma.user.count({ where: { email } })).resolves.toBe(1);
+    await expect(
+      prisma.pendingRegistration.count({ where: { email } }),
+    ).resolves.toBe(0);
 
     await request(app.getHttpServer())
       .post('/api/auth/verify-email')

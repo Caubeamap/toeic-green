@@ -59,21 +59,23 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('Email này đã được sử dụng');
     }
+    if (await this.emailVerificationService.hasPending(email)) {
+      throw new ConflictException(
+        'Email này đang chờ xác minh. Vui lòng kiểm tra hộp thư hoặc gửi lại email xác minh.',
+      );
+    }
 
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
-    const user = await this.usersService.create(
+    await this.emailVerificationService.issuePendingRegistration(
       email,
       passwordHash,
       displayName,
     );
-    await this.emailVerificationService.issue(user.id, user.email);
 
     return {
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
+      email,
+      displayName,
       verificationRequired: true,
     };
   }

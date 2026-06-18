@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 import { normalizeEmail } from '../../common/utils/normalize-email';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,6 +19,51 @@ export class EmailVerificationService {
     private prisma: PrismaService,
     private mailService: MailService,
   ) {}
+
+  async hasPending(email: string) {
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { email: normalizeEmail(email) },
+      select: { expiresAt: true },
+    });
+
+    return Boolean(pending && pending.expiresAt > new Date());
+  }
+
+  async issuePendingRegistration(
+    email: string,
+    passwordHash: string,
+    displayName: string,
+  ) {
+    const normalizedEmail = normalizeEmail(email);
+    const token = randomBytes(32).toString('hex');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.pendingRegistration.deleteMany({
+        where: {
+          email: normalizedEmail,
+          expiresAt: { lte: new Date() },
+        },
+      });
+      await tx.pendingRegistration.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          displayName,
+          tokenHash: this.hashToken(token),
+          expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+        },
+      });
+    });
+
+    this.mailService
+      .sendEmailVerification(normalizedEmail, token)
+      .catch((error) => {
+        this.logger.error(
+          `Không thể gửi email xác minh tới ${normalizedEmail}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+  }
 
   async issue(userId: string, email: string) {
     const token = randomBytes(32).toString('hex');
@@ -38,13 +88,32 @@ export class EmailVerificationService {
   }
 
   async resend(email: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizeEmail(email) },
-      select: { id: true, email: true, emailVerifiedAt: true },
+    const normalizedEmail = normalizeEmail(email);
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        email: true,
+        passwordHash: true,
+        displayName: true,
+        expiresAt: true,
+      },
     });
 
-    if (user && !user.emailVerifiedAt) {
-      await this.issue(user.id, user.email);
+    if (pending) {
+      if (pending.expiresAt > new Date()) {
+        await this.prisma.pendingRegistration.delete({
+          where: { email: normalizedEmail },
+        });
+        await this.issuePendingRegistration(
+          pending.email,
+          pending.passwordHash,
+          pending.displayName,
+        );
+      } else {
+        await this.prisma.pendingRegistration.delete({
+          where: { email: normalizedEmail },
+        });
+      }
     }
 
     return {
@@ -55,6 +124,10 @@ export class EmailVerificationService {
 
   async verify(token: string) {
     const tokenHash = this.hashToken(token);
+    const verifiedPending = await this.verifyPendingRegistration(tokenHash);
+    if (verifiedPending) {
+      return { message: 'Xác minh email thành công' };
+    }
 
     await this.prisma.$transaction(async (tx) => {
       const verificationToken = await tx.emailVerificationToken.findUnique({
@@ -99,6 +172,71 @@ export class EmailVerificationService {
     });
 
     return { message: 'Xác minh email thành công' };
+  }
+
+  private async verifyPendingRegistration(tokenHash: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const pending = await tx.pendingRegistration.findUnique({
+        where: { tokenHash },
+        select: {
+          id: true,
+          email: true,
+          passwordHash: true,
+          displayName: true,
+          expiresAt: true,
+        },
+      });
+
+      if (!pending) {
+        return false;
+      }
+
+      if (pending.expiresAt <= new Date()) {
+        throw new BadRequestException(
+          'Token xác minh không hợp lệ hoặc đã hết hạn',
+        );
+      }
+
+      const existingUser = await tx.user.findUnique({
+        where: { email: pending.email },
+        select: { id: true },
+      });
+      if (existingUser) {
+        await tx.pendingRegistration.delete({ where: { id: pending.id } });
+        throw new ConflictException('Email này đã được sử dụng');
+      }
+
+      const consumed = await tx.pendingRegistration.deleteMany({
+        where: {
+          id: pending.id,
+          tokenHash,
+          expiresAt: { gt: new Date() },
+        },
+      });
+      if (consumed.count !== 1) {
+        throw new BadRequestException(
+          'Token xác minh không hợp lệ hoặc đã hết hạn',
+        );
+      }
+
+      const user = await tx.user.create({
+        data: {
+          email: pending.email,
+          passwordHash: pending.passwordHash,
+          displayName: pending.displayName,
+          emailVerifiedAt: new Date(),
+        },
+      });
+
+      await tx.userProfile.create({
+        data: {
+          userId: user.id,
+          bannerTone: 'mint',
+        },
+      });
+
+      return true;
+    });
   }
 
   private hashToken(token: string) {

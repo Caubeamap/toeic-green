@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, LogOut, Menu, UserRound, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -32,9 +33,22 @@ export function SiteHeader() {
       <div className="container-shell flex h-20 items-center justify-between">
         <Link
           href="/"
-          className="shrink-0 text-headline-md font-extrabold tracking-tight text-primary md:text-headline-lg"
+          className="flex shrink-0 items-center gap-2.5"
+          aria-label="TOEIC Green"
         >
-          TOEIC Green
+          <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary-container/40 ring-1 ring-primary/10">
+            <Image
+              src="/images/logo_toeic_green.webp"
+              alt=""
+              width={40}
+              height={40}
+              className="h-9 w-9 object-contain"
+              priority
+            />
+          </span>
+          <span className="text-headline-md font-extrabold tracking-tight text-primary md:text-headline-lg">
+            TOEIC Green
+          </span>
         </Link>
 
         <nav className="hidden shrink-0 items-center gap-4 lg:gap-8 md:flex">

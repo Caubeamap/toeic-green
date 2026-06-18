@@ -15,7 +15,16 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "TOEIC Green | Master TOEIC with Smart Practice",
   description:
-    "Luyện thi TOEIC online, ghi chú từ vựng hằng ngày và xem giải thích chi tiết sau mỗi bài test."
+    "Luyện thi TOEIC online, ghi chú từ vựng hằng ngày và xem giải thích chi tiết sau mỗi bài test.",
+  icons: {
+    icon: [
+      {
+        url: "/images/logo_toeic_green.webp",
+        type: "image/webp"
+      }
+    ],
+    shortcut: ["/images/logo_toeic_green.webp"]
+  }
 };
 
 export default async function RootLayout({

@@ -13,6 +13,7 @@ type AuthMode = "login" | "signup";
 
 type AuthPanelProps = {
   initialMode: AuthMode;
+  redirectTo?: string;
 };
 
 /* ─────────────────────── Animation config ─────────────────────── */
@@ -35,17 +36,18 @@ const headings: Record<AuthMode, { title: string; subtitle: string }> = {
    AuthPanel — Client Component with animated form switching
    ═══════════════════════════════════════════════════════════════ */
 
-export function AuthPanel({ initialMode }: AuthPanelProps) {
+export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
+  const destination = redirectTo ?? "/";
 
   /* Redirect immediately if already authenticated */
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/");
+      router.replace(destination);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, destination]);
 
   /* Listen for login attempt from LoginForm */
   useEffect(() => {
@@ -72,9 +74,12 @@ export function AuthPanel({ initialMode }: AuthPanelProps) {
     if (newMode === mode) return;
     setMode(newMode);
 
-    // Sync URL without full navigation
+    // Sync URL without full navigation (giữ lại next nếu có)
     const params = new URLSearchParams();
     params.set("mode", newMode);
+    if (redirectTo) {
+      params.set("next", redirectTo);
+    }
     router.replace(`/login?${params.toString()}`, { scroll: false });
   }
 

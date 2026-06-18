@@ -17,8 +17,18 @@ type AuthMode = "login" | "signup";
 type LoginPageProps = {
   searchParams: Promise<{
     mode?: string;
+    next?: string;
   }>;
 };
+
+/** Chỉ chấp nhận đường dẫn nội bộ (chống open redirect). */
+function sanitizeNext(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return undefined;
+  }
+
+  return next;
+}
 
 /* ─────────────────────────── SEO ─────────────────────────── */
 
@@ -38,8 +48,9 @@ const benefits = [
 /* ─────────────────────── Page Component ─────────────────────── */
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { mode } = await searchParams;
+  const { mode, next } = await searchParams;
   const activeMode: AuthMode = mode === "signup" ? "signup" : "login";
+  const redirectTo = sanitizeNext(next);
 
   return (
     <>
@@ -75,7 +86,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           {/* ──── Right Side: Auth Card (Client Component with animations) ──── */}
           <div className="flex justify-center">
-            <AuthPanel initialMode={activeMode} />
+            <AuthPanel initialMode={activeMode} redirectTo={redirectTo} />
           </div>
         </section>
 

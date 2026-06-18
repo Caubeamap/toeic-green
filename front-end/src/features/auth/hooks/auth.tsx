@@ -23,6 +23,12 @@ import {
   clearUserProfileCache,
   type ProfileResponse,
 } from "@/features/profile/services/profile";
+import {
+  clearAuthSessionSnapshot,
+  readAuthSessionSnapshot,
+  writeAuthSessionSnapshot,
+} from "../lib/session-snapshot";
+import { clearPracticeTestsSnapshots } from "@/features/practice/lib/practice-session-snapshot";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -102,15 +108,25 @@ function mapUser(backendUser: BackendUser): MockUser {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ status: "loading" });
+  const [state, setState] = useState<AuthState>(() => {
+    const snapshot = readAuthSessionSnapshot();
+
+    return snapshot
+      ? { status: "loading", user: mapUser(snapshot.user) }
+      : { status: "loading" };
+  });
   const queryClient = useQueryClient();
 
   /* Khôi phục phiên khi mở web HOÀN TOÀN bằng refresh token (httpOnly cookie):
-     storage chỉ giữ access token (sessionStorage). Trong lúc refresh, state ở
-     "loading" → header hiện skeleton ngắn thay vì lưu danh tính xuống đĩa. */
+     refresh vẫn là nguồn xác thực thật. Snapshot sessionStorage chỉ là UX hint
+     ngắn hạn để F5 không phải hiện skeleton header 1-2s trong lúc chờ mạng. */
   useEffect(() => {
     async function hydrate() {
       restoreAccessTokenFromStorage();
+      const snapshot = readAuthSessionSnapshot();
+      if (snapshot?.profile) {
+        cacheUserProfileResponse(snapshot.profile);
+      }
 
       try {
         const data = await refreshSession<RefreshResponse>();
@@ -122,9 +138,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         cacheUserProfileResponse(data.profile);
+        writeAuthSessionSnapshot(data.user, data.profile);
         setState({ status: "authenticated", user: mapUser(data.user) });
       } catch {
         // Không tìm thấy phiên hoặc refresh token đã hết hạn
+        clearAuthSessionSnapshot();
+        clearPracticeTestsSnapshots();
         clearUserProfileCache();
         setState({ status: "unauthenticated" });
       }
@@ -137,6 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function handleAuthFailure() {
       setAccessToken(null);
+      clearAuthSessionSnapshot();
+      clearPracticeTestsSnapshots();
       clearUserProfileCache();
       queryClient.clear();
       setState({ status: "unauthenticated" });
@@ -159,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
+        writeAuthSessionSnapshot(data.user);
         setState({ status: "authenticated", user });
         return { ok: true };
       } catch (error: unknown) {
@@ -197,6 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       // broadcast → các tab khác cũng đăng xuất theo (đồng bộ phiên chéo tab).
       setAccessToken(null, { broadcast: true });
+      clearAuthSessionSnapshot();
+      clearPracticeTestsSnapshots();
       clearUserProfileCache();
       // Dữ liệu server nằm trong cache React Query (RAM) → xoá sạch để không lẫn
       // sang tài khoản khác trên cùng trình duyệt.
@@ -218,6 +242,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: updates.displayName || state.user.displayName,
       };
 
+      writeAuthSessionSnapshot({
+        id: nextUser.id,
+        email: nextUser.email,
+        displayName: nextUser.displayName,
+        avatarUrl: nextUser.avatarUrl,
+        role: nextUser.role,
+      });
       setState({ status: "authenticated", user: nextUser });
     },
     [state],

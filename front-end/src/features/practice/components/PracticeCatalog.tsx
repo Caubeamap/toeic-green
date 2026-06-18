@@ -31,7 +31,8 @@ export function PracticeCatalog({
 
   // Hybrid: public list từ SSR (initialData) hiển thị tức thì; tiến độ phủ lên
   // qua React Query khi đã đăng nhập. Cache RAM, không localStorage.
-  const { tests, isLoading, error } = usePracticeCatalog(initialTests);
+  const { tests, isLoading, isUserProgressPending, error } =
+    usePracticeCatalog(initialTests);
   const errorMessage = error
     ? getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
     : null;
@@ -176,12 +177,20 @@ export function PracticeCatalog({
           <div className="glass-card rounded-2xl border border-red-200 bg-red-50/70 p-8 text-center font-semibold text-red-700">
             {errorMessage}
           </div>
+        ) : isUserProgressPending && (isHistoryView || isCompletedView) ? (
+          <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
+            Đang đồng bộ trạng thái bài đã làm
+          </div>
         ) : isHistoryView ? (
           <HistoryList tests={paginatedTests} />
         ) : paginatedTests.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {paginatedTests.map((test) => (
-              <PracticeTestCard key={test.id} test={test} />
+              <PracticeTestCard
+                key={test.id}
+                test={test}
+                isUserProgressPending={isUserProgressPending}
+              />
             ))}
           </div>
         ) : (
@@ -236,9 +245,19 @@ export function PracticeCatalog({
   );
 }
 
-const PracticeTestCard = memo(function PracticeTestCard({ test }: { test: PracticeTest }) {
+const PracticeTestCard = memo(function PracticeTestCard({
+  test,
+  isUserProgressPending
+}: {
+  test: PracticeTest;
+  isUserProgressPending: boolean;
+}) {
   const completed = test.status === "Completed";
-  const actionLabel = completed ? "Xem chi tiết" : "Bắt đầu làm";
+  const actionLabel = isUserProgressPending
+    ? "Đang đồng bộ"
+    : completed
+      ? "Xem chi tiết"
+      : "Bắt đầu làm";
 
   return (
     <article
@@ -282,16 +301,22 @@ const PracticeTestCard = memo(function PracticeTestCard({ test }: { test: Practi
           </div>
         </div>
 
-        <Link
-          href={`/practice/${test.id}/start`}
-          className={cn(
-            "button-sheen mt-auto inline-flex w-full items-center justify-center rounded-lg py-2.5 text-sm font-bold",
-            completed && "border border-primary/30 bg-white/35 text-primary hover:bg-primary/10",
-            !completed && "bg-primary-container text-on-primary-container hover:bg-primary-fixed-dim"
-          )}
-        >
-          {actionLabel}
-        </Link>
+        {isUserProgressPending ? (
+          <span className="mt-auto inline-flex w-full cursor-wait items-center justify-center rounded-lg border border-outline-variant/70 bg-white/45 py-2.5 text-sm font-bold text-on-surface-variant">
+            {actionLabel}
+          </span>
+        ) : (
+          <Link
+            href={`/practice/${test.id}/start`}
+            className={cn(
+              "button-sheen mt-auto inline-flex w-full items-center justify-center rounded-lg py-2.5 text-sm font-bold",
+              completed && "border border-primary/30 bg-white/35 text-primary hover:bg-primary/10",
+              !completed && "bg-primary-container text-on-primary-container hover:bg-primary-fixed-dim"
+            )}
+          >
+            {actionLabel}
+          </Link>
+        )}
       </div>
     </article>
   );

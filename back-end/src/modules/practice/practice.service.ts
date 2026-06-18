@@ -46,7 +46,6 @@ const EXAM_QUESTION_SELECT = {
   },
 } satisfies Prisma.QuestionSelect;
 
-const USER_PROGRESS_ATTEMPT_LIMIT = 50;
 const TEST_DETAIL_ATTEMPT_LIMIT = 5;
 const PRACTICE_TEST_CACHE_TTL_MS = 60_000;
 
@@ -203,15 +202,11 @@ export class PracticeService implements OnModuleInit {
   }
 
   async listTestsForUser(userId: string) {
-    const [snapshot, recentAttempts] = await Promise.all([
+    const [snapshot, latestAttempts] = await Promise.all([
       this.getTestsSnapshot(),
-      this.findRecentAttemptSummaries(
-        userId,
-        undefined,
-        USER_PROGRESS_ATTEMPT_LIMIT,
-      ),
+      this.findLatestAttemptSummaryByTest(userId),
     ]);
-    const attemptsByTestId = this.groupAttemptsByTestId(recentAttempts);
+    const attemptsByTestId = this.groupAttemptsByTestId(latestAttempts);
 
     return this.sortTestsByDisplayNumber(snapshot.tests).map((test) =>
       this.toPracticeTestWithAttempts(
@@ -915,7 +910,48 @@ export class PracticeService implements OnModuleInit {
       LIMIT ${take}
     `);
 
-    return rows.map((row) => ({
+    return rows.map((row) => this.toAttemptBaseWithParts(row));
+  }
+
+  private async findLatestAttemptSummaryByTest(
+    userId: string,
+  ): Promise<AttemptBaseWithParts[]> {
+    const rows = await this.prisma.$queryRaw<SummaryRow[]>(Prisma.sql`
+      SELECT DISTINCT ON (pa.test_id)
+        pa.id AS "id",
+        pa.public_id AS "publicId",
+        pa.test_id AS "testId",
+        pa.mode AS "mode",
+        pa.correct_count AS "correctCount",
+        pa.total_count AS "totalCount",
+        pa.scaled_score AS "scaledScore",
+        pa.duration_seconds AS "durationSeconds",
+        pa.started_at AS "startedAt",
+        pa.completed_at AS "completedAt",
+        t.slug AS "testSlug",
+        t.title AS "testTitle",
+        t.subtitle AS "testSubtitle",
+        t.total_questions AS "testTotalQuestions",
+        COALESCE((
+          SELECT array_agg(DISTINCT tp.part_number)
+          FROM attempt_answers aa
+          JOIN questions q ON q.id = aa.question_id
+          JOIN test_parts tp ON tp.id = q.test_part_id
+          WHERE aa.attempt_id = pa.id
+        ), ARRAY[]::int[]) AS "partNumbers"
+      FROM practice_attempts pa
+      JOIN tests t ON t.id = pa.test_id
+      WHERE pa.user_id = ${userId}::uuid
+        AND pa.status = 'COMPLETED'
+        AND t.is_published = true
+      ORDER BY pa.test_id, pa.completed_at DESC
+    `);
+
+    return rows.map((row) => this.toAttemptBaseWithParts(row));
+  }
+
+  private toAttemptBaseWithParts(row: SummaryRow): AttemptBaseWithParts {
+    return {
       id: row.id,
       publicId: row.publicId,
       testId: row.testId,
@@ -933,7 +969,7 @@ export class PracticeService implements OnModuleInit {
         totalQuestions: row.testTotalQuestions,
       },
       partNumbers: row.partNumbers ?? [],
-    }));
+    };
   }
 
   private groupAttemptsByTestId(attempts: AttemptBaseWithParts[]) {

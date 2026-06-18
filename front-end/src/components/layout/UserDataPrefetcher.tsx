@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
 import { practiceKeys } from "@/features/practice/hooks/usePractice";
+import { writePracticeTestsSnapshot } from "@/features/practice/lib/practice-session-snapshot";
 import {
   getPracticeStats,
   listPracticeTestsWithProgress,
@@ -36,7 +37,11 @@ export function UserDataPrefetcher() {
     // Fire-and-forget, song song. Lỗi (vd mạng) không cản UI — trang vẫn tự fetch lại.
     void queryClient.prefetchQuery({
       queryKey: practiceKeys.tests(`user:${userId}`),
-      queryFn: listPracticeTestsWithProgress
+      queryFn: async () => {
+        const tests = await listPracticeTestsWithProgress();
+        writePracticeTestsSnapshot(userId, tests);
+        return tests;
+      }
     });
     void queryClient.prefetchQuery({
       queryKey: practiceKeys.stats(userId),

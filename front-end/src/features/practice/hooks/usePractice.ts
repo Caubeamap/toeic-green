@@ -1,8 +1,13 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/auth";
 import type { PracticeTest } from "../lib/practice-tests";
+import {
+  readPracticeTestsSnapshot,
+  writePracticeTestsSnapshot
+} from "../lib/practice-session-snapshot";
 import {
   getLatestPracticeAttemptResult,
   getPracticeAttemptResult,
@@ -43,7 +48,12 @@ function scopeFor(isAuthenticated: boolean, userId?: string) {
  *   thái Completed / lịch sử mà không chặn lần paint đầu.
  */
 export function usePracticeCatalog(initialTests?: PracticeTest[]) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const userId = user?.id;
+  const progressSnapshot = useMemo(
+    () => (userId ? readPracticeTestsSnapshot(userId) : null),
+    [userId]
+  );
 
   const publicQuery = useQuery({
     queryKey: practiceKeys.tests("public"),
@@ -52,15 +62,30 @@ export function usePracticeCatalog(initialTests?: PracticeTest[]) {
   });
 
   const progressQuery = useQuery({
-    queryKey: practiceKeys.tests(scopeFor(true, user?.id)),
+    queryKey: practiceKeys.tests(scopeFor(true, userId)),
     queryFn: listPracticeTestsWithProgress,
-    enabled: isAuthenticated && Boolean(user?.id)
+    enabled: isAuthenticated && Boolean(userId),
+    initialData: progressSnapshot?.tests,
+    initialDataUpdatedAt: progressSnapshot?.savedAt,
+    refetchOnMount: "always"
   });
 
+  useEffect(() => {
+    if (!userId || !progressQuery.data) {
+      return;
+    }
+
+    writePracticeTestsSnapshot(userId, progressQuery.data);
+  }, [userId, progressQuery.data]);
+
   const tests = progressQuery.data ?? publicQuery.data ?? [];
+  const isUserProgressPending =
+    !progressQuery.data &&
+    (authLoading || (isAuthenticated && progressQuery.isFetching));
 
   return {
     tests,
+    isUserProgressPending,
     // Chỉ "đang tải" khi thật sự chưa có gì để hiển thị (vd SSR fail + guest).
     isLoading: tests.length === 0 && publicQuery.isLoading,
     error: (publicQuery.error ?? progressQuery.error) as Error | null

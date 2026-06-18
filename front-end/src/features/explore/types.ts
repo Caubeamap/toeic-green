@@ -44,3 +44,11 @@ export type ExploreProgress = {
   ratingsByWordId: Record<string, FlashcardRating>;
   lastStudiedAt?: string;
 };
+
+/** Response của GET /explore/collections/:slug/progress */
+export type CollectionProgressResponse = {
+  isSaved: boolean;
+  isStudying: boolean;
+  lastStudiedAt: string | null;
+  ratings: Record<string, FlashcardRating>;
+};

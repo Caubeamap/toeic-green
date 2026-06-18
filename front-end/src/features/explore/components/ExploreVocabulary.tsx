@@ -24,10 +24,18 @@ import {
   XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { shuffle } from "@/lib/shuffle";
 import { useUrlNumber, useUrlParam } from "@/lib/url-state";
+import { useAuth } from "@/features/auth/hooks/auth";
 import { POS_LABELS } from "@/features/vocabulary/types";
 import { playAudio } from "@/features/vocabulary/services/storage";
 import { loadExploreCollection, loadExploreCollections } from "../services/catalog";
+import {
+  fetchCollectionProgress,
+  rateWord as rateWordApi,
+  resetKnownRatings,
+  setCollectionSaved
+} from "../services/progress";
 import type {
   ExploreCollection,
   ExploreCollectionSummary,
@@ -35,12 +43,7 @@ import type {
   ExploreWord,
   FlashcardRating
 } from "../types";
-import {
-  loadExploreProgress,
-  saveExploreProgress,
-  setWordRating,
-  toggleId
-} from "../services/storage";
+import { setWordRating, toggleId } from "../services/storage";
 
 type ExploreView = "collections" | "detail" | "review";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
@@ -124,6 +127,7 @@ export function ExploreVocabulary({
   initialView
 }: ExploreVocabularyProps = {}) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const routeCollectionId = initialCollectionSlug?.trim() ?? "";
   const resolvedInitialView: ExploreView =
     initialView ?? (routeCollectionId ? "detail" : "collections");
@@ -137,68 +141,51 @@ export function ExploreVocabulary({
   const [wordStatusByCollection, setWordStatusByCollection] = useState<
     Record<string, LoadStatus>
   >({});
+  const [progressStatusByCollection, setProgressStatusByCollection] = useState<
+    Record<string, LoadStatus>
+  >({});
   const [progress, setProgress] = useState<ExploreProgress>(emptyProgress);
-  const [progressLoaded, setProgressLoaded] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  // Deck flashcard ôn tập: đã loại từ "đã biết" và xáo trộn ngẫu nhiên mỗi lượt vào.
+  const [reviewDeck, setReviewDeck] = useState<ExploreWord[]>([]);
+  const [deckCollectionId, setDeckCollectionId] = useState<string | null>(null);
+  const [isResettingKnown, setIsResettingKnown] = useState(false);
+
+  // Ref để effect dựng deck đọc rating mới nhất mà không cần thêm vào deps.
+  const progressRef = useRef(progress);
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
+  const buildReviewDeck = useCallback((words: ExploreWord[]) => {
+    const ratings = progressRef.current.ratingsByWordId;
+    return shuffle(words.filter((word) => ratings[word.id] !== "known"));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadInitialData() {
       try {
-        const [loadedCollections, storedProgress] = await Promise.all([
-          loadExploreCollections(),
-          Promise.resolve(loadExploreProgress())
-        ]);
+        const loadedCollections = await loadExploreCollections();
 
         if (!mounted) return;
 
-        const storedCollectionId = storedProgress.activeCollectionId;
         const routeCollection = routeCollectionId
           ? findCollectionByRouteId(loadedCollections, routeCollectionId)
           : undefined;
-        const storedCollection = storedCollectionId
-          ? findCollectionByRouteId(loadedCollections, storedCollectionId)
-          : undefined;
         const initialCollectionId = routeCollectionId
           ? routeCollection?.id ?? routeCollectionId
-          : storedCollection?.id ?? loadedCollections[0]?.id ?? "";
-
-        let finalProgress = storedProgress;
-        if (resolvedInitialView === "review" && initialCollectionId) {
-          const alreadyStudying = storedProgress.studyingCollectionIds.includes(initialCollectionId);
-          finalProgress = {
-            ...storedProgress,
-            activeCollectionId: initialCollectionId,
-            studyingCollectionIds: alreadyStudying
-              ? storedProgress.studyingCollectionIds
-              : [...storedProgress.studyingCollectionIds, initialCollectionId]
-          };
-        }
+          : loadedCollections[0]?.id ?? "";
 
         setCollections(loadedCollections);
-        setProgress(finalProgress);
         setSelectedCollectionId(initialCollectionId);
         setView(resolvedInitialView);
-        setProgressLoaded(true);
         setCatalogStatus("ready");
       } catch {
         if (!mounted) return;
-        let finalProgress = loadExploreProgress();
-        if (resolvedInitialView === "review" && routeCollectionId) {
-          const alreadyStudying = finalProgress.studyingCollectionIds.includes(routeCollectionId);
-          finalProgress = {
-            ...finalProgress,
-            activeCollectionId: routeCollectionId,
-            studyingCollectionIds: alreadyStudying
-              ? finalProgress.studyingCollectionIds
-              : [...finalProgress.studyingCollectionIds, routeCollectionId]
-          };
-        }
-        setProgress(finalProgress);
-        setProgressLoaded(true);
         setSelectedCollectionId(routeCollectionId);
         setView(resolvedInitialView);
         setCatalogStatus("error");
@@ -211,12 +198,6 @@ export function ExploreVocabulary({
       mounted = false;
     };
   }, [routeCollectionId, resolvedInitialView]);
-
-  useEffect(() => {
-    if (progressLoaded) {
-      saveExploreProgress(progress);
-    }
-  }, [progress, progressLoaded]);
 
   const selectedSummary = useMemo(() => {
     if (!selectedCollectionId) return collections[0];
@@ -270,6 +251,52 @@ export function ExploreVocabulary({
     [collections, wordsByCollection]
   );
 
+  const ensureCollectionProgress = useCallback(
+    async (summary: ExploreCollectionSummary) => {
+      if (!isAuthenticated || progressStatusByCollection[summary.id]) {
+        return;
+      }
+
+      setProgressStatusByCollection((current) => ({
+        ...current,
+        [summary.id]: "loading"
+      }));
+
+      try {
+        const data = await fetchCollectionProgress(summary.slug);
+
+        setProgress((current) => {
+          const studying =
+            data.isStudying && !current.studyingCollectionIds.includes(summary.id)
+              ? [...current.studyingCollectionIds, summary.id]
+              : current.studyingCollectionIds;
+          const saved = data.isSaved
+            ? current.savedCollectionIds.includes(summary.id)
+              ? current.savedCollectionIds
+              : [...current.savedCollectionIds, summary.id]
+            : current.savedCollectionIds.filter((id) => id !== summary.id);
+
+          return {
+            ...current,
+            ratingsByWordId: { ...current.ratingsByWordId, ...data.ratings },
+            studyingCollectionIds: studying,
+            savedCollectionIds: saved
+          };
+        });
+        setProgressStatusByCollection((current) => ({
+          ...current,
+          [summary.id]: "ready"
+        }));
+      } catch {
+        setProgressStatusByCollection((current) => ({
+          ...current,
+          [summary.id]: "error"
+        }));
+      }
+    },
+    [isAuthenticated, progressStatusByCollection]
+  );
+
   const filteredCollections = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -286,10 +313,9 @@ export function ExploreVocabulary({
   }, [collections, query]);
 
   const currentWords = selectedCollection?.words ?? [];
+  const deckSize = reviewDeck.length;
   const currentWord =
-    currentWords.length > 0
-      ? currentWords[currentWordIndex % currentWords.length]
-      : undefined;
+    deckSize > 0 ? reviewDeck[currentWordIndex % deckSize] : undefined;
   const selectedProgress = getCollectionProgress(
     currentWords,
     progress.ratingsByWordId
@@ -297,6 +323,9 @@ export function ExploreVocabulary({
   const knownWords = currentWords.filter(
     (word) => progress.ratingsByWordId[word.id] === "known"
   ).length;
+  // Đã học hết: bộ có từ, tất cả đều "đã biết" nên deck rỗng.
+  const isReviewCompleted =
+    currentWords.length > 0 && knownWords >= currentWords.length;
   const selectedWordStatus = selectedSummary
     ? wordStatusByCollection[selectedSummary.id] ?? "idle"
     : "idle";
@@ -329,7 +358,58 @@ export function ExploreVocabulary({
     return () => window.clearTimeout(timer);
   }, [ensureCollectionWords, selectedSummary, selectedWordStatus, view]);
 
+  // Tải tiến độ học (rating) từ DB khi mở chi tiết/review của user đã đăng nhập.
+  useEffect(() => {
+    if (
+      (view !== "detail" && view !== "review") ||
+      !selectedSummary ||
+      !isAuthenticated
+    ) {
+      return;
+    }
 
+    const summary = selectedSummary;
+    const timer = window.setTimeout(() => {
+      void ensureCollectionProgress(summary);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [ensureCollectionProgress, selectedSummary, view, isAuthenticated]);
+
+  // Dựng deck ôn tập đúng 1 lần mỗi lượt vào review (sau khi đã có words + rating).
+  useEffect(() => {
+    if (view !== "review" || !selectedSummary) return;
+
+    const id = selectedSummary.id;
+    const wordsReady = wordStatusByCollection[id] === "ready";
+    const progressState = progressStatusByCollection[id];
+    // Lỗi tải tiến độ vẫn dựng deck (coi như chưa có rating) để không kẹt loading.
+    const progressReady =
+      !isAuthenticated ||
+      progressState === "ready" ||
+      progressState === "error";
+
+    if (!wordsReady || !progressReady || deckCollectionId === id) return;
+
+    const words = wordsByCollection[id] ?? [];
+    const timer = window.setTimeout(() => {
+      setReviewDeck(buildReviewDeck(words));
+      setDeckCollectionId(id);
+      setCurrentWordIndex(0);
+      setShowAnswer(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    view,
+    selectedSummary,
+    wordStatusByCollection,
+    progressStatusByCollection,
+    isAuthenticated,
+    wordsByCollection,
+    deckCollectionId,
+    buildReviewDeck
+  ]);
 
   function prepareCollectionOpen(collectionId: string) {
     const collection = findCollectionByRouteId(collections, collectionId);
@@ -360,18 +440,8 @@ export function ExploreVocabulary({
     const words = await ensureCollectionWords(collectionId);
     if (words.length === 0) return;
 
-    setSelectedCollectionId(collectionId);
-    setView("review");
-    setCurrentWordIndex(0);
-    setShowAnswer(false);
-    setProgress((current) => ({
-      ...current,
-      activeCollectionId: collectionId,
-      studyingCollectionIds: current.studyingCollectionIds.includes(collectionId)
-        ? current.studyingCollectionIds
-        : [...current.studyingCollectionIds, collectionId]
-    }));
-
+    // Review là route riêng (.../review) nên sẽ remount và tự dựng deck mới
+    // (xáo trộn ngẫu nhiên, loại từ "đã biết") qua effect dựng deck.
     if (reviewHref !== "/explore") {
       router.push(reviewHref);
     }
@@ -388,23 +458,29 @@ export function ExploreVocabulary({
   }
 
   function toggleSaved(collectionId: string) {
+    const collection = findCollectionByRouteId(collections, collectionId);
+    const slug = collection?.slug ?? collectionId;
+    const willSave = !progress.savedCollectionIds.includes(collectionId);
+
     setProgress((current) => ({
       ...current,
       savedCollectionIds: toggleId(current.savedCollectionIds, collectionId),
       activeCollectionId: collectionId
     }));
+
+    if (isAuthenticated) {
+      void setCollectionSaved(slug, willSave).catch(() => {});
+    }
   }
 
   function rateCurrentWord(rating: FlashcardRating) {
     if (!currentWord || !selectedCollection) return;
 
+    const wordId = currentWord.id;
+
     setProgress((current) => ({
       ...current,
-      ratingsByWordId: setWordRating(
-        current.ratingsByWordId,
-        currentWord.id,
-        rating
-      ),
+      ratingsByWordId: setWordRating(current.ratingsByWordId, wordId, rating),
       studyingCollectionIds: current.studyingCollectionIds.includes(
         selectedCollection.id
       )
@@ -413,21 +489,57 @@ export function ExploreVocabulary({
       activeCollectionId: selectedCollection.id
     }));
 
-    setCurrentWordIndex((index) => (index + 1) % currentWords.length);
+    // Trong 1 phiên, deck giữ nguyên: rating "known" chỉ ẩn ở lần vào sau.
+    if (reviewDeck.length > 0) {
+      setCurrentWordIndex((index) => (index + 1) % reviewDeck.length);
+    }
     setShowAnswer(false);
+
+    void rateWordApi(wordId, rating).catch(() => {});
   }
 
   function moveWord(direction: "previous" | "next") {
-    if (currentWords.length === 0) return;
+    if (reviewDeck.length === 0) return;
 
     setCurrentWordIndex((index) => {
       if (direction === "previous") {
-        return index === 0 ? currentWords.length - 1 : index - 1;
+        return index === 0 ? reviewDeck.length - 1 : index - 1;
       }
 
-      return (index + 1) % currentWords.length;
+      return (index + 1) % reviewDeck.length;
     });
     setShowAnswer(false);
+  }
+
+  async function handleResetKnown() {
+    if (!selectedSummary || isResettingKnown) return;
+
+    const { id, slug } = selectedSummary;
+    setIsResettingKnown(true);
+
+    try {
+      await resetKnownRatings(slug);
+
+      setProgress((current) => {
+        const ratings = { ...current.ratingsByWordId };
+        for (const word of currentWords) {
+          if (ratings[word.id] === "known") {
+            delete ratings[word.id];
+          }
+        }
+        return { ...current, ratingsByWordId: ratings };
+      });
+
+      // Đã bỏ hết "known" → dựng lại deck với toàn bộ từ, xáo trộn mới.
+      setReviewDeck(shuffle(wordsByCollection[id] ?? currentWords));
+      setDeckCollectionId(id);
+      setCurrentWordIndex(0);
+      setShowAnswer(false);
+    } catch {
+      // Giữ nguyên trạng thái nếu lỗi mạng/định danh.
+    } finally {
+      setIsResettingKnown(false);
+    }
   }
 
   return (
@@ -564,13 +676,25 @@ export function ExploreVocabulary({
               collection={selectedCollection}
               currentWord={currentWord}
               currentWordIndex={currentWordIndex}
+              deckSize={deckSize}
               knownWords={knownWords}
               progressPercent={selectedProgress}
               showAnswer={showAnswer}
               backHref={detailHref}
+              isResettingKnown={isResettingKnown}
               onToggleAnswer={() => setShowAnswer((value) => !value)}
               onMoveWord={moveWord}
               onRate={rateCurrentWord}
+              onResetKnown={handleResetKnown}
+              onClose={closeReview}
+            />
+          ) : isReviewCompleted ? (
+            <ReviewCompleted
+              collection={selectedCollection}
+              knownWords={knownWords}
+              backHref={detailHref}
+              isResettingKnown={isResettingKnown}
+              onResetKnown={handleResetKnown}
               onClose={closeReview}
             />
           ) : (
@@ -1024,25 +1148,31 @@ function FlashcardReview({
   collection,
   currentWord,
   currentWordIndex,
+  deckSize,
   knownWords,
   progressPercent,
   showAnswer,
   backHref,
+  isResettingKnown,
   onToggleAnswer,
   onMoveWord,
   onRate,
+  onResetKnown,
   onClose
 }: {
   collection: ExploreCollection;
   currentWord: ExploreWord;
   currentWordIndex: number;
+  deckSize: number;
   knownWords: number;
   progressPercent: number;
   showAnswer: boolean;
   backHref: string;
+  isResettingKnown: boolean;
   onToggleAnswer: () => void;
   onMoveWord: (direction: "previous" | "next") => void;
   onRate: (rating: FlashcardRating) => void;
+  onResetKnown: () => void;
   onClose: () => void;
 }) {
   return (
@@ -1069,10 +1199,26 @@ function FlashcardReview({
               </h2>
             </div>
             <p className="mt-2 text-sm font-semibold text-muted">
-              {currentWordIndex + 1}/{collection.words.length} từ · {knownWords} từ
-              đã biết
+              {currentWordIndex + 1}/{deckSize} từ cần ôn · {knownWords} từ đã biết
             </p>
           </div>
+
+          {knownWords > 0 ? (
+            <button
+              type="button"
+              onClick={onResetKnown}
+              disabled={isResettingKnown}
+              className="inline-flex min-h-10 items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-muted transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+              title="Đưa các từ đã biết trở lại danh sách ôn"
+            >
+              {isResettingKnown ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <RotateCcw size={16} />
+              )}
+              Ôn lại từ đã biết
+            </button>
+          ) : null}
         </div>
 
         <div className="mt-5 h-2 rounded-full bg-slate-100">
@@ -1264,6 +1410,63 @@ function EmptyState({
       <Library className="mx-auto h-10 w-10 text-slate-300" />
       <h3 className="mt-4 text-lg font-extrabold text-ink">{title}</h3>
       <p className="mt-2 text-sm text-muted">{description}</p>
+    </div>
+  );
+}
+
+function ReviewCompleted({
+  collection,
+  knownWords,
+  backHref,
+  isResettingKnown,
+  onResetKnown,
+  onClose
+}: {
+  collection: ExploreCollection;
+  knownWords: number;
+  backHref: string;
+  isResettingKnown: boolean;
+  onResetKnown: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-5xl">
+      <Link
+        href={backHref}
+        onClick={onClose}
+        prefetch={false}
+        className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-muted transition hover:border-primary/35 hover:text-primary"
+      >
+        <ArrowLeft size={16} />
+        Xem danh sách từ
+      </Link>
+
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-14 text-center shadow-soft">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+          <CheckCircle2 size={30} />
+        </span>
+        <h2 className="mt-5 text-2xl font-extrabold text-ink">
+          Bạn đã học hết bộ này 🎉
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
+          Toàn bộ {knownWords} từ của “{collection.title}” đã được đánh dấu “Đã
+          biết”. Bạn có thể ôn lại từ đầu để củng cố trí nhớ.
+        </p>
+
+        <button
+          type="button"
+          onClick={onResetKnown}
+          disabled={isResettingKnown}
+          className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16] disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isResettingKnown ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <RotateCcw size={16} />
+          )}
+          Ôn lại từ đã biết
+        </button>
+      </div>
     </div>
   );
 }

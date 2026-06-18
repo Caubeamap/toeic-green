@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { RequireAuth } from "@/features/auth";
 import { ExploreVocabulary } from "@/features/explore";
 
 type ExploreCollectionPageProps = {
@@ -24,7 +25,9 @@ export default async function ExploreCollectionPage({
       <SiteHeader />
       <main className="pt-20">
         <Suspense fallback={<div className="min-h-screen bg-[#f5f7f9]" />}>
-          <ExploreVocabulary initialCollectionSlug={collectionSlug} />
+          <RequireAuth>
+            <ExploreVocabulary initialCollectionSlug={collectionSlug} />
+          </RequireAuth>
         </Suspense>
       </main>
       <SiteFooter />

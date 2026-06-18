@@ -11,6 +11,12 @@ type VerificationState =
   | { type: "success"; message: string }
   | { type: "error"; message: string };
 
+// Đồng bộ giữa tab "chờ xác minh" (mở từ lúc đăng ký) và tab "đang xác minh" (mở
+// từ link trong email). Email client luôn mở link ở tab MỚI — ta không chặn được —
+// nên tab mới verify xong sẽ phát tín hiệu để tab cũ tự cập nhật, rồi tự đóng nếu
+// trình duyệt cho phép. Cùng origin nên BroadcastChannel an toàn.
+const VERIFY_CHANNEL = "toeic-green-verify-email";
+
 export function VerifyEmailPanel({
   initialEmail,
   token
@@ -35,9 +41,24 @@ export function VerifyEmailPanel({
         const result = await api.post<{ message: string }>("/auth/verify-email", {
           token
         });
-        if (!cancelled) {
-          setState({ type: "success", message: result.message });
+        if (cancelled) return;
+        setState({ type: "success", message: result.message });
+
+        // Báo cho tab "chờ" (đăng ký lúc trước) tự cập nhật, rồi cố tự đóng tab này.
+        try {
+          if (typeof BroadcastChannel !== "undefined") {
+            const channel = new BroadcastChannel(VERIFY_CHANNEL);
+            channel.postMessage({ type: "email-verified" });
+            // Đóng channel SAU một nhịp — đóng ngay sau postMessage có thể làm rớt
+            // message trước khi tab khác kịp nhận.
+            window.setTimeout(() => channel.close(), 1000);
+          }
+        } catch {
+          // BroadcastChannel không khả dụng → bỏ qua, tab này vẫn hiện thành công.
         }
+        // window.close() chỉ chạy được nếu trình duyệt cho phép (thường chặn với tab
+        // do người dùng tự mở). Nếu không đóng được, màn "đã xác minh" vẫn hiển thị ở đây.
+        window.setTimeout(() => window.close(), 400);
       } catch (error: unknown) {
         if (!cancelled) {
           setState({
@@ -51,6 +72,30 @@ export function VerifyEmailPanel({
     void verify();
     return () => {
       cancelled = true;
+    };
+  }, [token]);
+
+  // Tab "chờ xác minh" (không có token): lắng nghe khi một tab khác xác minh xong
+  // → tự chuyển sang trạng thái thành công (không cần người dùng quay lại tab kia).
+  useEffect(() => {
+    if (token) return;
+    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
+      return;
+    }
+
+    const channel = new BroadcastChannel(VERIFY_CHANNEL);
+    const onMessage = (event: MessageEvent<{ type?: string }>) => {
+      if (event.data?.type === "email-verified") {
+        setState({
+          type: "success",
+          message: "Email của bạn đã được xác minh."
+        });
+      }
+    };
+    channel.addEventListener("message", onMessage);
+    return () => {
+      channel.removeEventListener("message", onMessage);
+      channel.close();
     };
   }, [token]);
 

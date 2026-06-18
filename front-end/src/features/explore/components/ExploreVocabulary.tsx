@@ -922,23 +922,30 @@ function CollectionWordsPage({
       </Link>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-        <div className="relative h-40 overflow-hidden bg-slate-900 md:h-48">
-          {collection.coverImageUrl ? (
-            <Image
-              src={collection.coverImageUrl}
-              alt={collection.title}
-              fill
-              sizes="(min-width: 1024px) 900px, 100vw"
-              className="object-cover"
-            />
-          ) : null}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/78 via-black/42 to-black/10" />
-          <div className="absolute inset-y-0 left-0 flex max-w-2xl flex-col justify-center px-5 text-white md:px-8">
-            <p className="text-sm font-bold uppercase">{collection.category}</p>
-            <h2 className="mt-2 text-2xl font-extrabold leading-tight md:text-3xl">
+        {/* Banner thương hiệu dùng chung cho MỌI list (không dùng ảnh cover
+            riêng từng bộ để tránh ảnh sáng làm mất chữ). */}
+        <div className="relative h-40 overflow-hidden md:h-48">
+          {/* Nền gradient xanh TOEIC Green */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0a8a2a] via-[#00731a] to-[#004d12]" />
+          {/* Hoa văn lưới tinh tế */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:22px_22px]" />
+          {/* Vòng tròn trang trí */}
+          <div className="pointer-events-none absolute -right-12 -top-16 h-52 w-52 rounded-full border border-white/10 bg-white/[0.03]" />
+          <div className="pointer-events-none absolute right-14 -bottom-16 h-44 w-44 rounded-full border border-white/10 bg-white/[0.04]" />
+          {/* Icon motif bên phải (ẩn ở màn nhỏ) */}
+          <div className="pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 text-white/15 md:block">
+            <Layers size={118} strokeWidth={1.5} />
+          </div>
+          {/* Nội dung */}
+          <div className="absolute inset-y-0 left-0 flex max-w-2xl flex-col justify-center px-5 md:px-8">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-white backdrop-blur-sm">
+              <BookOpen size={13} />
+              {collection.category}
+            </span>
+            <h2 className="mt-3 text-2xl font-extrabold leading-tight text-white drop-shadow-sm md:text-3xl">
               Flashcards: {collection.title}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-white/82">
+            <p className="mt-2 text-sm leading-6 text-white/85">
               Danh sách gồm {formatNumber(collection.wordCount)} từ · khoảng{" "}
               {collection.estimatedMinutes} phút/lượt học.
             </p>

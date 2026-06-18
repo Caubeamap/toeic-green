@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -10,17 +10,11 @@ import {
   Search
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/features/auth";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/url-state";
 import { practiceFilters, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
-import {
-  cachePracticeTestsForCurrentUser,
-  listPracticeTests,
-  listPracticeTestsWithProgress,
-  readCachedPracticeTestsForCurrentUser
-} from "../services/practice-api";
+import { usePracticeCatalog } from "../hooks/usePractice";
 
 function getLatestAttemptTimestamp(test: PracticeTest) {
   const [latestAttempt] = test.recentAttempts ?? [];
@@ -29,11 +23,14 @@ function getLatestAttemptTimestamp(test: PracticeTest) {
 }
 
 export function PracticeCatalog() {
-  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const { searchParams, setParams } = useUrlState();
-  const [tests, setTests] = useState<PracticeTest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Danh mục đề lấy qua React Query (cache RAM): tự chọn public / kèm tiến độ
+  // theo trạng thái đăng nhập, dedup + revalidate, không còn localStorage.
+  const { tests, isLoading, error } = usePracticeCatalog();
+  const errorMessage = error
+    ? getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
+    : null;
 
   // Bộ lọc, tìm kiếm và trang đều lấy từ URL (?filter=, ?q=, ?page=)
   const filterParam = searchParams.get("filter");
@@ -58,73 +55,6 @@ export function PracticeCatalog() {
   const setPage = (page: number) => {
     setParams({ page: page <= 1 ? null : page });
   };
-
-  // Dùng ref để theo dõi danh sách đề thi một cách an toàn mà không vi phạm quy tắc render hoặc dependency
-  const testsRef = useRef<PracticeTest[]>([]);
-  useEffect(() => {
-    testsRef.current = tests;
-  }, [tests]);
-
-  // 1. Khôi phục dữ liệu từ localStorage để hiển thị tức thì (Stale-While-Revalidate)
-  useEffect(() => {
-    const restoredTests = readCachedPracticeTestsForCurrentUser();
-    if (restoredTests && restoredTests.length > 0) {
-      const timer = setTimeout(() => {
-        setTests(restoredTests);
-        setIsLoading(false);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // 2. Tải danh sách đề thi thực tế từ API và đồng bộ hóa cache
-  useEffect(() => {
-    // Đọc trực tiếp localStorage để phát hiện sớm nếu có phiên đăng nhập cũ chưa được khôi phục
-    const hasStoredUser = typeof window !== "undefined" && !!localStorage.getItem("toeic-green-auth");
-
-    // Nếu đang trong quá trình khôi phục phiên ngầm và có thông tin user cũ,
-    // hoãn việc gửi request lấy danh sách đề thi công khai để tránh làm giao diện bị nhảy trạng thái (flicker).
-    if (isAuthLoading && hasStoredUser) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadTests() {
-      // Chỉ hiển thị loading screen nếu chưa có dữ liệu trong cache
-      if (testsRef.current.length === 0) {
-        setIsLoading(true);
-      }
-      setErrorMessage(null);
-
-      try {
-        const result = isAuthenticated
-          ? await listPracticeTestsWithProgress()
-          : await listPracticeTests();
-        const syncedResult = cachePracticeTestsForCurrentUser(result);
-
-        if (!cancelled) {
-          setTests(syncedResult);
-        }
-      } catch (error) {
-        if (!cancelled && testsRef.current.length === 0) {
-          setErrorMessage(
-            getErrorMessage(error, "Không tải được danh sách đề thi TOEIC.")
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadTests();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, isAuthLoading, user]);
 
   const historyTests = useMemo(
     () =>

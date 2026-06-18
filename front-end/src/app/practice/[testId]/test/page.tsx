@@ -1,14 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth";
 import {
-  getPracticeTest,
-  listPracticeQuestions,
   PracticeExamSession,
-  type PracticeTest,
-  type ToeicQuestion
+  usePracticeQuestions,
+  usePracticeTest
 } from "@/features/practice";
 import { getErrorMessage } from "@/lib/api";
 
@@ -18,10 +16,22 @@ function TestPageContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
 
-  const [test, setTest] = useState<PracticeTest | null>(null);
-  const [questions, setQuestions] = useState<ToeicQuestion[]>([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Đề (public) + câu hỏi (yêu cầu đăng nhập) qua React Query — cache RAM, dedup.
+  const testQuery = usePracticeTest(params.testId);
+  const questionsQuery = usePracticeQuestions(params.testId, isAuthenticated);
+  const test = testQuery.data ?? null;
+  const questions = useMemo(
+    () => questionsQuery.data ?? [],
+    [questionsQuery.data]
+  );
+  const loadingQuestions = questionsQuery.isLoading;
+  const errorMessage =
+    testQuery.error || questionsQuery.error
+      ? getErrorMessage(
+          testQuery.error ?? questionsQuery.error,
+          "Không tải được dữ liệu câu hỏi."
+        )
+      : null;
 
   const partsParam = searchParams.get("parts");
   const timeParam = searchParams.get("time");
@@ -53,32 +63,6 @@ function TestPageContent() {
 
     return test.minutes;
   }, [test, timeParam, modeParam]);
-
-  useEffect(() => {
-    async function loadQuestions() {
-      setLoadingQuestions(true);
-      setErrorMessage(null);
-
-      try {
-        const [nextTest, nextQuestions] = await Promise.all([
-          getPracticeTest(params.testId),
-          listPracticeQuestions(params.testId)
-        ]);
-        setTest(nextTest);
-        setQuestions(nextQuestions);
-      } catch (error) {
-        setErrorMessage(
-          getErrorMessage(error, "Không tải được dữ liệu câu hỏi.")
-        );
-      } finally {
-        setLoadingQuestions(false);
-      }
-    }
-
-    if (isAuthenticated) {
-      loadQuestions();
-    }
-  }, [params.testId, isAuthenticated]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

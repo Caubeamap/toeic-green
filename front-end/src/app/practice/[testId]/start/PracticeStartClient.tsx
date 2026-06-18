@@ -1,67 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/features/auth";
-import {
-  getPracticeTest,
-  getPracticeTestWithProgress,
-  PracticeTestSetup,
-  type PracticeTest
-} from "@/features/practice";
+import { PracticeTestSetup, usePracticeTestDetail } from "@/features/practice";
 import { getErrorMessage } from "@/lib/api";
 
 export function PracticeStartClient({ testId }: { testId: string }) {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [test, setTest] = useState<PracticeTest | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Đọc trực tiếp localStorage để phát hiện sớm phiên đăng nhập cũ chưa được khôi phục.
-    const hasStoredUser =
-      typeof window !== "undefined" && !!localStorage.getItem("toeic-green-auth");
-
-    // Chỉ chờ khôi phục phiên khi đúng là người dùng cũ đang được hydrate, để khách
-    // vãng lai / lần tải nguội vẫn nhận ngay dữ liệu đề thi công khai mà không phải
-    // đợi refresh token.
-    if (isAuthLoading && hasStoredUser) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadTest() {
-      setIsLoading(true);
-      setErrorMessage(null);
-
-      try {
-        const nextTest = isAuthenticated
-          ? await getPracticeTestWithProgress(testId)
-          : await getPracticeTest(testId);
-
-        if (!cancelled) {
-          setTest(nextTest);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            getErrorMessage(error, "Không tải được thông tin đề thi TOEIC.")
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadTest();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, isAuthLoading, testId]);
+  // Chi tiết đề qua React Query (cache RAM): tự chọn public/kèm tiến độ theo auth.
+  const { test, isLoading, error } = usePracticeTestDetail(testId);
+  const errorMessage = error
+    ? getErrorMessage(error, "Không tải được thông tin đề thi TOEIC.")
+    : null;
 
   if (isLoading) {
     return (

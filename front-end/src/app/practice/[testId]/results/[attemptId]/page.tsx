@@ -1,110 +1,32 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { useAuth } from "@/features/auth";
-import { PracticeResultReview } from "@/features/practice";
-import {
-  getPracticeAttemptResult,
-  type PracticeAttemptResult
-} from "@/features/practice";
+import { PracticeResultReview, useAttemptResult } from "@/features/practice";
 import { getErrorMessage } from "@/lib/api";
 
 export default function AttemptResultPage() {
   const params = useParams<{ attemptId: string; testId: string }>();
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [result, setResult] = useState<PracticeAttemptResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Dùng ref để theo dõi kết quả một cách an toàn mà không vi phạm quy tắc render hoặc dependency
-  const resultRef = useRef<PracticeAttemptResult | null>(null);
-  useEffect(() => {
-    resultRef.current = result;
-  }, [result]);
+  // Kết quả qua React Query (cache RAM). Vào ngay sau khi nộp bài là tức thì vì
+  // useSubmitAttempt đã seed sẵn cache cho đúng attemptId.
+  const {
+    data: result,
+    isLoading,
+    error
+  } = useAttemptResult(params.testId, params.attemptId);
 
   useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
       router.replace("/login");
     }
   }, [isAuthenticated, isAuthLoading, router]);
-
-  // 1. Khôi phục kết quả thi từ localStorage để hiển thị tức thì (SWR)
-  useEffect(() => {
-    if (!params.attemptId) return;
-
-    const cacheKey = `toeic-green-attempt-result:${params.attemptId}`;
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
-      try {
-        const parsedResult = JSON.parse(cachedData);
-        if (parsedResult && parsedResult.attempt) {
-          // Tránh gọi setState đồng bộ trong effect mount
-          const timer = setTimeout(() => {
-            setResult(parsedResult);
-            setIsLoading(false);
-          }, 0);
-          return () => clearTimeout(timer);
-        }
-      } catch {
-        // Bỏ qua lỗi parse
-      }
-    }
-  }, [params.attemptId]);
-
-  // 2. Tải kết quả thực tế từ API và lưu vào cache
-  useEffect(() => {
-    if (!params.attemptId || !params.testId) return;
-
-    let cancelled = false;
-
-    async function loadResult() {
-      // Chỉ hiện loading screen nếu chưa có dữ liệu trong cache
-      if (!resultRef.current) {
-        setIsLoading(true);
-      }
-      setErrorMessage(null);
-
-      try {
-        const nextResult = await getPracticeAttemptResult(
-          params.testId,
-          params.attemptId
-        );
-
-        if (!cancelled) {
-          setResult(nextResult);
-
-          // Lưu kết quả vào localStorage cache
-          const cacheKey = `toeic-green-attempt-result:${params.attemptId}`;
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify(nextResult));
-          } catch {
-            // Bỏ qua lỗi quota
-          }
-        }
-      } catch (error) {
-        if (!cancelled && !resultRef.current) {
-          setErrorMessage(
-            getErrorMessage(error, "Không tải được kết quả làm bài.")
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadResult();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [params.attemptId, params.testId]);
 
   // Hiển thị giao diện kết quả ngay khi có dữ liệu (bỏ qua isAuthLoading)
   if (result) {
@@ -115,12 +37,17 @@ export default function AttemptResultPage() {
     );
   }
 
+  const errorMessage = error
+    ? getErrorMessage(error, "Không tải được kết quả làm bài.")
+    : null;
+  const showLoading = isAuthLoading || !isAuthenticated || isLoading;
+
   return (
     <>
       <SiteHeader />
       <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_44%),radial-gradient(circle_at_100%_20%,#eef4ff_0%,#fbf9f8_36%)] pt-32">
         <section className="container-shell pb-16">
-          {isLoading || isAuthLoading ? (
+          {showLoading ? (
             <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
               Đang tải kết quả
             </div>
@@ -130,7 +57,8 @@ export default function AttemptResultPage() {
                 Không tìm thấy kết quả
               </h1>
               <p className="mt-3 text-sm font-semibold text-red-700">
-                {errorMessage ?? "Kết quả này không tồn tại hoặc không thuộc tài khoản hiện tại."}
+                {errorMessage ??
+                  "Kết quả này không tồn tại hoặc không thuộc tài khoản hiện tại."}
               </p>
               <Link
                 href="/practice"

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/features/auth";
-import { listPracticeQuestions } from "../services/practice-api";
+import { usePrefetchQuestions } from "../hooks/usePractice";
 import {
   CalendarDays,
   CheckCircle2,
@@ -82,6 +82,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
 
   const pageTitle = formatPracticeTestTitle(currentTest);
   const { isAuthenticated } = useAuth();
+  const prefetchQuestionsFor = usePrefetchQuestions();
 
   const queryParams = new URLSearchParams();
   if (selectedPartIds.length > 0) {
@@ -103,7 +104,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
       return;
     }
 
-    void listPracticeQuestions(currentTest.id).catch(() => undefined);
+    void prefetchQuestionsFor(currentTest.id);
   }
 
   return (

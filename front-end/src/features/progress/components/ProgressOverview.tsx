@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ArrowRight,
   Award,
@@ -18,16 +18,22 @@ import {
   Trophy
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { PracticeAttempt } from "@/features/practice/lib/practice-tests";
+import type { PracticeAttempt, PracticeStats } from "@/features/practice";
+import { usePracticeStats, useRecentAttempts } from "@/features/practice";
+import { useVocabularyWords } from "@/features/vocabulary/hooks/useVocabulary";
 import type { VocabularyWord } from "@/features/vocabulary/types";
 import { useAuth } from "@/features/auth/hooks/auth";
 import { cn } from "@/lib/utils";
-import {
-  emptyPracticeStats,
-  fetchProgress,
-  readCachedProgress,
-  type ProgressData
-} from "../services/progress-api";
+
+const emptyPracticeStats: PracticeStats = {
+  totalAttempts: 0,
+  totalCorrect: 0,
+  totalQuestions: 0,
+  totalDurationSeconds: 0,
+  averageAccuracy: null,
+  bestAccuracy: null,
+  bestScaledScore: null
+};
 
 type ActivityDay = {
   key: string;
@@ -157,60 +163,17 @@ function getStatusMessage({
 }
 
 export function ProgressOverview() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const userId = user?.id ?? null;
-  const [data, setData] = useState<ProgressData | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  useEffect(() => {
-    // Chờ auth xác định trạng thái rồi mới quyết định gọi API hay không.
-    if (isLoading) return;
-
-    let cancelled = false;
-
-    const load = async () => {
-      if (!isAuthenticated || !userId) {
-        // Khách: không gọi API (tránh 401), hiển thị lời mời đăng nhập.
-        setData(null);
-        setIsLoaded(true);
-        return;
-      }
-
-      // Paint tức thì từ cache (nếu có) rồi revalidate nền.
-      const cached = readCachedProgress(userId);
-      if (cached && !cancelled) {
-        setData(cached);
-        setIsLoaded(true);
-      }
-
-      try {
-        const fresh = await fetchProgress(userId);
-        if (!cancelled) {
-          setData(fresh);
-          setIsLoaded(true);
-        }
-      } catch {
-        // Giữ dữ liệu cache (nếu có); chỉ đánh dấu đã tải xong.
-        if (!cancelled) setIsLoaded(true);
-      }
-    };
-
-    // setState được hoãn ra ngoài thân effect (eslint react-hooks/set-state-in-effect).
-    const timer = window.setTimeout(() => void load(), 0);
-    const onFocus = () => void load();
-    window.addEventListener("focus", onFocus);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [isAuthenticated, isLoading, userId]);
+  // Cache trong RAM (React Query): stats + recent + vocab, tự dedup/revalidate.
+  const statsQuery = usePracticeStats();
+  const recentQuery = useRecentAttempts();
+  const vocabQuery = useVocabularyWords();
 
   const progress = useMemo(() => {
-    const stats = data?.stats ?? emptyPracticeStats;
-    const words = data?.words ?? [];
-    const attempts = [...(data?.attempts ?? [])].sort(
+    const stats = statsQuery.data ?? emptyPracticeStats;
+    const words = vocabQuery.data ?? [];
+    const attempts = [...(recentQuery.data ?? [])].sort(
       (a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp)
     );
     const masteredWords = words.filter((word) => word.status === "mastered").length;
@@ -241,15 +204,18 @@ export function ProgressOverview() {
       totalSeconds: stats.totalDurationSeconds,
       words
     };
-  }, [data]);
+  }, [statsQuery.data, recentQuery.data, vocabQuery.data]);
 
   const maxActivity = Math.max(
     1,
     ...progress.activityDays.map((day) => day.total)
   );
 
-  const showGuestPrompt = !isLoading && !isAuthenticated;
-  const showLoading = (isLoading || !isLoaded) && !data;
+  const showGuestPrompt = !authLoading && !isAuthenticated;
+  const showLoading =
+    authLoading ||
+    (isAuthenticated &&
+      (statsQuery.isLoading || recentQuery.isLoading || vocabQuery.isLoading));
 
   return (
     <section className="min-h-screen bg-[#f5f7f9] pb-20">
@@ -471,7 +437,7 @@ export function ProgressOverview() {
             </div>
 
             <div className="mt-5 space-y-3">
-              {isLoaded && progress.recentAttempts.length > 0 ? (
+              {progress.recentAttempts.length > 0 ? (
                 progress.recentAttempts.map((attempt) => (
                   <RecentAttemptRow key={attempt.id} attempt={attempt} />
                 ))

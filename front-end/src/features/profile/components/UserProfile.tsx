@@ -13,8 +13,8 @@ import {
   UserRound
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
-import { getPracticeStats } from "@/features/practice";
-import { fetchVocabularyWords } from "@/features/vocabulary/services/api";
+import { usePracticeStats } from "@/features/practice";
+import { useVocabularyWords } from "@/features/vocabulary/hooks/useVocabulary";
 import type { VocabularyWord } from "@/features/vocabulary/types";
 import { cn } from "@/lib/utils";
 import { loadUserProfile, getDefaultUserProfile } from "../services/profile";
@@ -66,27 +66,10 @@ export function UserProfile() {
     profile: UserProfileData;
     userId: string;
   } | null>(null);
-  const [vocabWords, setVocabWords] = useState<VocabularyWord[]>([]);
-  const [attemptCount, setAttemptCount] = useState(0);
 
-  // Tải từ vựng + số lượt luyện từ DB để tính các chỉ số hồ sơ (song song).
-  useEffect(() => {
-    if (!user) return;
-
-    let cancelled = false;
-    Promise.all([
-      fetchVocabularyWords().catch(() => [] as VocabularyWord[]),
-      getPracticeStats().catch(() => null)
-    ]).then(([words, stats]) => {
-      if (cancelled) return;
-      setVocabWords(words);
-      setAttemptCount(stats?.totalAttempts ?? 0);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  // Từ vựng + số lượt luyện dùng chung cache React Query với Vocabulary/Progress.
+  const vocabQuery = useVocabularyWords();
+  const attemptCount = usePracticeStats().data?.totalAttempts ?? 0;
 
   useEffect(() => {
     if (!user) {
@@ -132,10 +115,10 @@ export function UserProfile() {
     }
 
     return {
-      ...getProfileStats(vocabWords),
+      ...getProfileStats(vocabQuery.data ?? []),
       attempts: attemptCount
     };
-  }, [user, vocabWords, attemptCount]);
+  }, [user, vocabQuery.data, attemptCount]);
 
   const profileDetails = useMemo(() => {
     if (!profile) {

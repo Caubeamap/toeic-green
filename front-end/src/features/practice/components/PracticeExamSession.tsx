@@ -21,9 +21,7 @@ import {
   SkipForward
 } from "lucide-react";
 import { formatPracticeTestTitle, type PracticeTest } from "../lib/practice-tests";
-import {
-  submitPracticeAttempt
-} from "../services/practice-api";
+import { useSubmitAttempt } from "../hooks/usePractice";
 import { isQuestionNumberOnlyStem, type ToeicQuestion } from "../lib/toeic-questions";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/api";
@@ -111,6 +109,7 @@ export function PracticeExamSession({
   isDevMode?: boolean;
 }) {
   const router = useRouter();
+  const submitMutation = useSubmitAttempt(test.id);
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
@@ -497,7 +496,7 @@ export function PracticeExamSession({
     const examMinutes = customTimeLimit !== undefined ? customTimeLimit : test.minutes;
 
     try {
-      const result = await submitPracticeAttempt(test.id, {
+      const result = await submitMutation.mutateAsync({
         mode: totalQuestions >= test.questions ? "FULL_TEST" : "PRACTICE",
         durationSeconds: timer.isCountUp ? timer.remaining : examMinutes * 60 - timer.remaining,
         timeLimitMinutes: examMinutes,
@@ -512,7 +511,7 @@ export function PracticeExamSession({
       timer.setRunning(true);
       window.alert(getErrorMessage(error, "Không lưu được kết quả làm bài."));
     }
-  }, [test, questions, answers, flags, timer, router, totalQuestions, customTimeLimit, submitted]);
+  }, [test, questions, answers, flags, timer, router, totalQuestions, customTimeLimit, submitted, submitMutation]);
 
   // Time-out submit
   useEffect(() => {

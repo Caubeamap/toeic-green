@@ -1,26 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BookOpen, Loader2, Plus, RotateCcw, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/url-state";
-import { useAuth } from "@/features/auth/hooks/auth";
-import type {
-  SortOption,
-  StatusFilter,
-  VocabularyStatus,
-  VocabularyWord
-} from "../types";
+import type { SortOption, StatusFilter } from "../types";
 import { computeStats, filterWords, sortWords } from "../helpers";
-import {
-  createVocabularyWord,
-  deleteVocabularyWord,
-  fetchVocabularyWords,
-  readVocabularyCache,
-  updateVocabularyWord,
-  writeVocabularyCache,
-  type VocabularyInput
-} from "../services/api";
+import { useVocabulary } from "../hooks/useVocabulary";
 
 import { VocabularyStats } from "./VocabularyStats";
 import { VocabularyToolbar } from "./VocabularyToolbar";
@@ -38,11 +24,24 @@ const SORT_VALUES: SortOption[] = ["recent", "az"];
 
 export function VocabularyNotebook() {
   // ── State ──────────────────────────────────────────────────────
-  const { isAuthenticated, user } = useAuth();
-  const [words, setWords] = useState<VocabularyWord[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
+  // Dữ liệu + CRUD do React Query quản lý (cache RAM, không localStorage).
+  const {
+    words,
+    isLoading,
+    toggleFavorite,
+    toggleMastered,
+    addWord,
+    updateWord,
+    deleteWord
+  } = useVocabulary();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Từ đang mở chi tiết suy ra từ cache → tự cập nhật khi CRUD thay đổi danh sách.
+  const selectedWord = useMemo(
+    () => words.find((w) => w.id === selectedId) ?? null,
+    [words, selectedId]
+  );
 
   // Tìm kiếm / lọc / sắp xếp lấy từ URL (?q=, ?status=, ?sort=) để bookmark & refresh giữ nguyên.
   const { searchParams, setParams } = useUrlState();
@@ -65,47 +64,6 @@ export function VocabularyNotebook() {
   const setSort = (value: SortOption) =>
     setParams({ sort: value === "recent" ? null : value });
 
-  // Tải sổ từ vựng (trang đã được RequireAuth bảo vệ). Hiển thị tức thì từ cache
-  // nếu có, rồi revalidate nền từ DB → không bắt người dùng chờ spinner.
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-
-    let mounted = true;
-    const timer = window.setTimeout(() => {
-      // Seed tức thì từ cache (nếu có) để khỏi hiện spinner.
-      const cached = readVocabularyCache(user.id);
-      if (cached && mounted) {
-        setWords(cached);
-        setIsLoaded(true);
-      }
-
-      // Revalidate nền từ DB.
-      fetchVocabularyWords()
-        .then((data) => {
-          if (!mounted) return;
-          setWords(data);
-          setIsLoaded(true);
-        })
-        .catch(() => {
-          if (!mounted) return;
-          // Lỗi mạng: giữ dữ liệu cache (nếu có), chỉ tắt spinner.
-          setIsLoaded(true);
-        });
-    }, 0);
-
-    return () => {
-      mounted = false;
-      window.clearTimeout(timer);
-    };
-  }, [isAuthenticated, user]);
-
-  // Đồng bộ cache mỗi khi danh sách thay đổi (sau CRUD) để lần sau hiện tức thì.
-  useEffect(() => {
-    if (isLoaded && user) {
-      writeVocabularyCache(user.id, words);
-    }
-  }, [words, isLoaded, user]);
-
   // ── Derived data ───────────────────────────────────────────────
   const stats = useMemo(() => computeStats(words), [words]);
   const displayedWords = useMemo(
@@ -115,98 +73,10 @@ export function VocabularyNotebook() {
 
   const hasActiveFilters = !!query || statusFilter !== "all";
 
-  // ── Handlers ───────────────────────────────────────────────────
-  // Optimistic: cập nhật ngay trên UI rồi gọi API; lỗi thì hoàn tác.
-  const toggleFavorite = useCallback(
-    (id: string) => {
-      const target = words.find((w) => w.id === id);
-      if (!target) return;
-
-      const nextValue = !target.isFavorite;
-      setWords((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, isFavorite: nextValue } : w))
-      );
-      setSelectedWord((sw) =>
-        sw?.id === id ? { ...sw, isFavorite: nextValue } : sw
-      );
-
-      void updateVocabularyWord(id, { isFavorite: nextValue }).catch(() => {
-        setWords((prev) =>
-          prev.map((w) =>
-            w.id === id ? { ...w, isFavorite: target.isFavorite } : w
-          )
-        );
-        setSelectedWord((sw) =>
-          sw?.id === id ? { ...sw, isFavorite: target.isFavorite } : sw
-        );
-      });
-    },
-    [words]
-  );
-
-  const toggleMastered = useCallback(
-    (id: string) => {
-      const target = words.find((w) => w.id === id);
-      if (!target) return;
-
-      const nextStatus: VocabularyStatus =
-        target.status === "mastered" ? "learning" : "mastered";
-      const reviewedAt = new Date().toISOString();
-      const apply = (w: VocabularyWord): VocabularyWord => ({
-        ...w,
-        status: nextStatus,
-        lastReviewedAt: reviewedAt
-      });
-
-      setWords((prev) => prev.map((w) => (w.id === id ? apply(w) : w)));
-      setSelectedWord((sw) => (sw?.id === id ? apply(sw) : sw));
-
-      void updateVocabularyWord(id, { status: nextStatus }).catch(() => {
-        const revert = (w: VocabularyWord): VocabularyWord => ({
-          ...w,
-          status: target.status,
-          lastReviewedAt: target.lastReviewedAt
-        });
-        setWords((prev) => prev.map((w) => (w.id === id ? revert(w) : w)));
-        setSelectedWord((sw) => (sw?.id === id ? revert(sw) : sw));
-      });
-    },
-    [words]
-  );
-
-  // Thêm từ: chờ server tạo (sinh id), trả lỗi để modal hiển thị (vd trùng từ).
-  const addWord = useCallback(async (input: VocabularyInput) => {
-    const created = await createVocabularyWord(input);
-    setWords((prev) => [created, ...prev]);
-  }, []);
-
-  // Sửa từ: chờ server cập nhật, đồng bộ lại state; lỗi ném cho drawer xử lý.
-  const updateWord = useCallback(
-    async (id: string, patch: Partial<VocabularyInput>) => {
-      const updated = await updateVocabularyWord(id, patch);
-      setWords((prev) => prev.map((w) => (w.id === id ? updated : w)));
-      setSelectedWord((sw) => (sw?.id === id ? updated : sw));
-    },
-    []
-  );
-
-  const deleteWord = useCallback(
-    (id: string) => {
-      const snapshot = words;
-      setWords((prev) => prev.filter((w) => w.id !== id));
-      setSelectedWord((sw) => (sw?.id === id ? null : sw));
-
-      void deleteVocabularyWord(id).catch(() => {
-        setWords(snapshot);
-      });
-    },
-    [words]
-  );
-
-  const resetFilters = useCallback(() => {
+  const resetFilters = () => {
     // Xóa cả 3 param trong một lần điều hướng để tránh đẩy nhiều entry vào history.
     setParams({ q: null, status: null, sort: null });
-  }, [setParams]);
+  };
 
   return (
     <section className="min-h-screen bg-surface pb-20">
@@ -269,7 +139,7 @@ export function VocabularyNotebook() {
           </div>
 
           {/* Word list */}
-          {!isLoaded ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-6 py-16 text-center">
               <Loader2 size={28} className="animate-spin text-growth-dark" />
               <p className="mt-3 text-sm font-bold text-muted">
@@ -284,7 +154,7 @@ export function VocabularyNotebook() {
                   word={w}
                   onToggleFavorite={toggleFavorite}
                   onToggleMastered={toggleMastered}
-                  onViewDetail={setSelectedWord}
+                  onViewDetail={(word) => setSelectedId(word.id)}
                 />
               ))}
             </div>
@@ -301,7 +171,7 @@ export function VocabularyNotebook() {
       {/* ── Detail Drawer ──────────────────────────────────────────── */}
       <VocabularyDetailDrawer
         word={selectedWord}
-        onClose={() => setSelectedWord(null)}
+        onClose={() => setSelectedId(null)}
         onToggleFavorite={toggleFavorite}
         onToggleMastered={toggleMastered}
         onUpdate={updateWord}

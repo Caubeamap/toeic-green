@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { useAuth } from "@/features/auth";
-import { getLatestPracticeAttemptResult } from "@/features/practice";
+import { practiceKeys, useLatestAttemptResult } from "@/features/practice";
 import { getErrorMessage } from "@/lib/api";
 
 export default function LatestResultPage() {
   const params = useParams<{ testId: string }>();
   const router = useRouter();
+  const qc = useQueryClient();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { data, error } = useLatestAttemptResult(params.testId);
 
   useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
@@ -21,31 +23,18 @@ export default function LatestResultPage() {
     }
   }, [isAuthenticated, isAuthLoading, router]);
 
+  // Có kết quả mới nhất → seed cache theo attemptId (để trang đích mở tức thì) rồi
+  // điều hướng sang trang kết quả chi tiết.
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadLatestResult() {
-      try {
-        const result = await getLatestPracticeAttemptResult(params.testId);
-
-        if (!cancelled) {
-          router.replace(`/practice/${params.testId}/results/${result.attempt.id}`);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            getErrorMessage(error, "Không tìm thấy kết quả mới nhất.")
-          );
-        }
-      }
+    if (data) {
+      qc.setQueryData(practiceKeys.attempt(params.testId, data.attempt.id), data);
+      router.replace(`/practice/${params.testId}/results/${data.attempt.id}`);
     }
+  }, [data, params.testId, qc, router]);
 
-    loadLatestResult();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [params.testId, router]);
+  const errorMessage = error
+    ? getErrorMessage(error, "Không tìm thấy kết quả mới nhất.")
+    : null;
 
   return (
     <>

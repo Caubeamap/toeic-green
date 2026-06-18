@@ -17,18 +17,15 @@ export type {
 } from "./lib/practice-tests";
 
 // Progress and results
-export {
-  loadPracticeAttempts,
-} from "./lib/practice-progress";
 export type {
   SavedPracticeResult,
-  StoredPracticeAttempt,
 } from "./lib/practice-progress";
 
 // Backend API
 export {
   getLatestPracticeAttemptResult,
   getPracticeAttemptResult,
+  getPracticeStats,
   getPracticeTest,
   getPracticeTestWithProgress,
   listPracticeQuestions,
@@ -39,6 +36,7 @@ export {
 } from "./services/practice-api";
 export type {
   PracticeAttemptResult,
+  PracticeStats,
   SubmitPracticeAttemptInput,
 } from "./services/practice-api";
 

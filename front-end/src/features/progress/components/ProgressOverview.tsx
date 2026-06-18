@@ -4,33 +4,30 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  Award,
   BarChart3,
   BookOpenCheck,
   CalendarDays,
-  CheckCircle2,
-  Clock3,
   FileText,
   History,
   ListChecks,
+  LogIn,
   PlayCircle,
   Target,
   Timer,
   Trophy
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import {
-  loadPracticeAttempts,
-  type StoredPracticeAttempt
-} from "@/features/practice/lib/practice-progress";
-import { fetchVocabularyWords } from "@/features/vocabulary/services/api";
+import type { PracticeAttempt } from "@/features/practice/lib/practice-tests";
 import type { VocabularyWord } from "@/features/vocabulary/types";
 import { useAuth } from "@/features/auth/hooks/auth";
 import { cn } from "@/lib/utils";
-
-type ProgressSnapshot = {
-  attempts: StoredPracticeAttempt[];
-  words: VocabularyWord[];
-};
+import {
+  emptyPracticeStats,
+  fetchProgress,
+  readCachedProgress,
+  type ProgressData
+} from "../services/progress-api";
 
 type ActivityDay = {
   key: string;
@@ -40,19 +37,8 @@ type ActivityDay = {
   total: number;
 };
 
-const emptySnapshot: ProgressSnapshot = {
-  attempts: [],
-  words: []
-};
-
-function getAccuracy(attempt: StoredPracticeAttempt) {
+function getAccuracy(attempt: PracticeAttempt) {
   return attempt.total > 0 ? Math.round((attempt.correct / attempt.total) * 100) : 0;
-}
-
-function getCompletion(attempt: StoredPracticeAttempt) {
-  const answered = attempt.result?.answered ?? 0;
-  const total = attempt.result?.total ?? attempt.total;
-  return total > 0 ? Math.round((answered / total) * 100) : 0;
 }
 
 function formatDuration(totalSeconds: number) {
@@ -92,7 +78,7 @@ function timestampValue(value?: string) {
 }
 
 function buildActivityDays(
-  attempts: StoredPracticeAttempt[],
+  attempts: PracticeAttempt[],
   words: VocabularyWord[]
 ): ActivityDay[] {
   const today = new Date();
@@ -145,87 +131,87 @@ function getStatusMessage({
 }) {
   if (attempts === 0) {
     return {
-      title: "Chưa có dữ liệu luyện đề",
-      copy: "Làm một bài practice để dashboard bắt đầu ghi nhận tiến độ."
+      title: "Bắt đầu luyện thôi",
+      copy: "Làm thử một đề để trang này bắt đầu ghi lại tiến độ của bạn."
     };
   }
 
   if (averageAccuracy !== null && averageAccuracy < 60) {
     return {
-      title: "Ưu tiên độ chính xác",
-      copy: "Nên làm bài ngắn, xem lại câu sai và ghi chú từ vựng mới sau mỗi lượt."
+      title: "Tập trung vào độ chính xác",
+      copy: "Làm các đề ngắn, xem kỹ câu sai và ghi lại từ mới sau mỗi lượt."
     };
   }
 
   if (learningWords > 0) {
     return {
-      title: "Duy trì nhịp ôn từ",
-      copy: `Bạn còn ${learningWords} từ đang học trong Vocabulary Notes.`
+      title: "Đừng quên ôn từ",
+      copy: `Bạn còn ${learningWords} từ đang học trong sổ từ vựng.`
     };
   }
 
   return {
-    title: "Tiến độ đang ổn định",
-    copy: "Tiếp tục luyện đều và làm bài mô phỏng định kỳ để kiểm tra điểm số."
+    title: "Bạn đang đi đúng hướng",
+    copy: "Giữ nhịp luyện đều và thỉnh thoảng làm full test để xem điểm tới đâu."
   };
 }
 
 export function ProgressOverview() {
-  const { isAuthenticated } = useAuth();
-  const [snapshot, setSnapshot] = useState<ProgressSnapshot>(emptySnapshot);
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const userId = user?.id ?? null;
+  const [data, setData] = useState<ProgressData | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    // Chờ auth xác định trạng thái rồi mới quyết định gọi API hay không.
+    if (isLoading) return;
+
     let cancelled = false;
 
-    async function refreshProgress() {
-      // Vocab lấy từ DB; khách chưa đăng nhập thì không gọi API (tránh 401).
-      const words = isAuthenticated
-        ? await fetchVocabularyWords().catch(() => [] as VocabularyWord[])
-        : [];
-      if (cancelled) return;
-      setSnapshot({
-        attempts: loadPracticeAttempts(),
-        words
-      });
-      setIsLoaded(true);
-    }
+    const load = async () => {
+      if (!isAuthenticated || !userId) {
+        // Khách: không gọi API (tránh 401), hiển thị lời mời đăng nhập.
+        setData(null);
+        setIsLoaded(true);
+        return;
+      }
 
-    const handleRefresh = () => {
-      void refreshProgress();
+      // Paint tức thì từ cache (nếu có) rồi revalidate nền.
+      const cached = readCachedProgress(userId);
+      if (cached && !cancelled) {
+        setData(cached);
+        setIsLoaded(true);
+      }
+
+      try {
+        const fresh = await fetchProgress(userId);
+        if (!cancelled) {
+          setData(fresh);
+          setIsLoaded(true);
+        }
+      } catch {
+        // Giữ dữ liệu cache (nếu có); chỉ đánh dấu đã tải xong.
+        if (!cancelled) setIsLoaded(true);
+      }
     };
 
-    const timer = window.setTimeout(handleRefresh, 0);
-    window.addEventListener("storage", handleRefresh);
-    window.addEventListener("focus", handleRefresh);
+    // setState được hoãn ra ngoài thân effect (eslint react-hooks/set-state-in-effect).
+    const timer = window.setTimeout(() => void load(), 0);
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
-      window.removeEventListener("storage", handleRefresh);
-      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isLoading, userId]);
 
   const progress = useMemo(() => {
-    const attempts = [...snapshot.attempts].sort(
+    const stats = data?.stats ?? emptyPracticeStats;
+    const words = data?.words ?? [];
+    const attempts = [...(data?.attempts ?? [])].sort(
       (a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp)
-    );
-    const words = snapshot.words;
-    const accuracies = attempts.map(getAccuracy);
-    const completions = attempts.map(getCompletion);
-    const averageAccuracy =
-      accuracies.length > 0
-        ? Math.round(accuracies.reduce((sum, value) => sum + value, 0) / accuracies.length)
-        : null;
-    const bestAccuracy = accuracies.length > 0 ? Math.max(...accuracies) : null;
-    const averageCompletion =
-      completions.length > 0
-        ? Math.round(completions.reduce((sum, value) => sum + value, 0) / completions.length)
-        : null;
-    const totalSeconds = attempts.reduce(
-      (sum, attempt) => sum + attempt.durationSeconds,
-      0
     );
     const masteredWords = words.filter((word) => word.status === "mastered").length;
     const learningWords = words.filter((word) => word.status === "learning").length;
@@ -233,8 +219,8 @@ export function ProgressOverview() {
     const activityDays = buildActivityDays(attempts, words);
     const activeDays = activityDays.filter((day) => day.total > 0).length;
     const status = getStatusMessage({
-      attempts: attempts.length,
-      averageAccuracy,
+      attempts: stats.totalAttempts,
+      averageAccuracy: stats.averageAccuracy,
       learningWords
     });
 
@@ -242,23 +228,28 @@ export function ProgressOverview() {
       activeDays,
       activityDays,
       attempts,
-      averageAccuracy,
-      averageCompletion,
-      bestAccuracy,
+      averageAccuracy: stats.averageAccuracy,
+      bestAccuracy: stats.bestAccuracy,
+      bestScaledScore: stats.bestScaledScore,
       favoriteWords,
       learningWords,
       masteredWords,
       recentAttempts: attempts.slice(0, 5),
       status,
-      totalSeconds,
+      totalAttempts: stats.totalAttempts,
+      totalQuestions: stats.totalQuestions,
+      totalSeconds: stats.totalDurationSeconds,
       words
     };
-  }, [snapshot]);
+  }, [data]);
 
   const maxActivity = Math.max(
     1,
     ...progress.activityDays.map((day) => day.total)
   );
+
+  const showGuestPrompt = !isLoading && !isAuthenticated;
+  const showLoading = (isLoading || !isLoaded) && !data;
 
   return (
     <section className="min-h-screen bg-[#f5f7f9] pb-20">
@@ -272,7 +263,7 @@ export function ProgressOverview() {
                 </span>
                 <div>
                   <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-primary">
-                    Progress
+                    Tiến độ
                   </p>
                   <h1 className="mt-1 text-3xl font-extrabold leading-tight text-ink md:text-4xl">
                     Tổng quan tiến độ học tập
@@ -280,7 +271,7 @@ export function ProgressOverview() {
                 </div>
               </div>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted md:text-base">
-                Theo dõi bài luyện, độ chính xác, thời gian học và tình trạng từ vựng.
+                Nhìn lại số đề đã luyện, độ chính xác, thời gian học và vốn từ của bạn.
               </p>
             </div>
 
@@ -304,18 +295,23 @@ export function ProgressOverview() {
         </div>
       </div>
 
+      {showGuestPrompt ? (
+        <GuestPrompt />
+      ) : showLoading ? (
+        <ProgressLoading />
+      ) : (
       <div className="container-shell pt-7">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             icon={ListChecks}
             label="Lượt luyện"
-            value={formatNumber(progress.attempts.length)}
-            helper={progress.attempts.length > 0 ? "Bài đã ghi nhận" : "Chưa có bài luyện"}
+            value={formatNumber(progress.totalAttempts)}
+            helper={progress.totalAttempts > 0 ? "Lượt đã hoàn thành" : "Chưa có lượt nào"}
             tone="green"
           />
           <MetricCard
             icon={Target}
-            label="Accuracy trung bình"
+            label="Độ chính xác trung bình"
             value={
               progress.averageAccuracy === null
                 ? "Chưa có"
@@ -323,8 +319,8 @@ export function ProgressOverview() {
             }
             helper={
               progress.bestAccuracy === null
-                ? "Cần ít nhất một bài luyện"
-                : `Tốt nhất ${progress.bestAccuracy}%`
+                ? "Cần ít nhất một lượt luyện"
+                : `Cao nhất ${progress.bestAccuracy}%`
             }
             tone="blue"
           />
@@ -352,7 +348,7 @@ export function ProgressOverview() {
                   Hoạt động 7 ngày
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  Gồm lượt luyện đề và thao tác từ vựng đã ghi nhận.
+                  Số lượt luyện đề và từ vựng bạn ôn mỗi ngày.
                 </p>
               </div>
               <span className="inline-flex w-fit items-center gap-2 rounded-lg bg-primary-container/45 px-3 py-2 text-sm font-extrabold text-primary">
@@ -394,23 +390,23 @@ export function ProgressOverview() {
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <MiniPanel
-                icon={CheckCircle2}
-                label="Hoàn thành trung bình"
-                value={
-                  progress.averageCompletion === null
-                    ? "Chưa có"
-                    : `${progress.averageCompletion}%`
-                }
+                icon={ListChecks}
+                label="Số câu đã luyện"
+                value={formatNumber(progress.totalQuestions)}
               />
               <MiniPanel
                 icon={Trophy}
-                label="Best accuracy"
+                label="Độ chính xác cao nhất"
                 value={progress.bestAccuracy === null ? "Chưa có" : `${progress.bestAccuracy}%`}
               />
               <MiniPanel
-                icon={Clock3}
-                label="Tổng thời lượng"
-                value={formatDuration(progress.totalSeconds)}
+                icon={Award}
+                label="Điểm TOEIC cao nhất"
+                value={
+                  progress.bestScaledScore === null
+                    ? "Chưa có"
+                    : formatNumber(progress.bestScaledScore)
+                }
               />
             </div>
           </section>
@@ -433,8 +429,8 @@ export function ProgressOverview() {
               </p>
               <div className="mt-6 grid gap-3">
                 <StatusLine
-                  label="Bài luyện"
-                  value={formatNumber(progress.attempts.length)}
+                  label="Lượt luyện"
+                  value={formatNumber(progress.totalAttempts)}
                 />
                 <StatusLine
                   label="Từ yêu thích"
@@ -448,7 +444,7 @@ export function ProgressOverview() {
             </section>
 
             <ActionPanel
-              hasAttempts={progress.attempts.length > 0}
+              hasAttempts={progress.totalAttempts > 0}
               learningWords={progress.learningWords}
             />
           </aside>
@@ -462,14 +458,14 @@ export function ProgressOverview() {
                   Lịch sử gần đây
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  Các lượt luyện trong phiên học hiện tại, sắp xếp theo thời gian mới nhất.
+                  Những lượt luyện gần đây nhất của bạn, mới nhất lên trước.
                 </p>
               </div>
               <Link
                 href="/practice"
                 className="inline-flex w-fit items-center gap-2 text-sm font-extrabold text-primary"
               >
-                Mở Practice
+                Mở luyện đề
                 <ArrowRight size={16} />
               </Link>
             </div>
@@ -483,7 +479,7 @@ export function ProgressOverview() {
                 <EmptyState
                   icon={History}
                   title="Chưa có lịch sử luyện đề"
-                  copy="Khi bạn hoàn thành bài practice, kết quả sẽ xuất hiện tại đây."
+                  copy="Khi bạn hoàn thành một đề luyện, kết quả sẽ hiện ở đây."
                 />
               )}
             </div>
@@ -493,10 +489,10 @@ export function ProgressOverview() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-extrabold text-ink">
-                  Vocabulary Notes
+                  Sổ từ vựng
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  Tình trạng ghi nhớ từ vựng.
+                  Tình trạng ghi nhớ từ vựng của bạn.
                 </p>
               </div>
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-50 text-amber-700">
@@ -535,7 +531,53 @@ export function ProgressOverview() {
           </section>
         </div>
       </div>
+      )}
     </section>
+  );
+}
+
+function GuestPrompt() {
+  return (
+    <div className="container-shell pt-10">
+      <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-soft md:p-10">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary-container text-primary">
+          <LogIn size={26} />
+        </span>
+        <h2 className="mt-5 text-2xl font-extrabold text-ink">
+          Đăng nhập để xem tiến độ
+        </h2>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted">
+          Tiến độ luyện đề và từ vựng được lưu theo tài khoản. Đăng nhập để theo
+          dõi số liệu của riêng bạn.
+        </p>
+        <Link
+          href="/login?next=/progress"
+          className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
+        >
+          <LogIn size={17} />
+          Đăng nhập
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function ProgressLoading() {
+  return (
+    <div className="container-shell pt-7">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="h-[132px] animate-pulse rounded-xl border border-slate-200 bg-white"
+          />
+        ))}
+      </div>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="h-80 animate-pulse rounded-xl border border-slate-200 bg-white" />
+        <div className="h-80 animate-pulse rounded-xl border border-slate-200 bg-white" />
+      </div>
+    </div>
   );
 }
 
@@ -643,12 +685,14 @@ function ActionPanel({
   );
 }
 
-function RecentAttemptRow({ attempt }: { attempt: StoredPracticeAttempt }) {
+function RecentAttemptRow({ attempt }: { attempt: PracticeAttempt }) {
   const accuracy = getAccuracy(attempt);
-  const completion = getCompletion(attempt);
 
   return (
-    <article className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary/30 md:flex-row md:items-center md:justify-between">
+    <Link
+      href={attempt.detailHref}
+      className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary/30 hover:shadow-soft md:flex-row md:items-center md:justify-between"
+    >
       <div className="flex min-w-0 items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700">
           <FileText size={18} />
@@ -676,11 +720,11 @@ function RecentAttemptRow({ attempt }: { attempt: StoredPracticeAttempt }) {
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center md:w-[280px]">
-        <AttemptStat label="Đúng" value={`${attempt.correct}/${attempt.total}`} />
-        <AttemptStat label="Accuracy" value={`${accuracy}%`} />
-        <AttemptStat label="Hoàn thành" value={`${completion}%`} />
+        <AttemptStat label="Số câu đúng" value={`${attempt.correct}/${attempt.total}`} />
+        <AttemptStat label="Độ chính xác" value={`${accuracy}%`} />
+        <AttemptStat label="Thời gian" value={formatDuration(attempt.durationSeconds)} />
       </div>
-    </article>
+    </Link>
   );
 }
 

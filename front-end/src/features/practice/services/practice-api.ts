@@ -444,6 +444,20 @@ export async function listRecentPracticeAttempts() {
   return api.get<PracticeAttempt[]>("/practice/attempts/recent");
 }
 
+export type PracticeStats = {
+  totalAttempts: number;
+  totalCorrect: number;
+  totalQuestions: number;
+  totalDurationSeconds: number;
+  averageAccuracy: number | null;
+  bestAccuracy: number | null;
+  bestScaledScore: number | null;
+};
+
+export async function getPracticeStats() {
+  return api.get<PracticeStats>("/practice/stats/me");
+}
+
 export async function submitPracticeAttempt(
   testId: string,
   input: SubmitPracticeAttemptInput

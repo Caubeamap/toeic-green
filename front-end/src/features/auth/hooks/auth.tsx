@@ -52,6 +52,9 @@ type AuthContextValue = {
     email: string,
     password: string,
   ) => Promise<{ ok: boolean; error?: string }>;
+  loginWithGoogle: (
+    credential: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   register: (
     displayName: string,
     email: string,
@@ -182,6 +185,26 @@ export function AuthProvider({
     [],
   );
 
+  const loginWithGoogle = useCallback(
+    async (credential: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const data = await api.post<LoginResponse>("/auth/google", {
+          credential,
+        });
+        const user = mapUser(data.user);
+        setAccessToken(data.accessToken);
+        setState({ status: "authenticated", user });
+        return { ok: true };
+      } catch (error: unknown) {
+        return {
+          ok: false,
+          error: getErrorMessage(error, "Đăng nhập bằng Google thất bại."),
+        };
+      }
+    },
+    [],
+  );
+
   const register = useCallback(
     async (
       displayName: string,
@@ -247,11 +270,12 @@ export function AuthProvider({
       isAuthenticated: state.status === "authenticated",
       isLoading: state.status === "loading",
       login,
+      loginWithGoogle,
       register,
       logout,
       updateUser,
     }),
-    [state, login, register, logout, updateUser],
+    [state, login, loginWithGoogle, register, logout, updateUser],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

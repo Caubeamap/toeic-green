@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoginForm, SignupForm } from "./CredentialForms";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 import { useAuth } from "../hooks/auth";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +96,9 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
           {heading.subtitle}
         </p>
       </div>
+
+      {/* Đăng nhập / đăng ký bằng Google (ẩn nếu chưa cấu hình client id) */}
+      <GoogleSignInButton />
 
       {/* Tab Toggle */}
       <div className="relative mb-8 grid grid-cols-2 rounded-full bg-surface-container-low p-1.5">

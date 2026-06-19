@@ -178,7 +178,8 @@ async function request<ResponseData = void>(
   if (
     response.status === 401 &&
     !path.startsWith("/auth/refresh") &&
-    !path.startsWith("/auth/login")
+    !path.startsWith("/auth/login") &&
+    !path.startsWith("/auth/google")
   ) {
     const refreshed =
       accessToken !== null && accessTokenVersion !== requestAccessTokenVersion

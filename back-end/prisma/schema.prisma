@@ -263,6 +263,9 @@ model UserVocabulary {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, word])
+  // Sổ từ liệt kê theo user + sắp xếp createdAt desc → index này tránh sort khi
+  // user có nhiều từ (scale theo số người dùng).
+  @@index([userId, createdAt])
   @@map("user_vocabularies")
 }
 

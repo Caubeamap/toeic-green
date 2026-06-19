@@ -187,6 +187,15 @@ export class PracticeService implements OnModuleInit {
   >();
   private questionsPromises = new Map<string, Promise<Record<string, any>[]>>();
 
+  // Cache danh sách đề kèm tiến độ theo user. Chỉ đổi khi user nộp bài (đã
+  // invalidate trong submitAttempt) hoặc admin đổi đề (snapshot TTL 60s) → TTL 60s
+  // an toàn, loại bỏ truy vấn SQL DISTINCT ON per-request cho mỗi lần duyệt /tests.
+  private userTestsCache = new Map<
+    string,
+    { expiresAt: number; value: Record<string, any>[] }
+  >();
+  private userTestsPromises = new Map<string, Promise<Record<string, any>[]>>();
+
   constructor(private readonly prisma: PrismaService) {}
 
   onModuleInit() {
@@ -203,19 +212,48 @@ export class PracticeService implements OnModuleInit {
   }
 
   async listTestsForUser(userId: string) {
-    const [snapshot, latestAttempts] = await Promise.all([
-      this.getTestsSnapshot(),
-      this.findLatestAttemptSummaryByTest(userId),
-    ]);
-    const attemptsByTestId = this.groupAttemptsByTestId(latestAttempts);
+    const now = Date.now();
+    const cached = this.userTestsCache.get(userId);
+    if (cached && cached.expiresAt > now) {
+      return cached.value;
+    }
 
-    return this.sortTestsByDisplayNumber(snapshot.tests).map((test) =>
-      this.toPracticeTestWithAttempts(
-        test,
-        snapshot.countsByTestId.get(test.id) ?? 0,
-        attemptsByTestId.get(test.id) ?? [],
-      ),
-    );
+    // Single-flight: nhiều request đồng thời của cùng user dùng chung 1 query.
+    const existing = this.userTestsPromises.get(userId);
+    if (existing) {
+      return existing;
+    }
+
+    const promise = (async () => {
+      const [snapshot, latestAttempts] = await Promise.all([
+        this.getTestsSnapshot(),
+        this.findLatestAttemptSummaryByTest(userId),
+      ]);
+      const attemptsByTestId = this.groupAttemptsByTestId(latestAttempts);
+
+      const value = this.sortTestsByDisplayNumber(snapshot.tests).map((test) =>
+        this.toPracticeTestWithAttempts(
+          test,
+          snapshot.countsByTestId.get(test.id) ?? 0,
+          attemptsByTestId.get(test.id) ?? [],
+        ),
+      );
+
+      // Dọn entry hết hạn (cache phình theo số user nếu không dọn) rồi set.
+      pruneExpiredEntries(this.userTestsCache, 5000);
+      this.userTestsCache.set(userId, {
+        expiresAt: Date.now() + 60 * 1000,
+        value,
+      });
+      return value;
+    })();
+
+    this.userTestsPromises.set(userId, promise);
+    try {
+      return await promise;
+    } finally {
+      this.userTestsPromises.delete(userId);
+    }
   }
 
   async getTestBySlug(slug: string) {
@@ -451,6 +489,8 @@ export class PracticeService implements OnModuleInit {
     );
 
     this.testsSnapshotCache = null;
+    // User vừa hoàn tất 1 lượt → tiến độ đề đổi → bỏ cache đề-theo-user của họ.
+    this.userTestsCache.delete(userId);
 
     // Pre-populate attempt cache (dọn entry hết hạn: key theo attemptId là duy nhất
     // mỗi lượt nên cache phình theo tổng số lượt làm bài nếu không dọn).

@@ -131,6 +131,9 @@ textarea {
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
     content: "";
     transform: translateX(-100%);
+    /* will-change promotes the sheen to its own compositor layer → animation chỉ
+       composite (không repaint mỗi frame) → mượt cho mọi progress bar. */
+    will-change: transform;
     animation: progress-sheen 3.8s ease-in-out infinite;
   }
 
@@ -140,6 +143,7 @@ textarea {
   }
 
   .animate-float-soft {
+    will-change: transform;
     animation: float-soft 8s ease-in-out infinite;
   }
 

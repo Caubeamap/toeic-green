@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -38,6 +38,86 @@ import { getErrorMessage } from "@/lib/api";
 
 type AnswerMap = Record<string, string>; // questionId → selected option label
 type FlagSet = Set<string>; // questionId set
+
+/* Lưới điều hướng 200 câu — memo hoá để không re-render mỗi tick audio.
+   Dựng sẵn Map id→index (O(n)) thay vì gọi indexOf trong vòng lặp (O(n²)). */
+const QuestionNavGrid = memo(function QuestionNavGrid({
+  questions,
+  answers,
+  flags,
+  currentIndex,
+  isNavigationBlocked,
+  onGoTo
+}: {
+  questions: ToeicQuestion[];
+  answers: AnswerMap;
+  flags: FlagSet;
+  currentIndex: number;
+  isNavigationBlocked: boolean;
+  onGoTo: (index: number) => void;
+}) {
+  const indexById = useMemo(() => {
+    const map = new Map<string, number>();
+    questions.forEach((q, idx) => map.set(q.id, idx));
+    return map;
+  }, [questions]);
+
+  const renderButton = (q: ToeicQuestion) => {
+    const idx = indexById.get(q.id) ?? 0;
+    const isAns = !!answers[q.id];
+    const isCurr = idx === currentIndex;
+    const isMark = flags.has(q.id);
+    return (
+      <button
+        key={q.id}
+        type="button"
+        disabled={isNavigationBlocked}
+        onClick={() => onGoTo(idx)}
+        title={`Question ${q.questionNumber}`}
+        className={cn(
+          "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
+          isCurr
+            ? "ring-2 ring-primary ring-offset-1 bg-white text-primary"
+            : isAns
+            ? "bg-primary text-white shadow-soft"
+            : "bg-surface-container-highest/50 text-muted hover:bg-primary-container/20",
+          isNavigationBlocked && "cursor-not-allowed opacity-90"
+        )}
+      >
+        {q.questionNumber}
+        {isMark && (
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 shadow-sm border border-white" />
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      {/* Listening Section Q1-100 */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between border-b border-outline-variant/10 pb-1">
+          <span className="text-[10px] font-black uppercase text-primary tracking-wider">Listening Section</span>
+          <span className="text-[9px] font-bold text-muted">Q1 - Q100</span>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {questions.slice(0, 100).map(renderButton)}
+        </div>
+      </div>
+
+      {/* Reading Section Q101-200 */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between border-b border-outline-variant/10 pb-1">
+          <span className="text-[10px] font-black uppercase text-secondary tracking-wider">Reading Section</span>
+          <span className="text-[9px] font-bold text-muted">Q101 - Q200</span>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {questions.slice(100).map(renderButton)}
+        </div>
+      </div>
+    </>
+  );
+});
 
 const PART_DESCRIPTIONS: Record<string, string> = {
   "part-1": "Photographs (Mô tả tranh)",
@@ -915,14 +995,19 @@ export function PracticeExamSession({
                         }}
                       >
                         <div
-                          className={cn(
-                            "h-full rounded-full transition-[width]",
-                            nextTrackCountdown !== null ? "bg-primary shadow-glow duration-200" : "bg-primary shadow-glow duration-200"
-                          )}
+                          className="h-full w-full origin-left rounded-full bg-primary shadow-glow transition-transform duration-200"
                           style={{
-                            width: nextTrackCountdown !== null
-                              ? `${(nextTrackCountdown / 4) * 100}%`
-                              : `${(audioTime / audioDuration) * 100}%`
+                            transform: `scaleX(${Math.min(
+                              Math.max(
+                                nextTrackCountdown !== null
+                                  ? nextTrackCountdown / 4
+                                  : audioDuration > 0
+                                  ? audioTime / audioDuration
+                                  : 0,
+                                0
+                              ),
+                              1
+                            )})`
                           }}
                         />
                       </div>
@@ -1523,88 +1608,18 @@ export function PracticeExamSession({
             </div>
           </div>
 
-          {/* 200 Questions Grid Container */}
+          {/* 200 Questions Grid Container — tách thành component memo hoá để KHÔNG
+              re-render theo mỗi tick audioTime (chỉ render lại khi answers/flags/
+              currentIndex đổi). Tránh O(n²) indexOf bằng index map dựng sẵn. */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            
-            {/* Listening Section Q1-100 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between border-b border-outline-variant/10 pb-1">
-                <span className="text-[10px] font-black uppercase text-primary tracking-wider">Listening Section</span>
-                <span className="text-[9px] font-bold text-muted">Q1 - Q100</span>
-              </div>
-              <div className="grid grid-cols-5 gap-1.5">
-                {questions.slice(0, 100).map((q) => {
-                  const isAns = !!answers[q.id];
-                  const idx = questions.indexOf(q);
-                  const isCurr = idx === currentIndex;
-                  const isMark = flags.has(q.id);
-
-                  return (
-                    <button
-                      key={q.id}
-                      type="button"
-                      disabled={isNavigationBlocked}
-                      onClick={() => goTo(idx)}
-                      title={`Question ${q.questionNumber}`}
-                      className={cn(
-                        "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
-                        isCurr
-                          ? "ring-2 ring-primary ring-offset-1 bg-white text-primary"
-                          : isAns
-                          ? "bg-primary text-white shadow-soft"
-                          : "bg-surface-container-highest/50 text-muted hover:bg-primary-container/20",
-                        isNavigationBlocked && "cursor-not-allowed opacity-90"
-                      )}
-                    >
-                      {q.questionNumber}
-                      {isMark && (
-                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 shadow-sm border border-white" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Reading Section Q101-200 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between border-b border-outline-variant/10 pb-1">
-                <span className="text-[10px] font-black uppercase text-secondary tracking-wider">Reading Section</span>
-                <span className="text-[9px] font-bold text-muted">Q101 - Q200</span>
-              </div>
-              <div className="grid grid-cols-5 gap-1.5">
-                {questions.slice(100).map((q) => {
-                  const isAns = !!answers[q.id];
-                  const idx = questions.indexOf(q);
-                  const isCurr = idx === currentIndex;
-                  const isMark = flags.has(q.id);
-
-                  return (
-                    <button
-                      key={q.id}
-                      type="button"
-                      disabled={isNavigationBlocked}
-                      onClick={() => goTo(idx)}
-                      title={`Question ${q.questionNumber}`}
-                      className={cn(
-                        "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
-                        isCurr
-                          ? "ring-2 ring-primary ring-offset-1 bg-white text-primary"
-                          : isAns
-                          ? "bg-primary text-white shadow-soft"
-                          : "bg-surface-container-highest/50 text-muted hover:bg-primary-container/20",
-                        isNavigationBlocked && "cursor-not-allowed opacity-60"
-                      )}
-                    >
-                      {q.questionNumber}
-                      {isMark && (
-                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 shadow-sm border border-white" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <QuestionNavGrid
+              questions={questions}
+              answers={answers}
+              flags={flags}
+              currentIndex={currentIndex}
+              isNavigationBlocked={isNavigationBlocked}
+              onGoTo={goTo}
+            />
           </div>
 
           {/* Sidebar Footer Metrics */}

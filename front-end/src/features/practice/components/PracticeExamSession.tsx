@@ -24,6 +24,11 @@ import {
 import { formatPracticeTestTitle, type PracticeTest } from "../lib/practice-tests";
 import { useSubmitAttempt } from "../hooks/usePractice";
 import { isQuestionNumberOnlyStem, formatQuestionStem, type ToeicQuestion } from "../lib/toeic-questions";
+import {
+  getNearbyQuestionImageUrls,
+  getNextAudioUrls,
+  preloadImageUrls
+} from "../lib/media-preload";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/api";
 
@@ -137,6 +142,7 @@ export function PracticeExamSession({
   const audioSpeed = 1.0;
   const [audioDuration, setAudioDuration] = useState(90);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const preloadedAudioRef = useRef<HTMLAudioElement[]>([]);
 
   // Responsive tab state for mobile
   const [mobileActiveTab, setMobileActiveTab] = useState<"passage" | "questions">("passage");
@@ -282,25 +288,10 @@ export function PracticeExamSession({
     });
   }, [activeAudioUrl]);
 
-  // Preload all unique images for the test on component mount
+  // Preload only nearby images so active media does not compete with the full test.
   useEffect(() => {
-    if (!questions || questions.length === 0) return;
-    
-    const imageUrls = Array.from(
-      new Set(
-        questions
-          .flatMap((q) => q.image_url ? q.image_url.split(',') : [])
-          .filter((url): url is string => !!url)
-      )
-    );
-    
-    imageUrls.forEach((url) => {
-      const img = new Image();
-      img.src = url;
-    });
-  }, [questions]);
-
-
+    preloadImageUrls(getNearbyQuestionImageUrls(questions, currentIndex, 2));
+  }, [questions, currentIndex]);
 
   // Reset imageLoading when image_url changes
   useEffect(() => {
@@ -421,16 +412,17 @@ export function PracticeExamSession({
     }
   }, [currentQuestion, uniqueAudioUrls]);
 
-  // Preload next unique audio files sequentially
+  // Preload a small audio window ahead and keep references alive.
   useEffect(() => {
-    if (uniqueAudioUrls.length === 0) return;
-    
-    const nextUrls = uniqueAudioUrls.slice(currentTrackIndex + 1, currentTrackIndex + 4);
-    
-    nextUrls.forEach((url) => {
+    preloadedAudioRef.current = getNextAudioUrls(
+      uniqueAudioUrls,
+      currentTrackIndex,
+      3
+    ).map((url) => {
       const audio = new Audio();
       audio.preload = "auto";
       audio.src = url;
+      return audio;
     });
   }, [currentTrackIndex, uniqueAudioUrls]);
 
@@ -954,6 +946,8 @@ export function PracticeExamSession({
                     src={currentQuestion.image_url ?? undefined}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
                     decoding="async"
+                    loading="eager"
+                    fetchPriority="high"
                     className={cn(
                       "h-[min(70vh,700px)] min-h-[420px] w-full object-contain bg-zinc-50 transition-opacity duration-150",
                       imageLoading ? "opacity-0" : "opacity-100"
@@ -1033,6 +1027,8 @@ export function PracticeExamSession({
                           src={url}
                           alt={`Attached chart/graphic ${idx + 1}`}
                           decoding="async"
+                          loading={idx === 0 ? "eager" : "lazy"}
+                          fetchPriority={idx === 0 ? "high" : "auto"}
                           className="w-full h-[240px] object-contain"
                         />
                         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
@@ -1080,6 +1076,8 @@ export function PracticeExamSession({
                             src={url}
                             alt={`Part 6 passage image ${idx + 1}`}
                             decoding="async"
+                            loading={idx === 0 ? "eager" : "lazy"}
+                            fetchPriority={idx === 0 ? "high" : "auto"}
                             className="w-full h-auto object-contain max-h-[550px] lg:max-h-[650px]"
                           />
                           <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
@@ -1147,6 +1145,8 @@ export function PracticeExamSession({
                             src={url}
                             alt={`Part 7 passage image ${idx + 1}`}
                             decoding="async"
+                            loading={idx === 0 ? "eager" : "lazy"}
+                            fetchPriority={idx === 0 ? "high" : "auto"}
                             className="w-full h-auto object-contain max-h-[550px] lg:max-h-[650px]"
                           />
                           <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">

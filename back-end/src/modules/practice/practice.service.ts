@@ -190,8 +190,8 @@ export class PracticeService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   onModuleInit() {
-    // Pre-warm cache and connection pool on startup asynchronously
-    this.getTestsSnapshot().catch(() => {});
+    // Pre-warm cache and connection pool on startup asynchronously.
+    void this.prewarmPracticeCaches();
   }
 
   async listTests() {
@@ -254,8 +254,6 @@ export class PracticeService implements OnModuleInit {
     }
 
     const promise = (async () => {
-      await this.findPublishedTest(slug);
-
       const questions = await this.prisma.question.findMany({
         where: {
           testPart: {
@@ -268,6 +266,10 @@ export class PracticeService implements OnModuleInit {
         select: EXAM_QUESTION_SELECT,
         orderBy: [{ questionNumber: 'asc' }, { id: 'asc' }],
       });
+
+      if (questions.length === 0) {
+        await this.findPublishedTest(slug);
+      }
 
       const result = questions.map((question) =>
         this.toToeicQuestion(question, { includeAnswer: false }),
@@ -286,6 +288,23 @@ export class PracticeService implements OnModuleInit {
       return await promise;
     } finally {
       this.questionsPromises.delete(cacheKey);
+    }
+  }
+
+  private async prewarmPracticeCaches() {
+    try {
+      const snapshot = await this.getTestsSnapshot();
+      const batchSize = 3;
+
+      for (let index = 0; index < snapshot.tests.length; index += batchSize) {
+        const batch = snapshot.tests.slice(index, index + batchSize);
+        await Promise.allSettled(
+          batch.map((test) => this.listQuestions(test.slug)),
+        );
+      }
+    } catch {
+      // Startup warmup must never block the API process. The first real request
+      // still populates the same caches through the normal code path.
     }
   }
 

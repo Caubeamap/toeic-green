@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth";
 import { usePrefetchQuestions } from "../hooks/usePractice";
 import { usePrefetchTestComments } from "../hooks/useTestComments";
@@ -39,6 +40,7 @@ const tabs: Array<{ id: TabId; label: string }> = [
 ];
 
 export function PracticeTestSetup({ test }: { test: PracticeTest }) {
+  const router = useRouter();
   // Tab đang xem lấy từ URL (?tab=) để chia sẻ/refresh/back-forward đều đúng.
   const { searchParams, setParams } = useUrlState();
   const tabParam = searchParams.get("tab");
@@ -108,6 +110,21 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
 
     void prefetchQuestionsFor(currentTest.id);
   }
+
+  useEffect(() => {
+    if (!isAuthenticated || isSpeakingWriting) {
+      return;
+    }
+
+    void prefetchQuestionsFor(currentTest.id);
+    router.prefetch(`/practice/${currentTest.id}/test?mode=full`);
+  }, [
+    currentTest.id,
+    isAuthenticated,
+    isSpeakingWriting,
+    prefetchQuestionsFor,
+    router
+  ]);
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_42%),radial-gradient(circle_at_100%_30%,#eef4ff_0%,#fbf9f8_38%)] pb-16 pt-12">
@@ -379,6 +396,7 @@ function PracticeTab({
           aria-disabled={!canPractice}
           onFocus={canPractice ? onPrefetch : undefined}
           onMouseEnter={canPractice ? onPrefetch : undefined}
+          onTouchStart={canPractice ? onPrefetch : undefined}
           className={actionClassName}
         >
           <Play className="h-5 w-5" />
@@ -533,6 +551,7 @@ function FullTestTab({
             href={actionHref}
             onFocus={onPrefetch}
             onMouseEnter={onPrefetch}
+            onTouchStart={onPrefetch}
             className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-base font-extrabold text-white shadow-glow transition-colors hover:bg-primary/90"
           >
             <Play className="h-5 w-5" />

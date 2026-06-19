@@ -25,6 +25,11 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import type { PracticeAttemptResult, ToeicQuestion } from "@/features/practice";
 import { normalizeExplanationForDisplay } from "@/features/practice/lib/explanations";
 import { isQuestionNumberOnlyStem, formatQuestionStem } from "@/features/practice/lib/toeic-questions";
+import {
+  getNearbyQuestionImageUrls,
+  getNextAudioUrls,
+  preloadImageUrls
+} from "@/features/practice/lib/media-preload";
 import { formatPracticeTestTitle } from "@/features/practice/lib/practice-tests";
 import { cn } from "@/lib/utils";
 
@@ -400,6 +405,7 @@ export function PracticeResultReview({
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+  const preloadedAudioRef = useRef<HTMLAudioElement[]>([]);
 
   // Derive active parts and active questions from the submitted attempt.
   const activeParts = useMemo(() => {
@@ -567,23 +573,10 @@ export function PracticeResultReview({
     }
   }, [canGoNext, goTo, reviewIndex]);
 
-  // Preload all unique images for the test on component mount
+  // Preload only images near the active review question.
   useEffect(() => {
-    if (!activeQuestions || activeQuestions.length === 0) return;
-    
-    const imageUrls = Array.from(
-      new Set(
-        activeQuestions
-          .flatMap((q) => q.image_url ? q.image_url.split(',') : [])
-          .filter((url): url is string => !!url)
-      )
-    );
-    
-    imageUrls.forEach((url) => {
-      const img = new Image();
-      img.src = url;
-    });
-  }, [activeQuestions]);
+    preloadImageUrls(getNearbyQuestionImageUrls(activeQuestions, reviewIndex, 2));
+  }, [activeQuestions, reviewIndex]);
 
   // Find all unique audio URLs for the Listening section in order
   const uniqueAudioUrls = useMemo(() => {
@@ -606,16 +599,17 @@ export function PracticeResultReview({
     return uniqueAudioUrls.indexOf(currentQuestionAudioUrl);
   }, [currentQuestionAudioUrl, uniqueAudioUrls]);
 
-  // Preload next unique audio files sequentially
+  // Preload a small audio window ahead and keep references alive.
   useEffect(() => {
-    if (currentTrackIndex === -1 || uniqueAudioUrls.length === 0) return;
-    
-    const nextUrls = uniqueAudioUrls.slice(currentTrackIndex + 1, currentTrackIndex + 4);
-    
-    nextUrls.forEach((url) => {
+    preloadedAudioRef.current = getNextAudioUrls(
+      uniqueAudioUrls,
+      currentTrackIndex,
+      3
+    ).map((url) => {
       const audio = new Audio();
       audio.preload = "auto";
       audio.src = url;
+      return audio;
     });
   }, [currentTrackIndex, uniqueAudioUrls]);
 
@@ -898,6 +892,8 @@ export function PracticeResultReview({
                         src={currentQuestion.image_url ?? undefined}
                         alt="Question Visual"
                         decoding="async"
+                        loading="eager"
+                        fetchPriority="high"
                         className={cn(
                           "w-full h-[380px] object-contain bg-zinc-50 transition-opacity duration-150",
                           imageLoading ? "opacity-0" : "opacity-100"
@@ -1004,6 +1000,9 @@ export function PracticeResultReview({
                               <img
                                 src={url}
                                 alt={`Attached visual ${idx + 1}`}
+                                decoding="async"
+                                loading={idx === 0 ? "eager" : "lazy"}
+                                fetchPriority={idx === 0 ? "high" : "auto"}
                                 className="w-full h-[180px] object-contain"
                               />
                             </div>
@@ -1066,6 +1065,8 @@ export function PracticeResultReview({
                                   src={url}
                                   alt={`Part 6 passage image ${idx + 1}`}
                                   decoding="async"
+                                  loading={idx === 0 ? "eager" : "lazy"}
+                                  fetchPriority={idx === 0 ? "high" : "auto"}
                                   className="w-full h-auto object-contain max-h-[500px] lg:max-h-[600px]"
                                 />
                               </div>
@@ -1163,6 +1164,8 @@ export function PracticeResultReview({
                                     src={url}
                                     alt={`Part 7 passage image ${idx + 1}`}
                                     decoding="async"
+                                    loading={idx === 0 ? "eager" : "lazy"}
+                                    fetchPriority={idx === 0 ? "high" : "auto"}
                                     className="w-full h-auto object-contain max-h-[500px] lg:max-h-[600px]"
                                   />
                                 </div>

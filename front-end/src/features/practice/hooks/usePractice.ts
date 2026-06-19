@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/auth";
+import type { ToeicQuestion } from "../lib/toeic-questions";
 import type { PracticeTest } from "../lib/practice-tests";
 import {
   getLatestPracticeAttemptResult,
@@ -110,21 +112,27 @@ export function usePracticeTestDetail(
 }
 
 /** Đề công khai (dùng cho màn làm bài — câu hỏi yêu cầu đăng nhập riêng). */
-export function usePracticeTest(slug: string) {
+export function usePracticeTest(slug: string, initialTest?: PracticeTest) {
   return useQuery({
     queryKey: practiceKeys.test(slug, "public"),
     queryFn: () => getPracticeTest(slug),
-    enabled: Boolean(slug)
+    enabled: Boolean(slug),
+    initialData: initialTest
   });
 }
 
 /** Câu hỏi của đề (cache lâu — câu hỏi gần như tĩnh). */
-export function usePracticeQuestions(slug: string, enabled = true) {
+export function usePracticeQuestions(
+  slug: string,
+  enabled = true,
+  initialQuestions?: ToeicQuestion[]
+) {
   return useQuery({
     queryKey: practiceKeys.questions(slug),
     queryFn: () => listPracticeQuestions(slug),
     enabled: enabled && Boolean(slug),
-    staleTime: 10 * 60_000
+    staleTime: 10 * 60_000,
+    initialData: initialQuestions
   });
 }
 
@@ -172,12 +180,12 @@ export function useLatestAttemptResult(slug: string) {
 /** Cho phép prefetch câu hỏi (vd khi mở trang chuẩn bị) để vào thi tức thì. */
 export function usePrefetchQuestions() {
   const qc = useQueryClient();
-  return (slug: string) =>
+  return useCallback((slug: string) =>
     qc.prefetchQuery({
       queryKey: practiceKeys.questions(slug),
       queryFn: () => listPracticeQuestions(slug),
       staleTime: 10 * 60_000
-    });
+    }), [qc]);
 }
 
 /**

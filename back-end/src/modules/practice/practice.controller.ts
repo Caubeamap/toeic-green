@@ -47,6 +47,22 @@ export class PracticeController {
   }
 
   @Public()
+  @Get('tests/:slug/questions/bootstrap')
+  @Header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600')
+  async listQuestionsForBootstrap(
+    @Req() request: Request,
+    @Param('slug') slug: string,
+  ) {
+    const refreshToken = this.getRefreshToken(request);
+    if (!refreshToken) {
+      throw new UnauthorizedException('KhÃ´ng tÃ¬m tháº¥y Refresh Token');
+    }
+
+    await this.authService.bootstrap(refreshToken);
+    return this.practiceService.listQuestions(slug);
+  }
+
+  @Public()
   @Get('tests/:slug')
   @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
   async getTest(@Param('slug') slug: string) {
@@ -72,6 +88,7 @@ export class PracticeController {
   }
 
   @Get('tests/:slug/questions')
+  @Header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600')
   async listQuestions(@Param('slug') slug: string) {
     return this.practiceService.listQuestions(slug);
   }

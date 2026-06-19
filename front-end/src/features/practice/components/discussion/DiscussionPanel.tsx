@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth";
 import { useTestComments, usePostComment } from "../../hooks/useTestComments";
 import { CommentItem } from "./CommentItem";
+
+const REPLY_EXIT_MS = 340;
 
 export function DiscussionPanel({ slug }: { slug: string }) {
   const { isAuthenticated } = useAuth();
@@ -12,23 +14,84 @@ export function DiscussionPanel({ slug }: { slug: string }) {
     useTestComments(slug);
   const post = usePostComment(slug);
 
-  const [content, setContent] = useState("");
+  const [rootContent, setRootContent] = useState("");
+  const [replyContent, setReplyContent] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [closingReplyId, setClosingReplyId] = useState<string | null>(null);
+  const [rootError, setRootError] = useState<string | null>(null);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const closingTimerRef = useRef<number | null>(null);
 
   const comments = (data?.pages ?? []).flatMap((p) => p.comments);
   const total = data?.pages[0]?.totalCount ?? 0;
 
-  async function submit() {
-    const text = content.trim();
-    if (!text || post.isPending) return;
-    setError(null);
-    try {
-      await post.mutateAsync({ content: text, parentId: replyTo?.id });
-      setContent("");
+  useEffect(() => {
+    return () => {
+      if (closingTimerRef.current !== null) {
+        window.clearTimeout(closingTimerRef.current);
+      }
+    };
+  }, []);
+
+  function clearClosingTimer() {
+    if (closingTimerRef.current !== null) {
+      window.clearTimeout(closingTimerRef.current);
+      closingTimerRef.current = null;
+    }
+  }
+
+  function animateReplyClose(id: string) {
+    clearClosingTimer();
+    setClosingReplyId(id);
+    closingTimerRef.current = window.setTimeout(() => {
+      setClosingReplyId((current) => (current === id ? null : current));
+      closingTimerRef.current = null;
+    }, REPLY_EXIT_MS);
+  }
+
+  function toggleReply(id: string, name: string) {
+    setReplyError(null);
+    if (replyTo?.id === id) {
+      animateReplyClose(id);
       setReplyTo(null);
+      setReplyContent("");
+      return;
+    }
+
+    if (replyTo) {
+      animateReplyClose(replyTo.id);
+    } else {
+      clearClosingTimer();
+      setClosingReplyId(null);
+    }
+
+    setReplyTo({ id, name });
+    setReplyContent("");
+  }
+
+  async function submitRoot() {
+    const text = rootContent.trim();
+    if (!text || post.isPending) return;
+    setRootError(null);
+    try {
+      await post.mutateAsync({ content: text });
+      setRootContent("");
     } catch {
-      setError("Gửi bình luận thất bại. Vui lòng thử lại.");
+      setRootError("Gửi bình luận thất bại. Vui lòng thử lại.");
+    }
+  }
+
+  async function submitReply(parentId: string) {
+    const text = replyContent.trim();
+    if (!text || post.isPending) return;
+    setReplyError(null);
+    try {
+      await post.mutateAsync({ content: text, parentId });
+      setReplyContent("");
+      setReplyTo(null);
+      animateReplyClose(parentId);
+    } catch {
+      setReplyError("Gửi trả lời thất bại. Vui lòng thử lại.");
     }
   }
 
@@ -40,42 +103,28 @@ export function DiscussionPanel({ slug }: { slug: string }) {
 
       {isAuthenticated ? (
         <div className="space-y-2">
-          {replyTo ? (
-            <div className="flex min-h-9 items-center gap-2 rounded-lg border border-primary/20 bg-primary-container/20 px-3 text-xs">
-              <span className="text-on-surface-variant">Đang trả lời</span>
-              <span className="font-bold text-on-surface">{replyTo.name}</span>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                className="ml-auto text-xs font-bold text-primary hover:underline"
-              >
-                Huỷ
-              </button>
-            </div>
-          ) : null}
-
           <div className="flex overflow-hidden rounded-lg border border-outline-variant bg-white transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
             <textarea
               aria-label="Nội dung bình luận"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
+              value={rootContent}
+              onChange={(e) => setRootContent(e.target.value)}
               maxLength={2000}
               placeholder="Chia sẻ cảm nghĩ của bạn ..."
               rows={1}
-              className="min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm leading-5 text-on-surface outline-none placeholder:text-on-surface-variant/60"
+              className="min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm leading-5 text-on-surface outline-none placeholder:text-on-surface-variant/60 sm:min-h-11"
             />
             <button
               type="button"
-              disabled={!content.trim() || post.isPending}
-              onClick={() => void submit()}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center border-l border-primary/20 bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-primary/45"
+              disabled={!rootContent.trim() || post.isPending}
+              onClick={() => void submitRoot()}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center border-l border-primary/20 bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-primary/45 sm:min-h-11"
             >
               {post.isPending ? "Đang gửi…" : "Gửi"}
             </button>
           </div>
 
-          {error ? (
-            <p className="text-xs font-semibold text-red-600">{error}</p>
+          {rootError ? (
+            <p className="text-xs font-semibold text-red-600">{rootError}</p>
           ) : null}
         </div>
       ) : (
@@ -101,7 +150,14 @@ export function DiscussionPanel({ slug }: { slug: string }) {
             <CommentItem
               key={c.id}
               node={c}
-              onReply={(id, name) => setReplyTo({ id, name })}
+              activeReplyId={replyTo?.id ?? null}
+              closingReplyId={closingReplyId}
+              isPosting={post.isPending}
+              replyContent={replyContent}
+              replyError={replyError}
+              onReplyContentChange={setReplyContent}
+              onSubmitReply={(parentId) => void submitReply(parentId)}
+              onToggleReply={toggleReply}
             />
           ))}
         </div>

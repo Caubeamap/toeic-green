@@ -13,7 +13,6 @@ import {
   Clock3,
   FileQuestion,
   Lightbulb,
-  Lock,
   Play,
   ShieldCheck,
   Timer,
@@ -28,6 +27,7 @@ import {
 } from "../lib/practice-tests";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/url-state";
+import { DiscussionPanel } from "./discussion/DiscussionPanel";
 
 type TabId = "practice" | "full-test" | "discussion";
 
@@ -188,7 +188,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                   />
                 ) : null}
 
-                {activeTab === "discussion" ? <DiscussionTab /> : null}
+                {activeTab === "discussion" ? <DiscussionPanel slug={currentTest.id} /> : null}
               </div>
             </div>
           </div>
@@ -600,27 +600,6 @@ function formatDuration(totalSeconds: number) {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
-function DiscussionTab() {
-  return (
-    <div className="space-y-5">
-      <div className="rounded-[28px] border border-outline-variant/70 bg-white/45 p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
-              <Lock className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-on-surface">Thảo luận</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                Tính năng thảo luận sắp ra mắt.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function StatChip({ icon, label }: { icon: ReactNode; label: string }) {
   return (

@@ -30,6 +30,7 @@ model User {
   vocabularies            UserVocabulary[]
   exploreProgress         ExploreProgress[]
   wordRatings             WordRating[]
+  testComments            TestComment[]
 
   @@map("users")
 }
@@ -118,8 +119,31 @@ model Test {
 
   parts    TestPart[]
   attempts PracticeAttempt[]
+  comments TestComment[]
 
   @@map("tests")
+}
+
+model TestComment {
+  id        BigInt    @id @default(autoincrement())
+  testId    Int       @map("test_id")
+  userId    String    @map("user_id") @db.Uuid
+  parentId  BigInt?   @map("parent_id")
+  rootId    BigInt?   @map("root_id")
+  depth     Int       @default(0)
+  content   String    @db.Text
+  isPinned  Boolean   @default(false) @map("is_pinned")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  test    Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  TestComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies TestComment[] @relation("CommentReplies")
+
+  @@index([testId, parentId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([rootId, createdAt])
+  @@map("test_comments")
 }
 
 model TestPart {

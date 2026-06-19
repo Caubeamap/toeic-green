@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useAuth } from "@/features/auth";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { cn } from "@/lib/utils";
 import { getUserInitials, normalizeAvatarUrl } from "@/lib/user-avatar";
@@ -43,6 +44,7 @@ export function CommentItem({
   onSubmitReply: (parentId: string) => void;
   onToggleReply: (parentId: string, authorName: string) => void;
 }) {
+  const { isAuthenticated } = useAuth();
   const indent = Math.min(node.depth, MAX_INDENT);
   const isReplyOpen = activeReplyId === node.id;
   const isReplyClosing = closingReplyId === node.id;
@@ -73,18 +75,20 @@ export function CommentItem({
           <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-on-surface">
             {node.content}
           </p>
-          <button
-            type="button"
-            aria-controls={composerId}
-            aria-expanded={isReplyOpen}
-            onClick={() => onToggleReply(node.id, node.author.displayName)}
-            className={cn(
-              "mt-0.5 text-xs font-bold text-primary transition hover:underline",
-              isReplyOpen && "text-on-primary-container",
-            )}
-          >
-            Trả lời
-          </button>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              aria-controls={composerId}
+              aria-expanded={isReplyOpen}
+              onClick={() => onToggleReply(node.id, node.author.displayName)}
+              className={cn(
+                "mt-0.5 text-xs font-bold text-primary transition hover:underline",
+                isReplyOpen && "text-on-primary-container",
+              )}
+            >
+              Trả lời
+            </button>
+          ) : null}
 
           {shouldRenderReplyComposer ? (
             <InlineReplyComposer

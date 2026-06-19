@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth";
-import { useTestComments, usePostComment } from "../../hooks/useTestComments";
+import {
+  useLoadCommentReplies,
+  usePostComment,
+  useTestComments,
+} from "../../hooks/useTestComments";
 import { CommentItem } from "./CommentItem";
 
 const REPLY_EXIT_MS = 340;
@@ -13,11 +17,13 @@ export function DiscussionPanel({ slug }: { slug: string }) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
     useTestComments(slug);
   const post = usePostComment(slug);
+  const loadReplies = useLoadCommentReplies(slug);
 
   const [rootContent, setRootContent] = useState("");
   const [replyContent, setReplyContent] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
   const [closingReplyId, setClosingReplyId] = useState<string | null>(null);
+  const [loadingRepliesFor, setLoadingRepliesFor] = useState<string | null>(null);
   const [rootError, setRootError] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<string | null>(null);
   const closingTimerRef = useRef<number | null>(null);
@@ -95,6 +101,16 @@ export function DiscussionPanel({ slug }: { slug: string }) {
     }
   }
 
+  async function loadMoreReplies(parentId: string, cursor: string | null) {
+    if (loadReplies.isPending) return;
+    setLoadingRepliesFor(parentId);
+    try {
+      await loadReplies.mutateAsync({ parentId, cursor });
+    } finally {
+      setLoadingRepliesFor(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold text-on-surface">
@@ -155,7 +171,9 @@ export function DiscussionPanel({ slug }: { slug: string }) {
               isPosting={post.isPending}
               replyContent={replyContent}
               replyError={replyError}
+              loadingRepliesFor={loadingRepliesFor}
               onReplyContentChange={setReplyContent}
+              onLoadReplies={(parentId, cursor) => void loadMoreReplies(parentId, cursor)}
               onSubmitReply={(parentId) => void submitReply(parentId)}
               onToggleReply={toggleReply}
             />

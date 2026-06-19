@@ -23,9 +23,11 @@ export function CommentItem({
   activeReplyId,
   closingReplyId,
   isPosting,
+  loadingRepliesFor,
   replyContent,
   replyError,
   onReplyContentChange,
+  onLoadReplies,
   onSubmitReply,
   onToggleReply,
 }: {
@@ -33,9 +35,11 @@ export function CommentItem({
   activeReplyId: string | null;
   closingReplyId: string | null;
   isPosting: boolean;
+  loadingRepliesFor: string | null;
   replyContent: string;
   replyError: string | null;
   onReplyContentChange: (value: string) => void;
+  onLoadReplies: (parentId: string, cursor: string | null) => void;
   onSubmitReply: (parentId: string) => void;
   onToggleReply: (parentId: string, authorName: string) => void;
 }) {
@@ -44,6 +48,8 @@ export function CommentItem({
   const isReplyClosing = closingReplyId === node.id;
   const shouldRenderReplyComposer = isReplyOpen || isReplyClosing;
   const composerId = `reply-composer-${node.id}`;
+  const remainingReplies = Math.max(node.replyCount - node.replies.length, 0);
+  const isLoadingReplies = loadingRepliesFor === node.id;
 
   return (
     <div
@@ -93,6 +99,19 @@ export function CommentItem({
               onSubmit={onSubmitReply}
             />
           ) : null}
+
+          {remainingReplies > 0 ? (
+            <button
+              type="button"
+              disabled={isLoadingReplies}
+              onClick={() => onLoadReplies(node.id, node.repliesNextCursor)}
+              className="mt-1 text-xs font-bold text-primary transition hover:underline disabled:cursor-wait disabled:text-on-surface-variant"
+            >
+              {isLoadingReplies
+                ? "Đang tải…"
+                : `Xem thêm ${remainingReplies} trả lời`}
+            </button>
+          ) : null}
         </div>
       </div>
       {node.replies.map((child) => (
@@ -102,9 +121,11 @@ export function CommentItem({
           activeReplyId={activeReplyId}
           closingReplyId={closingReplyId}
           isPosting={isPosting}
+          loadingRepliesFor={loadingRepliesFor}
           replyContent={replyContent}
           replyError={replyError}
           onReplyContentChange={onReplyContentChange}
+          onLoadReplies={onLoadReplies}
           onSubmitReply={onSubmitReply}
           onToggleReply={onToggleReply}
         />

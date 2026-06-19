@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/features/auth";
 import { usePrefetchQuestions } from "../hooks/usePractice";
+import { usePrefetchTestComments } from "../hooks/useTestComments";
 import {
   CalendarDays,
   CheckCircle2,
@@ -83,6 +84,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const pageTitle = formatPracticeTestTitle(currentTest);
   const { isAuthenticated } = useAuth();
   const prefetchQuestionsFor = usePrefetchQuestions();
+  const prefetchComments = usePrefetchTestComments(currentTest.id);
 
   const queryParams = new URLSearchParams();
   if (selectedPartIds.length > 0) {
@@ -150,6 +152,8 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
+                    onFocus={tab.id === "discussion" ? prefetchComments : undefined}
+                    onMouseEnter={tab.id === "discussion" ? prefetchComments : undefined}
                     className={cn(
                       "min-h-12 rounded-2xl px-4 text-label-md font-bold text-on-surface-variant transition hover:bg-white/55 hover:text-on-surface",
                       activeTab === tab.id && "bg-white text-primary shadow-sm"

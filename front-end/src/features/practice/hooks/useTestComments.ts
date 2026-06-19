@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -7,11 +8,16 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import {
+  fetchCommentReplies,
   fetchComments,
   postComment,
   type CommentFeed,
   type CommentNode,
 } from "../services/comments-api";
+import {
+  commentKeys,
+  getTestCommentsInfiniteQueryOptions,
+} from "./comment-query-options";
 
 // ---------------------------------------------------------------------------
 // Cache helpers
@@ -36,7 +42,11 @@ function insertNodeIntoTree(
     if (inserted) return n;
     if (n.id === node.parentId) {
       inserted = true;
-      return { ...n, replies: [...n.replies, node] };
+      return {
+        ...n,
+        replyCount: n.replyCount + 1,
+        replies: [...n.replies, node],
+      };
     }
     const result = insertNodeIntoTree(n.replies, node);
     if (result.inserted) {
@@ -46,6 +56,48 @@ function insertNodeIntoTree(
     return n;
   });
   return { nodes: next, inserted };
+}
+
+function mergeRepliesIntoTree(
+  nodes: CommentNode[],
+  parentId: string,
+  replies: CommentNode[],
+  nextCursor: string | null,
+  totalCount: number,
+): { nodes: CommentNode[]; merged: boolean } {
+  let merged = false;
+  const next = nodes.map((node) => {
+    if (merged) return node;
+    if (node.id === parentId) {
+      merged = true;
+      const existingIds = new Set(node.replies.map((reply) => reply.id));
+      const nextReplies = [
+        ...node.replies,
+        ...replies.filter((reply) => !existingIds.has(reply.id)),
+      ];
+      return {
+        ...node,
+        replies: nextReplies,
+        repliesNextCursor: nextCursor,
+        replyCount: totalCount,
+      };
+    }
+
+    const result = mergeRepliesIntoTree(
+      node.replies,
+      parentId,
+      replies,
+      nextCursor,
+      totalCount,
+    );
+    if (result.merged) {
+      merged = true;
+      return { ...node, replies: result.nodes };
+    }
+    return node;
+  });
+
+  return { nodes: next, merged };
 }
 
 export function insertNode(pages: CommentFeed[], node: CommentNode): CommentFeed[] {
@@ -75,14 +127,6 @@ export function insertNode(pages: CommentFeed[], node: CommentNode): CommentFeed
 }
 
 // ---------------------------------------------------------------------------
-// Query key
-// ---------------------------------------------------------------------------
-
-export const commentKeys = {
-  feed: (slug: string) => ["test-comments", slug] as const,
-};
-
-// ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
 
@@ -93,13 +137,17 @@ export function useTestComments(slug: string) {
     InfiniteData<CommentFeed>,
     ReturnType<typeof commentKeys.feed>,
     string | undefined
-  >({
-    queryKey: commentKeys.feed(slug),
-    queryFn: ({ pageParam }) => fetchComments(slug, pageParam),
-    initialPageParam: undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 30_000,
-  });
+  >(getTestCommentsInfiniteQueryOptions(slug, fetchComments));
+}
+
+export function usePrefetchTestComments(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useCallback(() => {
+    void queryClient.prefetchInfiniteQuery(
+      getTestCommentsInfiniteQueryOptions(slug, fetchComments),
+    );
+  }, [queryClient, slug]);
 }
 
 export function usePostComment(slug: string) {
@@ -115,6 +163,43 @@ export function usePostComment(slug: string) {
           prev
             ? { ...prev, pages: insertNode(prev.pages, node) }
             : prev,
+      );
+    },
+  });
+}
+
+export function useLoadCommentReplies(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      parentId,
+      cursor,
+    }: {
+      parentId: string;
+      cursor?: string | null;
+    }) => fetchCommentReplies(slug, parentId, cursor),
+    onSuccess: (page, variables) => {
+      queryClient.setQueryData<InfiniteData<CommentFeed>>(
+        commentKeys.feed(slug),
+        (prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            pages: prev.pages.map((feedPage) => {
+              const result = mergeRepliesIntoTree(
+                feedPage.comments,
+                variables.parentId,
+                page.replies,
+                page.nextCursor,
+                page.totalCount,
+              );
+              return result.merged
+                ? { ...feedPage, comments: result.nodes }
+                : feedPage;
+            }),
+          };
+        },
       );
     },
   });

@@ -18,11 +18,19 @@ interface CommentNode {
   isPinned: boolean;
   createdAt: string;
   author: { id: string; displayName: string; avatarUrl: string | null };
+  replyCount: number;
+  repliesNextCursor: string | null;
   replies: CommentNode[];
 }
 
 interface CommentFeed {
   comments: CommentNode[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+
+interface CommentRepliesPage {
+  replies: CommentNode[];
   nextCursor: string | null;
   totalCount: number;
 }
@@ -171,10 +179,21 @@ describe('Comments API (e2e)', () => {
 
     const rootNode = feed.comments.find((c) => c.id === rootId);
     expect(rootNode).toBeDefined();
+    expect(rootNode!.replyCount).toBe(1);
     expect(rootNode!.replies).toHaveLength(1);
     expect(rootNode!.replies[0].id).toBe(replyId);
-    expect(rootNode!.replies[0].replies).toHaveLength(1);
-    expect(rootNode!.replies[0].replies[0].id).toBe(reply2Id);
+    expect(rootNode!.replies[0].replyCount).toBe(1);
+    expect(rootNode!.replies[0].replies).toHaveLength(0);
+
+    const nestedRes = await request(app.getHttpServer())
+      .get(`/api/practice/tests/${slug}/comments/${replyId}/replies`)
+      .expect(200);
+
+    const nested = nestedRes.body as CommentRepliesPage;
+    expect(nested.totalCount).toBe(1);
+    expect(nested.replies).toHaveLength(1);
+    expect(nested.replies[0].id).toBe(reply2Id);
+    expect(nested.replies[0].replies).toHaveLength(0);
   });
 
   // ── Case 4: Soft-deleted comments excluded ────────────────────────────────

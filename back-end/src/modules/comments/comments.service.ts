@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { pruneExpiredEntries } from '../../common/utils/prune-expired-cache';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -8,6 +9,10 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 const COUNT_CACHE_TTL_MS = 30_000;
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
+const DEFAULT_REPLY_PREVIEW_LIMIT = 3;
+const MAX_REPLY_PREVIEW_LIMIT = 5;
+const DEFAULT_REPLY_LIMIT = 10;
+const MAX_REPLY_LIMIT = 20;
 
 /* ──────────────────────────── Interfaces ─────────────────────────────────── */
 
@@ -25,11 +30,19 @@ export interface CommentNode {
   isPinned: boolean;
   createdAt: string;
   author: CommentAuthor;
+  replyCount: number;
+  repliesNextCursor: string | null;
   replies: CommentNode[];
 }
 
 export interface CommentFeed {
   comments: CommentNode[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+
+export interface CommentRepliesPage {
+  replies: CommentNode[];
   nextCursor: string | null;
   totalCount: number;
 }
@@ -51,6 +64,18 @@ interface CommentRow {
   };
 }
 
+interface RawCommentRow {
+  id: bigint;
+  parent_id: bigint | null;
+  depth: number;
+  content: string;
+  is_pinned: boolean;
+  created_at: Date;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+}
+
 /** Shape of a row entry in the countCache Map */
 interface CountCacheEntry {
   expiresAt: number;
@@ -65,6 +90,22 @@ export class CommentsService {
 
   /** in-memory totalCount cache; keyed by String(testId) for pruneExpiredEntries compat */
   private countCache = new Map<string, CountCacheEntry>();
+
+  private readonly commentSelect = {
+    id: true,
+    parentId: true,
+    depth: true,
+    content: true,
+    isPinned: true,
+    createdAt: true,
+    user: {
+      select: {
+        id: true,
+        displayName: true,
+        avatarUrl: true,
+      },
+    },
+  } as const;
 
   /* ──────────────────────────── Public: create ─────────────────────────── */
 
@@ -139,10 +180,14 @@ export class CommentsService {
 
   async list(
     slug: string,
-    opts: { cursor?: string; limit?: number },
+    opts: { cursor?: string; limit?: number; replyPreviewLimit?: number },
   ): Promise<CommentFeed> {
     const testId = await this.resolveTestId(slug);
     const limit = Math.min(Math.max(opts.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const replyPreviewLimit = Math.min(
+      Math.max(opts.replyPreviewLimit ?? DEFAULT_REPLY_PREVIEW_LIMIT, 0),
+      MAX_REPLY_PREVIEW_LIMIT,
+    );
     const isFirstPage = !opts.cursor;
 
     /** Reusable select shape for all findMany calls */
@@ -202,25 +247,96 @@ export class CommentsService {
     const visibleRoots = hasMore ? pageRoots.slice(0, limit) : pageRoots;
     const allRoots = [...pinnedRoots, ...visibleRoots];
 
-    // (4) Fetch all descendants for the visible root set
-    const rootIds = allRoots.map((r) => r.id);
-    const descendants: CommentRow[] =
-      rootIds.length > 0
-        ? await this.prisma.testComment.findMany({
-            where: { rootId: { in: rootIds }, deletedAt: null },
-            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-            select,
-          })
-        : [];
+    // (4) Build roots and attach a bounded preview of direct replies only.
+    const rootNodes = allRoots.map((root) => this.toNode(root));
+    const previewMap = await this.getDirectReplyPreviews(
+      allRoots.map((root) => root.id),
+      replyPreviewLimit,
+    );
+
+    const allVisibleNodes = [...rootNodes];
+    for (const root of rootNodes) {
+      const previewRows = previewMap.get(root.id) ?? [];
+      root.replies = previewRows.map((row) => this.toNode(row));
+      allVisibleNodes.push(...root.replies);
+    }
+    await this.hydrateReplyCounts(allVisibleNodes);
+    for (const root of rootNodes) {
+      root.repliesNextCursor =
+        root.replies.length < root.replyCount && root.replies.length > 0
+          ? this.encodeNodeCursor(root.replies[root.replies.length - 1])
+          : null;
+    }
 
     // (5) Next cursor
     const last = visibleRoots[visibleRoots.length - 1];
     const nextCursor = hasMore && last ? this.encodeCursor(last) : null;
 
     return {
-      comments: this.buildTree(allRoots, descendants),
+      comments: rootNodes,
       nextCursor,
       totalCount: await this.getTotalCount(testId),
+    };
+  }
+
+  async listReplies(
+    slug: string,
+    parentIdValue: string,
+    opts: { cursor?: string; limit?: number },
+  ): Promise<CommentRepliesPage> {
+    const testId = await this.resolveTestId(slug);
+    const parentId = this.parseId(parentIdValue);
+    const limit = Math.min(
+      Math.max(opts.limit ?? DEFAULT_REPLY_LIMIT, 1),
+      MAX_REPLY_LIMIT,
+    );
+
+    const parent = await this.prisma.testComment.findUnique({
+      where: { id: parentId },
+      select: { id: true, testId: true, deletedAt: true },
+    });
+
+    if (!parent || parent.testId !== testId || parent.deletedAt !== null) {
+      throw new BadRequestException('Bình luận không hợp lệ.');
+    }
+
+    const cursorWhere = opts.cursor
+      ? (() => {
+          const c = this.decodeCursor(opts.cursor);
+          return {
+            OR: [
+              { createdAt: { gt: c.createdAt } },
+              { createdAt: c.createdAt, id: { gt: c.id } },
+            ],
+          };
+        })()
+      : {};
+
+    const rows = await this.prisma.testComment.findMany({
+      where: {
+        parentId,
+        deletedAt: null,
+        ...cursorWhere,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+      select: this.commentSelect,
+    });
+
+    const hasMore = rows.length > limit;
+    const visibleRows = hasMore ? rows.slice(0, limit) : rows;
+    const replies = visibleRows.map((row) => this.toNode(row));
+    await this.hydrateReplyCounts(replies);
+
+    return {
+      replies,
+      nextCursor:
+        hasMore && visibleRows.length > 0
+          ? this.encodeCursor(visibleRows[visibleRows.length - 1])
+          : null,
+      totalCount: await this.prisma.testComment.count({
+        where: { parentId, deletedAt: null },
+      }),
     };
   }
 
@@ -260,7 +376,25 @@ export class CommentsService {
         displayName: row.user.displayName,
         avatarUrl: row.user.avatarUrl,
       },
+      replyCount: 0,
+      repliesNextCursor: null,
       replies: [],
+    };
+  }
+
+  private rawToRow(row: RawCommentRow): CommentRow {
+    return {
+      id: row.id,
+      parentId: row.parent_id,
+      depth: row.depth,
+      content: row.content,
+      isPinned: row.is_pinned,
+      createdAt: row.created_at,
+      user: {
+        id: row.user_id,
+        displayName: row.display_name,
+        avatarUrl: row.avatar_url,
+      },
     };
   }
 
@@ -268,6 +402,15 @@ export class CommentsService {
     return Buffer.from(
       `${row.createdAt.toISOString()}|${row.id.toString()}`,
     ).toString('base64url');
+  }
+
+  private encodeNodeCursor(
+    node: Pick<CommentNode, 'createdAt' | 'id'>,
+  ): string {
+    return this.encodeCursor({
+      createdAt: new Date(node.createdAt),
+      id: BigInt(node.id),
+    });
   }
 
   private decodeCursor(cursor: string): { createdAt: Date; id: bigint } {
@@ -314,6 +457,80 @@ export class CommentsService {
     }
 
     return rootNodes;
+  }
+
+  private async getDirectReplyPreviews(
+    parentIds: bigint[],
+    limit: number,
+  ): Promise<Map<string, CommentRow[]>> {
+    const previews = new Map<string, CommentRow[]>();
+    if (parentIds.length === 0 || limit <= 0) return previews;
+
+    const rows = await this.prisma.$queryRaw<RawCommentRow[]>(
+      Prisma.sql`
+        WITH parent_ids(parent_id) AS (
+          SELECT unnest(ARRAY[${Prisma.join(parentIds)}]::bigint[])
+        )
+        SELECT
+          c.id,
+          c.parent_id,
+          c.depth,
+          c.content,
+          c.is_pinned,
+          c.created_at,
+          u.id AS user_id,
+          u.display_name,
+          u.avatar_url
+        FROM parent_ids p
+        CROSS JOIN LATERAL (
+          SELECT *
+          FROM test_comments c
+          WHERE c.parent_id = p.parent_id
+            AND c.deleted_at IS NULL
+          ORDER BY c.created_at ASC, c.id ASC
+          LIMIT ${limit}
+        ) c
+        JOIN users u ON u.id = c.user_id
+        ORDER BY c.parent_id ASC, c.created_at ASC, c.id ASC
+      `,
+    );
+
+    for (const raw of rows) {
+      const row = this.rawToRow(raw);
+      if (row.parentId === null) continue;
+      const key = row.parentId.toString();
+      const existing = previews.get(key) ?? [];
+      existing.push(row);
+      previews.set(key, existing);
+    }
+
+    return previews;
+  }
+
+  private async hydrateReplyCounts(nodes: CommentNode[]): Promise<void> {
+    if (nodes.length === 0) return;
+
+    const groups = await this.prisma.testComment.groupBy({
+      by: ['parentId'],
+      where: {
+        parentId: { in: nodes.map((node) => BigInt(node.id)) },
+        deletedAt: null,
+      },
+      _count: { _all: true },
+    });
+
+    const counts = new Map<string, number>();
+    for (const group of groups) {
+      if (group.parentId === null) continue;
+      counts.set(group.parentId.toString(), group._count._all);
+    }
+
+    for (const node of nodes) {
+      node.replyCount = counts.get(node.id) ?? 0;
+      if (node.replies.length >= node.replyCount) {
+        node.repliesNextCursor = null;
+      }
+    }
   }
 
   private async getTotalCount(testId: number): Promise<number> {

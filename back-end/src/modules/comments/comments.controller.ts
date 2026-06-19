@@ -15,9 +15,35 @@ export class CommentsController {
     @Param('slug') slug: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
+    @Query('replyPreviewLimit') replyPreviewLimit?: string,
   ) {
     const parsedLimit = limit !== undefined ? Number(limit) : undefined;
+    const parsedReplyPreviewLimit =
+      replyPreviewLimit !== undefined ? Number(replyPreviewLimit) : undefined;
     return this.commentsService.list(slug, {
+      cursor: cursor || undefined,
+      limit:
+        parsedLimit !== undefined && Number.isFinite(parsedLimit)
+          ? parsedLimit
+          : undefined,
+      replyPreviewLimit:
+        parsedReplyPreviewLimit !== undefined &&
+        Number.isFinite(parsedReplyPreviewLimit)
+          ? parsedReplyPreviewLimit
+          : undefined,
+    });
+  }
+
+  @Public()
+  @Get(':commentId/replies')
+  async listReplies(
+    @Param('slug') slug: string,
+    @Param('commentId') commentId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit !== undefined ? Number(limit) : undefined;
+    return this.commentsService.listReplies(slug, commentId, {
       cursor: cursor || undefined,
       limit:
         parsedLimit !== undefined && Number.isFinite(parsedLimit)

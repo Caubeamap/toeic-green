@@ -225,7 +225,9 @@ describe('CommentsService.list', () => {
       create: jest.Mock;
       findMany: jest.Mock;
       count: jest.Mock;
+      groupBy: jest.Mock;
     };
+    $queryRaw: jest.Mock;
   };
 
   const slug = 'test-slug';
@@ -259,11 +261,15 @@ describe('CommentsService.list', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
+        groupBy: jest.fn(),
       },
+      $queryRaw: jest.fn(),
     };
 
     prismaMock.test.findUnique.mockResolvedValue({ id: 7, isPublished: true });
     prismaMock.testComment.count.mockResolvedValue(3);
+    prismaMock.testComment.groupBy.mockResolvedValue([]);
+    prismaMock.$queryRaw.mockResolvedValue([]);
 
     service = new CommentsService(prismaMock as never);
   });
@@ -274,11 +280,24 @@ describe('CommentsService.list', () => {
     // call order: (1) pinnedRoots → [], (2) pageRoots → root 100, (3) descendants → 101, 102
     prismaMock.testComment.findMany
       .mockResolvedValueOnce([]) // pinnedRoots
-      .mockResolvedValueOnce([makeRow({ id: 100n, parentId: null, depth: 0 })]) // pageRoots
-      .mockResolvedValueOnce([
-        makeRow({ id: 101n, parentId: 100n, depth: 1 }),
-        makeRow({ id: 102n, parentId: 101n, depth: 2 }),
-      ]); // descendants
+      .mockResolvedValueOnce([makeRow({ id: 100n, parentId: null, depth: 0 })]); // pageRoots
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        id: 101n,
+        parent_id: 100n,
+        depth: 1,
+        content: 'Some content',
+        is_pinned: false,
+        created_at: new Date('2026-01-01T00:00:00.000Z'),
+        user_id: 'user-uuid-1',
+        display_name: 'Test User',
+        avatar_url: null,
+      },
+    ]);
+    prismaMock.testComment.groupBy.mockResolvedValueOnce([
+      { parentId: 100n, _count: { _all: 1 } },
+      { parentId: 101n, _count: { _all: 1 } },
+    ]);
 
     const feed: CommentFeed = await service.list(slug, {});
 
@@ -288,15 +307,13 @@ describe('CommentsService.list', () => {
 
     const root = feed.comments[0];
     expect(root.id).toBe('100');
+    expect(root.replyCount).toBe(1);
     expect(root.replies).toHaveLength(1);
 
     const reply1 = root.replies[0];
     expect(reply1.id).toBe('101');
-    expect(reply1.replies).toHaveLength(1);
-
-    const reply2 = reply1.replies[0];
-    expect(reply2.id).toBe('102');
-    expect(reply2.replies).toHaveLength(0);
+    expect(reply1.replyCount).toBe(1);
+    expect(reply1.replies).toHaveLength(0);
   });
 
   /* ─────────────────────── hasMore / nextCursor ─────────────────────────── */
@@ -325,8 +342,7 @@ describe('CommentsService.list', () => {
           depth: 0,
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         }),
-      ]) // pageRoots (limit+1)
-      .mockResolvedValueOnce([]); // descendants
+      ]); // pageRoots (limit+1)
 
     const feed: CommentFeed = await service.list(slug, { limit });
 

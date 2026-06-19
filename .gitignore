@@ -15,7 +15,7 @@ stitch_toeic_green_learning_hub/
 tasks/
 CODEX.md
 CLAUDE.md
-.agent/
+.agents/
 toeic-crawler/
 flashcard-crawler/
 

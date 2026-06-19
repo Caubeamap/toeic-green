@@ -10,21 +10,21 @@ type StatsProps = {
 const statItems = [
   {
     key: "total",
-    label: "Total Words",
+    label: "Từ đã lưu",
     icon: BookOpen,
     color: "text-growth-dark",
     bg: "bg-growth/10",
   },
   {
     key: "mastered",
-    label: "Mastered",
+    label: "Đã thuộc",
     icon: Star,
     color: "text-emerald-600",
     bg: "bg-emerald-50",
   },
   {
     key: "favorites",
-    label: "Favorites",
+    label: "Yêu thích",
     icon: Heart,
     color: "text-rose-500",
     bg: "bg-rose-50",

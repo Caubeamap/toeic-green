@@ -26,11 +26,11 @@ type DrawerProps = {
 };
 
 const POS_OPTIONS: { value: PartOfSpeech; label: string }[] = [
-  { value: "noun", label: "Noun" },
-  { value: "verb", label: "Verb" },
-  { value: "adjective", label: "Adjective" },
-  { value: "adverb", label: "Adverb" },
-  { value: "phrase", label: "Phrase" },
+  { value: "noun", label: "Danh từ" },
+  { value: "verb", label: "Động từ" },
+  { value: "adjective", label: "Tính từ" },
+  { value: "adverb", label: "Trạng từ" },
+  { value: "phrase", label: "Cụm từ" },
 ];
 
 export function VocabularyDetailDrawer({
@@ -87,8 +87,8 @@ export function VocabularyDetailDrawer({
 
   function validate(): boolean {
     const newErrors: Partial<Record<keyof VocabularyWord, string>> = {};
-    if (!form?.word.trim()) newErrors.word = "Word is required";
-    if (!form?.meaning.trim()) newErrors.meaning = "Meaning is required";
+    if (!form?.word.trim()) newErrors.word = "Vui lòng nhập từ vựng";
+    if (!form?.meaning.trim()) newErrors.meaning = "Vui lòng nhập nghĩa của từ";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -139,14 +139,14 @@ export function VocabularyDetailDrawer({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-5 py-4">
           <h2 className="text-lg font-extrabold text-ink">
-            {isEditing ? "Edit Word" : "Word Detail"}
+            {isEditing ? "Chỉnh sửa từ" : "Chi tiết từ vựng"}
           </h2>
           <div className="flex items-center gap-1.5">
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="grid h-8 w-8 place-items-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-ink"
-                title="Edit Word"
+                title="Chỉnh sửa từ"
               >
                 <Edit2 size={16} />
               </button>
@@ -163,25 +163,25 @@ export function VocabularyDetailDrawer({
         {/* Edit Form Mode */}
         {isEditing ? (
           <div className="p-5 space-y-4 pb-24">
-            <FieldGroup label="Word *" error={errors.word}>
+            <FieldGroup label="Từ vựng *" error={errors.word}>
               <input
                 value={form.word}
                 onChange={(e) => handleFieldChange("word", e.target.value)}
                 className={fieldClass(!!errors.word)}
-                placeholder="e.g., substantial"
+                placeholder="Ví dụ: substantial"
               />
             </FieldGroup>
 
             <div className="grid gap-4 grid-cols-2">
-              <FieldGroup label="Phonetic">
+              <FieldGroup label="Phiên âm">
                 <input
                   value={form.phonetic}
                   onChange={(e) => handleFieldChange("phonetic", e.target.value)}
                   className={fieldClass(false)}
-                  placeholder="/səbˈstæn.ʃəl/"
+                  placeholder="Ví dụ: /səbˈstæn.ʃəl/"
                 />
               </FieldGroup>
-              <FieldGroup label="Part of Speech">
+              <FieldGroup label="Từ loại">
                 <select
                   value={form.partOfSpeech}
                   onChange={(e) =>
@@ -198,33 +198,33 @@ export function VocabularyDetailDrawer({
               </FieldGroup>
             </div>
 
-            <FieldGroup label="Meaning (Vietnamese) *" error={errors.meaning}>
+            <FieldGroup label="Nghĩa (Tiếng Việt) *" error={errors.meaning}>
               <input
                 value={form.meaning}
                 onChange={(e) => handleFieldChange("meaning", e.target.value)}
                 className={fieldClass(!!errors.meaning)}
-                placeholder="Nhiều, đáng kể"
+                placeholder="Ví dụ: Nhiều, đáng kể"
               />
             </FieldGroup>
 
-            <FieldGroup label="Example Sentence">
+            <FieldGroup label="Ví dụ minh họa">
               <textarea
                 value={form.example}
                 onChange={(e) => handleFieldChange("example", e.target.value)}
                 className={cn(fieldClass(false), "min-h-[64px] resize-none")}
-                placeholder="The project required a substantial amount of time."
+                placeholder="Ví dụ: The project required a substantial amount of time."
                 rows={2}
               />
             </FieldGroup>
 
-            <FieldGroup label="Example Translation">
+            <FieldGroup label="Dịch nghĩa ví dụ">
               <input
                 value={form.exampleTranslation}
                 onChange={(e) =>
                   handleFieldChange("exampleTranslation", e.target.value)
                 }
                 className={fieldClass(false)}
-                placeholder="Dự án yêu cầu một lượng thời gian đáng kể."
+                placeholder="Ví dụ: Dự án yêu cầu một lượng thời gian đáng kể."
               />
             </FieldGroup>
 
@@ -243,7 +243,7 @@ export function VocabularyDetailDrawer({
                 disabled={isSaving}
                 className="flex-1 rounded-xl border border-zinc-200 py-3 text-sm font-bold text-zinc-500 transition hover:bg-zinc-50 disabled:opacity-60"
               >
-                Cancel
+                Hủy
               </button>
               <button
                 type="button"
@@ -252,7 +252,7 @@ export function VocabularyDetailDrawer({
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-growth-dark py-3 text-sm font-bold text-white transition hover:bg-[#005d16] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSaving && <Loader2 size={14} className="animate-spin" />}
-                Save Changes
+                Lưu thay đổi
               </button>
             </div>
           </div>
@@ -298,7 +298,7 @@ export function VocabularyDetailDrawer({
                         ? "bg-zinc-50 text-zinc-400 hover:text-growth-dark"
                         : "bg-zinc-50 text-zinc-200 cursor-default"
                     )}
-                    title={word.audioUrl ? "Listen to pronunciation" : "No audio available"}
+                    title={word.audioUrl ? "Phát âm" : "Không có âm thanh"}
                   >
                     <Volume2 size={18} />
                   </button>
@@ -327,15 +327,15 @@ export function VocabularyDetailDrawer({
                   )}
                 >
                   {word.status === "mastered"
-                    ? "✓ Already Mastered"
-                    : "Mark as Mastered"}
+                    ? "✓ Đã thuộc"
+                    : "Đánh dấu đã thuộc"}
                 </button>
               </div>
             </div>
 
             {/* Meaning section */}
             <section>
-              <SectionLabel>Meaning (Vietnamese)</SectionLabel>
+              <SectionLabel>Nghĩa (Tiếng Việt)</SectionLabel>
               <p className="mt-1.5 text-base font-semibold leading-relaxed text-ink">
                 {word.meaning}
               </p>
@@ -344,7 +344,7 @@ export function VocabularyDetailDrawer({
             {/* Example */}
             {word.example?.trim() && (
               <section>
-                <SectionLabel>Example Sentence</SectionLabel>
+                <SectionLabel>Ví dụ minh họa</SectionLabel>
                 <div className="mt-1.5 rounded-xl bg-zinc-50 px-4 py-3">
                   <p className="text-sm italic leading-relaxed text-zinc-700">
                     &ldquo;{word.example}&rdquo;
@@ -365,10 +365,10 @@ export function VocabularyDetailDrawer({
               <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <Clock size={12} />
                 <span>
-                  Added{" "}
-                  {new Date(word.addedAt).toLocaleDateString("en-US", {
+                  Đã thêm ngày{" "}
+                  {new Date(word.addedAt).toLocaleDateString("vi-VN", {
                     year: "numeric",
-                    month: "short",
+                    month: "long",
                     day: "numeric",
                   })}
                 </span>
@@ -376,9 +376,9 @@ export function VocabularyDetailDrawer({
                   <>
                     <span className="text-zinc-300">·</span>
                     <span>
-                      Last reviewed{" "}
-                      {new Date(word.lastReviewedAt).toLocaleDateString("en-US", {
-                        month: "short",
+                      Ôn tập gần nhất ngày{" "}
+                      {new Date(word.lastReviewedAt).toLocaleDateString("vi-VN", {
+                        month: "long",
                         day: "numeric",
                       })}
                     </span>

@@ -210,53 +210,47 @@ export function ProgressOverview() {
   const showLoading = statsQuery.isLoading || recentQuery.isLoading || vocabQuery.isLoading;
 
   return (
-    <section className="min-h-screen bg-[#f5f7f9] pb-20">
-      <div className="border-b border-slate-200 bg-white">
-        <div className="container-shell py-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary-container text-primary">
-                  <BarChart3 size={22} />
-                </span>
-                <div>
-                  <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-primary">
-                    Tiến độ
-                  </p>
-                  <h1 className="mt-1 text-3xl font-extrabold leading-tight text-ink md:text-4xl">
-                    Tổng quan tiến độ học tập
-                  </h1>
-                </div>
-              </div>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted md:text-base">
-                Nhìn lại số đề đã luyện, độ chính xác, thời gian học và vốn từ của bạn.
-              </p>
+    <section className="min-h-screen bg-surface pb-20">
+      <div className="container-shell pt-8">
+        {/* ── Page Header ────────────────────────────────────────── */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-growth/15">
+                <BarChart3 size={18} className="text-growth-dark" />
+              </span>
+              <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
+                Tiến độ học tập
+              </h1>
             </div>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+              Nhìn lại số đề đã luyện, độ chính xác, thời gian học và vốn từ vựng của bạn.
+            </p>
+          </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/practice"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
-              >
-                <PlayCircle size={17} />
-                Luyện đề
-              </Link>
-              <Link
-                href="/vocabulary"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-primary shadow-soft transition hover:border-primary/35"
-              >
-                <BookOpenCheck size={17} />
-                Sổ từ vựng
-              </Link>
-            </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/practice"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-growth-dark px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#005d16]"
+            >
+              <PlayCircle size={16} />
+              Luyện đề
+            </Link>
+            <Link
+              href="/vocabulary"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-primary shadow-soft transition hover:border-primary/35"
+            >
+              <BookOpenCheck size={16} />
+              Sổ từ vựng
+            </Link>
           </div>
         </div>
-      </div>
 
-      {showLoading ? (
-        <ProgressLoading />
-      ) : (
-      <div className="container-shell pt-7">
+        {/* ── Main Content ───────────────────────────────────────── */}
+        {showLoading ? (
+          <ProgressLoading />
+        ) : (
+          <div className="mt-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             icon={ListChecks}
@@ -488,6 +482,7 @@ export function ProgressOverview() {
         </div>
       </div>
       )}
+      </div>
     </section>
   );
 }
@@ -496,7 +491,7 @@ export function ProgressOverview() {
 
 function ProgressLoading() {
   return (
-    <div className="container-shell pt-7">
+    <div className="mt-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <div

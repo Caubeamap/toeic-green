@@ -579,7 +579,7 @@ export function ExploreVocabulary({
   }
 
   return (
-    <section className="min-h-screen bg-[#f5f7f9] pb-20">
+    <section className="min-h-screen bg-surface pb-20">
       <ExploreHeader compact={view !== "collections"} />
 
       <div className="container-shell pt-7">
@@ -745,24 +745,19 @@ export function ExploreVocabulary({
 
 function ExploreHeader({ compact }: { compact: boolean }) {
   return (
-    <div className="border-b border-slate-200 bg-white">
-      <div
-        className={cn(
-          "container-shell flex flex-col gap-3 py-8 md:flex-row md:items-end md:justify-between",
-          compact && "py-6"
-        )}
-      >
+    <div className={cn("container-shell pt-8", compact && "pt-6")}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-primary shadow-soft">
-              <CopyCheck size={21} />
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-growth/15">
+              <CopyCheck size={18} className="text-growth-dark" />
             </span>
-            <h1 className="text-3xl font-extrabold text-ink md:text-4xl">
-              Flashcards
+            <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
+              Bộ thẻ từ vựng
             </h1>
           </div>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted md:text-base">
-            Học từ vựng TOEIC theo bộ, xem danh sách từ trước khi bắt đầu luyện.
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+            Học từ vựng qua các bộ thẻ ghi nhớ chia theo chủ đề, ôn luyện trực quan trước khi bước vào giải đề.
           </p>
         </div>
       </div>

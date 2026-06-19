@@ -13,10 +13,10 @@ type ToolbarProps = {
 };
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "learning", label: "Learning" },
-  { value: "mastered", label: "Mastered" },
-  { value: "favorites", label: "Favorites" },
+  { value: "all", label: "Tất cả" },
+  { value: "learning", label: "Đang học" },
+  { value: "mastered", label: "Đã thuộc" },
+  { value: "favorites", label: "Yêu thích" },
 ];
 
 export function VocabularyToolbar({
@@ -40,7 +40,7 @@ export function VocabularyToolbar({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50/60 pl-10 pr-4 text-sm font-medium text-ink outline-none transition placeholder:text-zinc-400 focus:border-growth-dark focus:bg-white focus:ring-2 focus:ring-growth/20"
-            placeholder="Search words, meanings, examples..."
+            placeholder="Tìm kiếm từ vựng, nghĩa, ví dụ..."
           />
         </label>
         <div className="relative shrink-0">

@@ -48,7 +48,7 @@ export function VocabularyCard({
                 ? "text-rose-500"
                 : "text-zinc-300 hover:text-rose-400"
             )}
-            title={word.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            title={word.isFavorite ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
           >
             <Heart
               size={16}
@@ -64,7 +64,7 @@ export function VocabularyCard({
                 ? "text-zinc-400 hover:text-growth-dark"
                 : "text-zinc-200 cursor-default"
             )}
-            title={word.audioUrl ? "Listen to pronunciation" : "No audio available"}
+            title={word.audioUrl ? "Phát âm" : "Không có âm thanh"}
           >
             <Volume2 size={16} />
           </button>
@@ -124,13 +124,13 @@ export function VocabularyCard({
               : "bg-zinc-100 text-zinc-500 hover:bg-growth/10 hover:text-growth-dark"
           )}
         >
-          {word.status === "mastered" ? "✓ Mastered" : "Mark as Mastered"}
+          {word.status === "mastered" ? "✓ Đã thuộc" : "Đánh dấu đã thuộc"}
         </button>
         <button
           onClick={() => onViewDetail(word)}
           className="inline-flex items-center gap-0.5 text-xs font-bold text-academic-blue transition hover:text-growth-dark"
         >
-          Detail
+          Chi tiết
           <ChevronRight size={14} />
         </button>
       </div>

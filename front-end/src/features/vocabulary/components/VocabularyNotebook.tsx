@@ -89,12 +89,11 @@ export function VocabularyNotebook() {
                 <BookOpen size={18} className="text-growth-dark" />
               </span>
               <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
-                Vocabulary Notes
+                Sổ tay từ vựng
               </h1>
             </div>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-              Sổ tay từ vựng TOEIC cá nhân — lưu, tra cứu, ôn tập và theo dõi
-              trạng thái ghi nhớ từng từ.
+              Sổ tay cá nhân lưu trữ những từ vựng quan trọng cần ôn tập, giúp bạn theo dõi lộ trình thuộc từ mỗi ngày.
             </p>
           </div>
           <button

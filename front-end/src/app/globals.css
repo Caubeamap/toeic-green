@@ -153,7 +153,11 @@ textarea {
 
   .route-transition-shell {
     min-height: 100vh;
-    animation: route-enter 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* KHÔNG dùng fill-mode 'both': 'both' áp from-state opacity:0 TRƯỚC khi animation
+       chạy → nếu animation bị tạm dừng (tab nền lúc tải, môi trường headless) nội
+       dung vô hình (Lighthouse NO_FCP) + trễ FCP. Bỏ fill-mode → trạng thái nền là
+       opacity:1 (luôn hiển thị); vẫn fade+slide khi animation chạy bình thường. */
+    animation: route-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 

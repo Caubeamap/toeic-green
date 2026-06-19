@@ -131,7 +131,20 @@ export function PracticeExamSession({
   // Photo viewer modal state (Part 1)
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(
+    Boolean(currentQuestion?.image_url)
+  );
+  // Reset cờ loading NGAY trong render khi đổi câu (pattern điều chỉnh state khi
+  // prop đổi của React). KHÔNG dùng setTimeout/effect: ảnh Part 1 thường đã được
+  // preload nên onLoad bắn trước khi effect chạy → reset trễ lật cờ về true vĩnh
+  // viễn (spinner kẹt). Đặt đồng bộ để src mới và cờ loading luôn khớp một render.
+  const [trackedImageUrl, setTrackedImageUrl] = useState(
+    currentQuestion?.image_url
+  );
+  if (trackedImageUrl !== currentQuestion?.image_url) {
+    setTrackedImageUrl(currentQuestion?.image_url);
+    setImageLoading(Boolean(currentQuestion?.image_url));
+  }
 
   // Real/Simulated audio states (Part 1, 2, 3, 4)
   const [audioPlaying, setAudioPlaying] = useState(() => {
@@ -292,15 +305,6 @@ export function PracticeExamSession({
   useEffect(() => {
     preloadImageUrls(getNearbyQuestionImageUrls(questions, currentIndex, 2));
   }, [questions, currentIndex]);
-
-  // Reset imageLoading when image_url changes
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setImageLoading(Boolean(currentQuestion?.image_url));
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [currentQuestion?.image_url]);
 
   // Intercept browser tab close / refresh
   useEffect(() => {
@@ -943,6 +947,13 @@ export function PracticeExamSession({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     key={currentQuestion.image_url ?? "no-image"}
+                    ref={(node) => {
+                      // Ảnh đã nằm trong cache có thể bắn 'load' trước khi React
+                      // gắn onLoad → kiểm tra complete ngay khi mount để gỡ spinner.
+                      if (node && node.complete && node.naturalWidth > 0) {
+                        setImageLoading(false);
+                      }
+                    }}
                     src={currentQuestion.image_url ?? undefined}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
                     decoding="async"
@@ -953,6 +964,7 @@ export function PracticeExamSession({
                       imageLoading ? "opacity-0" : "opacity-100"
                     )}
                     onLoad={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
                   />
                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
                     <button

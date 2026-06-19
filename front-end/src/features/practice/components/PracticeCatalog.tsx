@@ -172,8 +172,10 @@ export function PracticeCatalog({
         </div>
 
         {isLoading ? (
-          <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
-            Đang tải đề thi
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <PracticeTestCardSkeleton key={index} />
+            ))}
           </div>
         ) : errorMessage ? (
           <div className="glass-card rounded-2xl border border-red-200 bg-red-50/70 p-8 text-center font-semibold text-red-700">
@@ -389,3 +391,21 @@ const HistoryList = memo(function HistoryList({ tests }: { tests: PracticeTest[]
     </div>
   );
 });
+
+export function PracticeTestCardSkeleton() {
+  return (
+    <div className="glass-card flex h-full flex-col overflow-hidden rounded-2xl border border-white/50 p-5 animate-pulse bg-white/40">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="h-5 w-12 rounded bg-slate-100" />
+        <div className="h-5 w-16 rounded bg-slate-100" />
+      </div>
+      <div className="mb-2 h-6 w-3/4 rounded bg-slate-100" />
+      <div className="mb-4 h-4 w-1/2 rounded bg-slate-100" />
+      <div className="mb-5 space-y-2">
+        <div className="h-4 w-24 rounded bg-slate-100" />
+        <div className="h-4 w-28 rounded bg-slate-100" />
+      </div>
+      <div className="mt-auto h-10 w-full rounded-lg bg-slate-100" />
+    </div>
+  );
+}

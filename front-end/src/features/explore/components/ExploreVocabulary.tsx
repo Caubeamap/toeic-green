@@ -1500,7 +1500,7 @@ function CollectionGridSkeleton() {
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
-          className="min-h-[232px] rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)]"
+          className="min-h-[232px] rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.05)] animate-pulse"
         >
           <div className="h-5 w-3/4 rounded bg-slate-100" />
           <div className="mt-4 h-4 w-full rounded bg-slate-100" />
@@ -1522,7 +1522,7 @@ function WordListSkeleton() {
       {Array.from({ length: 5 }).map((_, index) => (
         <div
           key={index}
-          className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
+          className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)] animate-pulse"
         >
           <div className="h-5 w-44 rounded bg-slate-100" />
           <div className="mt-4 h-4 w-full rounded bg-slate-100" />

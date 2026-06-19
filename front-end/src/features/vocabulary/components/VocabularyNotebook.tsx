@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, Loader2, Plus, RotateCcw, SearchX } from "lucide-react";
+import { BookOpen, Plus, RotateCcw, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/url-state";
 import type { SortOption, StatusFilter } from "../types";
@@ -139,11 +139,10 @@ export function VocabularyNotebook() {
 
           {/* Word list */}
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-6 py-16 text-center">
-              <Loader2 size={28} className="animate-spin text-growth-dark" />
-              <p className="mt-3 text-sm font-bold text-muted">
-                Đang tải sổ từ vựng...
-              </p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <VocabularyCardSkeleton key={index} />
+              ))}
             </div>
           ) : displayedWords.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -231,6 +230,26 @@ function EmptyState({
           Thêm từ
         </button>
       </div>
+    </div>
+  );
+}
+
+function VocabularyCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-zinc-100 bg-white p-4 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="h-5 w-16 rounded bg-slate-100" />
+        <div className="flex gap-1">
+          <div className="h-8 w-8 rounded-lg bg-slate-100" />
+          <div className="h-8 w-8 rounded-lg bg-slate-100" />
+        </div>
+      </div>
+      <div className="mt-3">
+        <div className="h-6 w-32 rounded bg-slate-100" />
+        <div className="mt-2 h-4 w-40 rounded bg-slate-100" />
+      </div>
+      <div className="mt-3 h-5 w-full rounded bg-slate-100" />
+      <div className="mt-2 h-4 w-5/6 rounded bg-slate-100" />
     </div>
   );
 }

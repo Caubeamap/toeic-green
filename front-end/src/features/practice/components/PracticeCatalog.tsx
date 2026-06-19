@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -88,7 +88,7 @@ export function PracticeCatalog({
     });
   }, [activeFilter, historyTests, query, tests]);
 
-  const itemsPerPage = 8;
+  const itemsPerPage = 12;
   const totalPages = Math.ceil(visibleTests.length / itemsPerPage);
   // Kẹp trang trong [1, totalPages] để URL ?page= sai/quá giới hạn vẫn an toàn.
   const currentPage = Math.min(
@@ -101,7 +101,40 @@ export function PracticeCatalog({
     return visibleTests.slice(start, start + itemsPerPage);
   }, [visibleTests, currentPage]);
 
+  const pageRange = useMemo(() => {
+    const maxVisible = 5; // Số trang tối đa hiển thị cùng lúc
+    const range: number[] = [];
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        range.push(i);
+      }
+    } else {
+      let start = currentPage - 2;
+      let end = currentPage + 2;
+      
+      if (start < 1) {
+        start = 1;
+        end = maxVisible;
+      } else if (end > totalPages) {
+        end = totalPages;
+        start = totalPages - maxVisible + 1;
+      }
+      
+      for (let i = start; i <= end; i++) {
+        range.push(i);
+      }
+    }
+    return range;
+  }, [currentPage, totalPages]);
+
+  const isFirstRender = useRef(true);
+
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     const section = document.getElementById("practice");
     if (section) {
       section.scrollIntoView({ behavior: "smooth" });
@@ -215,23 +248,20 @@ export function PracticeCatalog({
               <ChevronLeft className="h-5 w-5" />
             </button>
 
-            {Array.from({ length: totalPages }, (_, index) => {
-              const pageNumber = index + 1;
-              return (
-                <button
-                  key={pageNumber}
-                  aria-label={`Page ${pageNumber}`}
-                  onClick={() => setPage(pageNumber)}
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white",
-                    currentPage === pageNumber && "border-primary bg-primary text-white hover:bg-primary"
-                  )}
-                  type="button"
-                >
-                  {pageNumber}
-                </button>
-              );
-            })}
+            {pageRange.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                aria-label={`Page ${pageNumber}`}
+                onClick={() => setPage(pageNumber)}
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant transition hover:bg-white",
+                  currentPage === pageNumber && "border-primary bg-primary text-white hover:bg-primary"
+                )}
+                type="button"
+              >
+                {pageNumber}
+              </button>
+            ))}
 
             <button
               aria-label="Next"

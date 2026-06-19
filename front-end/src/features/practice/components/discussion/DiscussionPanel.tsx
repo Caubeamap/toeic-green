@@ -114,7 +114,7 @@ export function DiscussionPanel({ slug }: { slug: string }) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold text-on-surface">
-        Thảo luận ({total})
+        Bình luận ({total})
       </h2>
 
       {isAuthenticated ? (

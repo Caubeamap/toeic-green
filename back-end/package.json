@@ -26,7 +26,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:toeic": "node prisma/seed-toeic-tests.cjs",
     "r2:flashcards": "node prisma/scripts/upload-flashcard-images-to-r2.cjs",
-    "seed:flashcards": "node prisma/scripts/seed-flashcard-vocabulary.cjs"
+    "r2:zenlish": "node prisma/scripts/upload-zenlish-media-to-r2.cjs",
+    "seed:flashcards": "node prisma/scripts/seed-flashcard-vocabulary.cjs",
+    "seed:zenlish": "node prisma/scripts/seed-zenlish-tests.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1070.0",

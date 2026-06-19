@@ -1248,8 +1248,31 @@ export class PracticeService implements OnModuleInit {
     return question.testPart.partNumber === 1 || Boolean(question.optionD);
   }
 
+  private getBatchKey(test: Pick<TestWithParts, 'slug'>) {
+    return test.slug.replace(/-\d+$/, '');
+  }
+
   private sortTestsByDisplayNumber(tests: TestWithParts[]) {
+    const batchMinId = new Map<string, number>();
+
+    for (const test of tests) {
+      const batchKey = this.getBatchKey(test);
+      const currentMin = batchMinId.get(batchKey) ?? Infinity;
+      if (test.id < currentMin) {
+        batchMinId.set(batchKey, test.id);
+      }
+    }
+
     return [...tests].sort((a, b) => {
+      const aBatch = this.getBatchKey(a);
+      const bBatch = this.getBatchKey(b);
+
+      if (aBatch !== bBatch) {
+        const aMinId = batchMinId.get(aBatch) ?? 0;
+        const bMinId = batchMinId.get(bBatch) ?? 0;
+        return aMinId - bMinId;
+      }
+
       const aNumber = this.getDisplayNumber(a);
       const bNumber = this.getDisplayNumber(b);
 
@@ -1262,7 +1285,7 @@ export class PracticeService implements OnModuleInit {
   }
 
   private toDisplayTitle(test: Pick<TestWithParts, 'slug' | 'title'>) {
-    return `Practice Toeic Test ${this.getDisplayNumber(test)}`;
+    return test.title;
   }
 
   private getDisplayNumber(test: Pick<TestWithParts, 'slug' | 'title'>) {

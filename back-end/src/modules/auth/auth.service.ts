@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
 import { normalizeEmail } from '../../common/utils/normalize-email';
+import { pruneExpiredEntries } from '../../common/utils/prune-expired-cache';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import {
@@ -304,6 +305,9 @@ export class AuthService {
           : null,
       };
 
+      // Token refresh xoay mỗi lần /auth/refresh → key tăng dần; dọn entry hết hạn
+      // để map không phình vô hạn theo số lượt bootstrap (mỗi lần tải trang SSR).
+      pruneExpiredEntries(this.bootstrapCache, 1000);
       this.bootstrapCache.set(cacheKey, {
         expiresAt: Date.now() + 15_000,
         value: result,

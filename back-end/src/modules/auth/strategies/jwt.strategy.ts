@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UsersService } from '../../users/users.service';
+import { pruneExpiredEntries } from '../../../common/utils/prune-expired-cache';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -45,6 +46,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
       return cached.value;
     }
+
+    // Dọn entry hết hạn để cache không phình theo tổng số user từng đăng nhập.
+    pruneExpiredEntries(this.userCache, 5000, now);
 
     try {
       const user = await this.usersService.findAuthIdentityById(payload.sub);

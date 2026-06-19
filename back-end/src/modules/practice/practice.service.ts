@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { pruneExpiredEntries } from '../../common/utils/prune-expired-cache';
 import { SubmitPracticeAttemptDto } from './dto/submit-practice-attempt.dto';
 
 const TEST_INCLUDE = {
@@ -432,7 +433,9 @@ export class PracticeService implements OnModuleInit {
 
     this.testsSnapshotCache = null;
 
-    // Pre-populate attempt cache
+    // Pre-populate attempt cache (dọn entry hết hạn: key theo attemptId là duy nhất
+    // mỗi lượt nên cache phình theo tổng số lượt làm bài nếu không dọn).
+    pruneExpiredEntries(this.attemptResultCache, 2000);
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes TTL
     this.attemptResultCache.set(`${userId}:${slug}:${attempt.publicId}`, {
       expiresAt,
@@ -540,6 +543,7 @@ export class PracticeService implements OnModuleInit {
 
       const result = this.toAttemptResult(attempt);
 
+      pruneExpiredEntries(this.attemptResultCache, 2000);
       this.attemptResultCache.set(cacheKey, {
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
         value: result,
@@ -646,6 +650,7 @@ export class PracticeService implements OnModuleInit {
 
       const result = this.toAttemptResult(attempt);
 
+      pruneExpiredEntries(this.attemptResultCache, 2000);
       this.attemptResultCache.set(cacheKey, {
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
         value: result,

@@ -10,7 +10,6 @@ import {
   Save,
   Upload,
   UserRound,
-  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { UserAvatar } from "@/components/common/UserAvatar";
@@ -337,16 +336,6 @@ export function EditProfileForm() {
                         <Upload className="h-4 w-4" />
                         Chọn ảnh
                       </button>
-                      {avatarFile ? (
-                        <button
-                          type="button"
-                          onClick={clearSelectedAvatar}
-                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-extrabold text-muted transition hover:border-red-200 hover:text-red-600"
-                        >
-                          <X className="h-4 w-4" />
-                          Bỏ chọn
-                        </button>
-                      ) : null}
                     </div>
                     {avatarFile ? (
                       <p className="mt-2 truncate text-xs font-bold text-primary">

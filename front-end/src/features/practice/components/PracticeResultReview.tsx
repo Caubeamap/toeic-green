@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   XCircle,
   Clock,
   BookOpen,
@@ -20,7 +21,7 @@ import {
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import type { PracticeAttemptResult, ToeicQuestion } from "@/features/practice";
-import { isQuestionNumberOnlyStem } from "@/features/practice/lib/toeic-questions";
+import { isQuestionNumberOnlyStem, formatQuestionStem } from "@/features/practice/lib/toeic-questions";
 import { formatPracticeTestTitle } from "@/features/practice/lib/practice-tests";
 import { cn } from "@/lib/utils";
 
@@ -389,6 +390,7 @@ export function PracticeResultReview({
   const [activePassageTab, setActivePassageTab] = useState(0);
   const [prevGroupId, setPrevGroupId] = useState<string | undefined>(undefined);
   const [showTranscriptMap, setShowTranscriptMap] = useState<Record<string, boolean>>({});
+  const [showExplanationMap, setShowExplanationMap] = useState<Record<string, boolean>>({});
   const [leftPanelLang, setLeftPanelLang] = useState<"en" | "vi">("en");
   const [isNavOpen, setIsNavOpen] = useState(false);
 
@@ -845,7 +847,7 @@ export function PracticeResultReview({
                     </div>
                     <div className="rounded-2xl border border-white bg-white/80 p-4 shadow-soft">
                       <p className="text-xs font-black text-primary uppercase">Question:</p>
-                      <p className="mt-1 text-sm font-bold text-ink italic">&ldquo;{currentQuestion.stem}&rdquo;</p>
+                      <p className="mt-1 text-sm font-bold text-ink italic">&ldquo;{formatQuestionStem(currentQuestion.stem)}&rdquo;</p>
                     </div>
                   </div>
                 )}
@@ -1260,7 +1262,7 @@ export function PracticeResultReview({
                         {/* Question Stem */}
                         {shouldShowStem && (
                           <p className="text-xs font-bold leading-relaxed text-ink mb-4">
-                            {q.stem}
+                            {formatQuestionStem(q.stem)}
                           </p>
                         )}
 
@@ -1354,15 +1356,31 @@ export function PracticeResultReview({
                           }
 
                           // Reading explanation (Part 5, 6, 7)
+                          const isExplanationOpen = !!showExplanationMap[q.id];
                           return (
-                            <div className="mt-5 rounded-xl border border-primary/20 bg-primary-container/10 p-4 animate-[fadeIn_0.2s_ease-out] shadow-soft">
-                              <div className="flex items-center gap-1.5 text-xs font-black text-primary mb-2.5">
-                                <Lightbulb className="h-4 w-4 text-primary" />
-                                <span>Giải thích đáp án (Ngữ pháp & Vị trí)</span>
-                              </div>
-                                                            <div className="text-[13px] leading-relaxed text-ink/90 font-medium bg-white/60 border border-outline-variant/15 rounded-lg p-3 space-y-1.5">
-                                {renderExplanationText(explanationText)}
-                              </div>
+                            <div className="mt-5 rounded-xl border border-primary/20 bg-primary-container/10 overflow-hidden shadow-soft">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowExplanationMap(prev => ({ ...prev, [q.id]: !prev[q.id] }));
+                                }}
+                                className="flex w-full items-center justify-between p-4 text-xs font-black text-primary hover:bg-primary-container/20 transition-colors"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Lightbulb className="h-4 w-4 text-primary" />
+                                  <span>Giải thích đáp án (Ngữ pháp & Vị trí)</span>
+                                </div>
+                                <ChevronDown className={cn("h-4 w-4 text-primary transition-transform duration-200", isExplanationOpen && "rotate-180")} />
+                              </button>
+                              
+                              {isExplanationOpen && (
+                                <div className="border-t border-primary/10 p-4 pt-0 animate-[fadeIn_0.2s_ease-out]">
+                                  <div className="mt-3 text-[13px] leading-relaxed text-ink/90 font-medium bg-white/60 border border-outline-variant/15 rounded-lg p-3 space-y-1.5">
+                                    {renderExplanationText(explanationText)}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}

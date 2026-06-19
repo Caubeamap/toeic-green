@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { formatPracticeTestTitle, type PracticeTest } from "../lib/practice-tests";
 import { useSubmitAttempt } from "../hooks/usePractice";
-import { isQuestionNumberOnlyStem, type ToeicQuestion } from "../lib/toeic-questions";
+import { isQuestionNumberOnlyStem, formatQuestionStem, type ToeicQuestion } from "../lib/toeic-questions";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/api";
 
@@ -1070,7 +1070,7 @@ export function PracticeExamSession({
               : "hidden md:block"
           )}
         >
-          <div className="mx-auto max-w-2xl space-y-6">
+          <div className="mx-auto max-w-2xl space-y-5">
             
             {/* Header info for active part */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-4">
@@ -1092,7 +1092,7 @@ export function PracticeExamSession({
             </div>
 
             {/* Vertical list of questions in the active group */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {currentGroupQuestions.map((q) => {
                 const selectedAnswer = answers[q.id];
                 const isFlagged = flags.has(q.id);
@@ -1196,7 +1196,7 @@ export function PracticeExamSession({
                       }
                     }}
                     className={cn(
-                      "rounded-3xl border p-5 transition-colors duration-150 relative shadow-soft",
+                      "rounded-2xl border p-4 transition-colors duration-150 relative shadow-soft",
                       isCurrentlyFocused
                         ? "border-primary/40 bg-white ring-2 ring-primary/10"
                         : "border-outline-variant/30 bg-white/70 hover:border-outline-variant/80 hover:bg-white"
@@ -1204,11 +1204,11 @@ export function PracticeExamSession({
                   >
                     {/* Active focus glowing side bar */}
                     {isCurrentlyFocused && (
-                      <span className="absolute left-0 top-6 bottom-6 w-1 rounded-r bg-primary" />
+                      <span className="absolute left-0 top-4 bottom-4 w-1 rounded-r bg-primary" />
                     )}
 
                     {/* Question Meta Row */}
-                    <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center justify-between gap-3 mb-2.5">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-black text-ink">Question {q.questionNumber}</span>
                         {isFlagged && (
@@ -1243,18 +1243,18 @@ export function PracticeExamSession({
                     {/* Question Stem */}
                     {/* Real TOEIC hides stem for Part 2 and Option texts for Part 1/2 */}
                     {shouldShowStem && (
-                      <p className="text-sm font-black leading-relaxed text-ink mb-4">
-                        {q.stem}
+                      <p className="text-sm font-black leading-relaxed text-ink mb-2.5">
+                        {formatQuestionStem(q.stem)}
                       </p>
                     )}
                     {q.partId === "part-2" && hideTexts && (
-                      <p className="text-xs font-bold italic text-muted mb-4">
+                      <p className="text-xs font-bold italic text-muted mb-2.5">
                         * Nghe câu hỏi và chọn phản hồi đúng A, B hoặc C. (Lời thoại ẩn giống đề thi thật)
                       </p>
                     )}
 
                     {/* Answer options list */}
-                    <div className="grid gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {q.options.map((opt) => {
                         const isSelected = selectedAnswer === opt.label;
                         return (
@@ -1268,7 +1268,7 @@ export function PracticeExamSession({
                               setCurrentIndex(questions.indexOf(q));
                             }}
                             className={cn(
-                              "group flex w-full items-center gap-3.5 rounded-2xl border px-4 py-3 text-left transition-colors duration-150",
+                              "group flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors duration-150",
                               isSelected
                                 ? "border-primary/50 bg-primary-container/15 shadow-sm"
                                 : "border-outline-variant/40 bg-white/60 hover:border-primary/20 hover:bg-white"
@@ -1276,7 +1276,7 @@ export function PracticeExamSession({
                           >
                             <span
                               className={cn(
-                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black transition",
+                                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition",
                                 isSelected
                                   ? "bg-primary text-white shadow-glow"
                                   : "bg-surface-container-low text-muted group-hover:bg-primary-container/40 group-hover:text-primary"

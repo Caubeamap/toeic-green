@@ -24,3 +24,10 @@ export function isQuestionNumberOnlyStem(
     "i"
   ).test(stem);
 }
+
+export function formatQuestionStem(stem: string): string {
+  if (!stem) return "";
+  // Replace 2 or more consecutive hyphens/dashes with underscores
+  return stem.replace(/-{2,}/g, "_____");
+}
+

@@ -15,6 +15,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
@@ -102,6 +103,25 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.login(loginDto);
+    this.setRefreshTokenCookie(response, result.refreshToken);
+
+    return {
+      user: result.user,
+      accessToken: result.accessToken,
+    };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async google(
+    @Body() googleLoginDto: GoogleLoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.loginWithGoogle(
+      googleLoginDto.credential,
+    );
     this.setRefreshTokenCookie(response, result.refreshToken);
 
     return {

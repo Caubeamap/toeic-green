@@ -46,6 +46,7 @@
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "englishusuk-system": "file:..",
+    "google-auth-library": "^10.7.0",
     "helmet": "^8.2.0",
     "ioredis": "^5.11.1",
     "nodemailer": "^9.0.0",

@@ -21,7 +21,7 @@ export class PasswordResetService {
     const normalized = normalizeEmail(email);
     const user = await this.prisma.user.findUnique({
       where: { email: normalized },
-      select: { id: true, email: true },
+      select: { id: true, email: true, passwordHash: true },
     });
 
     const successMessage = {
@@ -29,7 +29,9 @@ export class PasswordResetService {
         'Nếu email tồn tại trên hệ thống, mã xác nhận đặt lại mật khẩu đã được gửi.',
     };
 
-    if (!user) {
+    // Tài khoản đăng nhập bằng Google không có mật khẩu để đặt lại → no-op (vẫn
+    // trả thông báo chung để không lộ thông tin và giữ chính sách 1 email 1 phương thức).
+    if (!user || !user.passwordHash) {
       return successMessage;
     }
 

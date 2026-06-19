@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
 import { normalizeEmail } from '../../common/utils/normalize-email';
@@ -16,6 +17,17 @@ import {
 } from './refresh-sessions.service';
 import { RegisterDto } from './dto/register.dto';
 import { EmailVerificationService } from './email-verification.service';
+import { GoogleTokenVerifier } from './strategies/google-token-verifier';
+
+const GOOGLE_PROVIDER = 'google';
+
+interface SessionUser {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+}
 
 interface RefreshTokenPayload {
   sub: string;
@@ -49,6 +61,7 @@ export class AuthService {
     private configService: ConfigService,
     private refreshSessionsService: RefreshSessionsService,
     private emailVerificationService: EmailVerificationService,
+    private googleTokenVerifier: GoogleTokenVerifier,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -57,7 +70,13 @@ export class AuthService {
     const existingUser = await this.usersService.findOneByEmail(email);
 
     if (existingUser) {
-      throw new ConflictException('Email này đã được sử dụng');
+      // Tài khoản tạo bằng Google không có mật khẩu → hướng người dùng đăng nhập
+      // đúng phương thức thay vì báo chung chung (chính sách: 1 email 1 phương thức).
+      throw new ConflictException(
+        existingUser.passwordHash
+          ? 'Email này đã được sử dụng'
+          : 'Email này đã đăng ký bằng Google. Vui lòng đăng nhập bằng Google.',
+      );
     }
     if (await this.emailVerificationService.hasPending(email)) {
       throw new ConflictException(
@@ -101,6 +120,84 @@ export class AuthService {
       );
     }
 
+    return this.issueSession(user);
+  }
+
+  /**
+   * Đăng nhập / đăng ký bằng Google Identity Services (ID-token flow).
+   *
+   * Chính sách: 1 email = 1 phương thức (KHÔNG liên kết). An toàn với nhiều người
+   * dùng đồng thời nhờ find-or-create dựa trên unique constraint + bắt P2002 (không
+   * chỉ check-then-create vốn có TOCTOU race).
+   */
+  async loginWithGoogle(credential: string) {
+    const identity = await this.googleTokenVerifier.verify(credential);
+    const email = normalizeEmail(identity.email);
+
+    // 1. Người dùng Google đã từng đăng nhập → có sẵn OAuthAccount khớp `sub`.
+    const linked = await this.usersService.findByOAuthAccount(
+      GOOGLE_PROVIDER,
+      identity.sub,
+    );
+    if (linked) {
+      if (linked.status !== 'ACTIVE') {
+        throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
+      }
+      return this.issueSession(linked);
+    }
+
+    // 2. Email đã thuộc một tài khoản khác. Vì tài khoản Google đã được bắt ở
+    //    bước 1, user tồn tại ở đây là tài khoản đăng ký bằng mật khẩu → CHẶN.
+    const existingByEmail = await this.usersService.findOneByEmail(email);
+    if (existingByEmail) {
+      throw new ConflictException(
+        'Email này đã được đăng ký bằng mật khẩu. Vui lòng đăng nhập bằng email và mật khẩu.',
+      );
+    }
+
+    // 3. Tài khoản Google mới → tạo user + profile + OAuthAccount (xoá pending
+    //    chưa xác minh cùng email). Bắt P2002 để xử lý đua giữa các request.
+    try {
+      const created = await this.usersService.createWithOAuth({
+        email,
+        displayName: identity.name?.trim() || email.split('@')[0],
+        avatarUrl: identity.picture,
+        provider: GOOGLE_PROVIDER,
+        providerUserId: identity.sub,
+      });
+      return this.issueSession(created);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        // Một request đồng thời đã thắng. Nếu là cùng tài khoản Google → dùng lại;
+        // nếu email vừa bị một tài khoản mật khẩu chiếm → CHẶN theo chính sách.
+        const raced = await this.usersService.findByOAuthAccount(
+          GOOGLE_PROVIDER,
+          identity.sub,
+        );
+        if (raced) {
+          if (raced.status !== 'ACTIVE') {
+            throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
+          }
+          return this.issueSession(raced);
+        }
+
+        const racedByEmail = await this.usersService.findOneByEmail(email);
+        if (racedByEmail) {
+          throw new ConflictException(
+            'Email này đã được đăng ký bằng mật khẩu. Vui lòng đăng nhập bằng email và mật khẩu.',
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
+  /** Cấp access/refresh token + tạo refresh session cho một user đã xác thực.
+   *  Dùng chung cho đăng nhập mật khẩu và đăng nhập Google. */
+  private async issueSession(user: SessionUser) {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.refreshSessionsService.create(user.id, tokens.refreshSession);
 

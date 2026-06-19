@@ -11,4 +11,7 @@ export default registerAs('app', () => ({
     process.env.COOKIE_SECURE !== undefined
       ? process.env.COOKIE_SECURE === 'true'
       : process.env.NODE_ENV === 'production',
+  // Google Identity Services (ID-token flow). Khi để trống, tính năng "Đăng nhập
+  // với Google" bị tắt: frontend ẩn nút và endpoint /auth/google trả lỗi rõ ràng.
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
 }));

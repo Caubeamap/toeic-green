@@ -125,6 +125,8 @@ export function PracticeExamSession({
 
   // Photo viewer modal state (Part 1)
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   // Real/Simulated audio states (Part 1, 2, 3, 4)
   const [audioPlaying, setAudioPlaying] = useState(() => {
@@ -280,6 +282,35 @@ export function PracticeExamSession({
     });
   }, [activeAudioUrl]);
 
+  // Preload all unique images for the test on component mount
+  useEffect(() => {
+    if (!questions || questions.length === 0) return;
+    
+    const imageUrls = Array.from(
+      new Set(
+        questions
+          .flatMap((q) => q.image_url ? q.image_url.split(',') : [])
+          .filter((url): url is string => !!url)
+      )
+    );
+    
+    imageUrls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [questions]);
+
+
+
+  // Reset imageLoading when image_url changes
+  useEffect(() => {
+    if (currentQuestion?.image_url) {
+      setImageLoading(true);
+    } else {
+      setImageLoading(false);
+    }
+  }, [currentQuestion?.image_url]);
+
   // Intercept browser tab close / refresh
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -389,6 +420,19 @@ export function PracticeExamSession({
       }
     }
   }, [currentQuestion, uniqueAudioUrls]);
+
+  // Preload next unique audio files sequentially
+  useEffect(() => {
+    if (uniqueAudioUrls.length === 0) return;
+    
+    const nextUrls = uniqueAudioUrls.slice(currentTrackIndex + 1, currentTrackIndex + 4);
+    
+    nextUrls.forEach((url) => {
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.src = url;
+    });
+  }, [currentTrackIndex, uniqueAudioUrls]);
 
   // Effect to manage automated transition countdown timer
   useEffect(() => {
@@ -899,12 +943,22 @@ export function PracticeExamSession({
             {currentQuestion.partId === "part-1" && (
               <div className="space-y-4">
                 <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass">
+                  {imageLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-50">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+                    </div>
+                  )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
+                    key={currentQuestion.image_url ?? "no-image"}
                     src={currentQuestion.image_url ?? undefined}
                     alt={`TOEIC Part 1 Q${currentQuestion.questionNumber}`}
                     decoding="async"
-                    className="h-[min(70vh,700px)] min-h-[420px] w-full object-contain bg-zinc-50"
+                    className={cn(
+                      "h-[min(70vh,700px)] min-h-[420px] w-full object-contain bg-zinc-50 transition-opacity duration-150",
+                      imageLoading ? "opacity-0" : "opacity-100"
+                    )}
+                    onLoad={() => setImageLoading(false)}
                   />
                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
                     <button
@@ -971,24 +1025,31 @@ export function PracticeExamSession({
                   </span>
                 </div>
                 {currentQuestion.image_url ? (
-                  <div className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass max-h-[300px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={currentQuestion.image_url}
-                      alt="Attached chart/graphic"
-                      decoding="async"
-                      className="w-full h-[240px] object-contain"
-                    />
-                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={() => setIsPhotoZoomed(true)}
-                        className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft transition-colors hover:bg-white"
-                      >
-                        <Maximize2 className="h-4 w-4" />
-                        <span>Xem ảnh lớn</span>
-                      </button>
-                    </div>
+                  <div className="space-y-4">
+                    {currentQuestion.image_url.split(',').map((url, idx) => (
+                      <div key={url} className="relative group rounded-3xl overflow-hidden border border-white bg-white/80 shadow-glass max-h-[300px]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`Attached chart/graphic ${idx + 1}`}
+                          decoding="async"
+                          className="w-full h-[240px] object-contain"
+                        />
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setZoomedImageUrl(url);
+                              setIsPhotoZoomed(true);
+                            }}
+                            className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft transition-colors hover:bg-white"
+                          >
+                            <Maximize2 className="h-4 w-4" />
+                            <span>Xem ảnh lớn</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-center py-8">
@@ -1010,10 +1071,39 @@ export function PracticeExamSession({
                 <div 
                   className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto leading-relaxed"
                 >
-                  <div 
-                    className="part6-passage passage-content text-sm font-medium text-ink"
-                    dangerouslySetInnerHTML={{ __html: getPart6Html(currentQuestion.passage || "") }}
-                  />
+                  {currentQuestion.image_url ? (
+                    <div className="space-y-4">
+                      {currentQuestion.image_url.split(',').map((url, idx) => (
+                        <div key={url} className="relative group rounded-2xl overflow-hidden border border-outline-variant/35 bg-white/40">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Part 6 passage image ${idx + 1}`}
+                            decoding="async"
+                            className="w-full h-auto object-contain max-h-[550px] lg:max-h-[650px]"
+                          />
+                          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setZoomedImageUrl(url);
+                                setIsPhotoZoomed(true);
+                              }}
+                              className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft transition-colors hover:bg-white"
+                            >
+                              <Maximize2 className="h-4 w-4" />
+                              <span>Xem ảnh lớn</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div 
+                      className="part6-passage passage-content text-sm font-medium text-ink"
+                      dangerouslySetInnerHTML={{ __html: getPart6Html(currentQuestion.passage || "") }}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -1043,12 +1133,39 @@ export function PracticeExamSession({
                 )}
                 
                 <div className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto">
-                  {passagesList.length > 0 && (
+                  {passagesList.length > 0 ? (
                     <div 
                       className="text-sm leading-relaxed text-ink font-medium passage-content"
                       dangerouslySetInnerHTML={{ __html: passagesList[activePassageTab]?.content || "" }}
                     />
-                  )}
+                  ) : currentQuestion.image_url ? (
+                    <div className="space-y-4">
+                      {currentQuestion.image_url.split(',').map((url, idx) => (
+                        <div key={url} className="relative group rounded-2xl overflow-hidden border border-outline-variant/35 bg-white/40">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Part 7 passage image ${idx + 1}`}
+                            decoding="async"
+                            className="w-full h-auto object-contain max-h-[550px] lg:max-h-[650px]"
+                          />
+                          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setZoomedImageUrl(url);
+                                setIsPhotoZoomed(true);
+                              }}
+                              className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 text-xs font-black text-ink shadow-soft transition-colors hover:bg-white"
+                            >
+                              <Maximize2 className="h-4 w-4" />
+                              <span>Xem ảnh lớn</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -1502,19 +1619,25 @@ export function PracticeExamSession({
       {isPhotoZoomed && (currentQuestion.partId === "part-1" || currentQuestion.image_url) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4 cursor-zoom-out"
-          onClick={() => setIsPhotoZoomed(false)}
+          onClick={() => {
+            setIsPhotoZoomed(false);
+            setZoomedImageUrl(null);
+          }}
         >
-          <div className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/20 bg-black shadow-soft">
+          <div className="relative max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/20 bg-black shadow-soft p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={currentQuestion.image_url ?? undefined}
+              src={zoomedImageUrl || currentQuestion.image_url || undefined}
               alt="Zoomed Photo"
               decoding="async"
-              className="max-h-[85vh] w-auto object-contain"
+              className="max-h-[85vh] w-auto mx-auto object-contain"
             />
             <button
               type="button"
-              onClick={() => setIsPhotoZoomed(false)}
+              onClick={() => {
+                setIsPhotoZoomed(false);
+                setZoomedImageUrl(null);
+              }}
               className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition"
             >
               <X className="h-5 w-5" />

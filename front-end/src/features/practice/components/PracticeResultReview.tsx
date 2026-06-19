@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -17,7 +17,8 @@ import {
   Headphones,
   Lightbulb,
   Flag,
-  Sparkles
+  Sparkles,
+  Loader2
 } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -394,6 +395,7 @@ export function PracticeResultReview({
   const [showExplanationMap, setShowExplanationMap] = useState<Record<string, boolean>>({});
   const [leftPanelLang, setLeftPanelLang] = useState<"en" | "vi">("en");
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -563,6 +565,67 @@ export function PracticeResultReview({
       goTo(reviewIndex + 1);
     }
   }, [canGoNext, goTo, reviewIndex]);
+
+  // Preload all unique images for the test on component mount
+  useEffect(() => {
+    if (!activeQuestions || activeQuestions.length === 0) return;
+    
+    const imageUrls = Array.from(
+      new Set(
+        activeQuestions
+          .flatMap((q) => q.image_url ? q.image_url.split(',') : [])
+          .filter((url): url is string => !!url)
+      )
+    );
+    
+    imageUrls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [activeQuestions]);
+
+  // Find all unique audio URLs for the Listening section in order
+  const uniqueAudioUrls = useMemo(() => {
+    if (!activeQuestions || activeQuestions.length === 0) return [];
+    const urls: string[] = [];
+    const seen = new Set<string>();
+    for (const q of activeQuestions) {
+      if (["part-1", "part-2", "part-3", "part-4"].includes(q.partId) && q.audio_url) {
+        if (!seen.has(q.audio_url)) {
+          seen.add(q.audio_url);
+          urls.push(q.audio_url);
+        }
+      }
+    }
+    return urls;
+  }, [activeQuestions]);
+
+  const currentTrackIndex = useMemo(() => {
+    if (!currentQuestionAudioUrl) return -1;
+    return uniqueAudioUrls.indexOf(currentQuestionAudioUrl);
+  }, [currentQuestionAudioUrl, uniqueAudioUrls]);
+
+  // Preload next unique audio files sequentially
+  useEffect(() => {
+    if (currentTrackIndex === -1 || uniqueAudioUrls.length === 0) return;
+    
+    const nextUrls = uniqueAudioUrls.slice(currentTrackIndex + 1, currentTrackIndex + 4);
+    
+    nextUrls.forEach((url) => {
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.src = url;
+    });
+  }, [currentTrackIndex, uniqueAudioUrls]);
+
+  // Reset imageLoading when image_url changes
+  useEffect(() => {
+    if (currentQuestion?.image_url) {
+      setImageLoading(true);
+    } else {
+      setImageLoading(false);
+    }
+  }, [currentQuestion?.image_url]);
 
   // Format display helper
   function formatTime(seconds: number) {
@@ -822,13 +885,23 @@ export function PracticeResultReview({
                 {currentQuestion.partId === "part-1" && (
                   <div className="space-y-4">
                     <span className="text-xs font-black uppercase text-primary">Ảnh mô tả Q{currentQuestion.questionNumber}</span>
-                    <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[480px]">
+                    <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[480px] relative">
+                      {imageLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-zinc-50">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+                        </div>
+                      )}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
+                        key={currentQuestion.image_url ?? "no-image"}
                         src={currentQuestion.image_url ?? undefined}
                         alt="Question Visual"
                         decoding="async"
-                        className="w-full h-[380px] object-contain bg-zinc-50"
+                        className={cn(
+                          "w-full h-[380px] object-contain bg-zinc-50 transition-opacity duration-150",
+                          imageLoading ? "opacity-0" : "opacity-100"
+                        )}
+                        onLoad={() => setImageLoading(false)}
                       />
                     </div>
                   </div>
@@ -923,15 +996,17 @@ export function PracticeResultReview({
                       </div>
 
                       {currentQuestion.image_url && (
-                        <div className="space-y-2">
-                          <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[220px]">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={currentQuestion.image_url}
-                              alt="Attached visual"
-                              className="w-full h-[180px] object-contain"
-                            />
-                          </div>
+                        <div className="space-y-4">
+                          {currentQuestion.image_url.split(',').map((url, idx) => (
+                            <div key={url} className="overflow-hidden rounded-2xl border border-white bg-white shadow-soft max-h-[220px]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`Attached visual ${idx + 1}`}
+                                className="w-full h-[180px] object-contain"
+                              />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -981,12 +1056,28 @@ export function PracticeResultReview({
                       className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] leading-relaxed"
                     >
                       {leftPanelLang === "en" ? (
-                        <div 
-                          className="part6-passage passage-content text-sm font-medium text-ink"
-                          dangerouslySetInnerHTML={{ 
-                            __html: getPart6HtmlReview(currentQuestion.passage || "")
-                          }}
-                        />
+                        currentQuestion.image_url ? (
+                          <div className="space-y-4">
+                            {currentQuestion.image_url.split(',').map((url, idx) => (
+                              <div key={url} className="relative group rounded-xl overflow-hidden border border-outline-variant/20 bg-white/40">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={url}
+                                  alt={`Part 6 passage image ${idx + 1}`}
+                                  decoding="async"
+                                  className="w-full h-auto object-contain max-h-[500px] lg:max-h-[600px]"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div 
+                            className="part6-passage passage-content text-sm font-medium text-ink"
+                            dangerouslySetInnerHTML={{ 
+                              __html: getPart6HtmlReview(currentQuestion.passage || "")
+                            }}
+                          />
+                        )
                       ) : (
                         <div className="text-sm font-medium text-muted whitespace-pre-line leading-relaxed">
                           {currentQuestion.transcript}
@@ -1057,12 +1148,26 @@ export function PracticeResultReview({
                           </div>
                         )}
                         <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]">
-                          {passagesList.length > 0 && (
+                          {passagesList.length > 0 ? (
                             <div 
                               className="text-sm leading-relaxed text-ink font-medium passage-content"
                               dangerouslySetInnerHTML={{ __html: passagesList[activePassageTab]?.content || "" }}
                             />
-                          )}
+                          ) : currentQuestion.image_url ? (
+                            <div className="space-y-4">
+                              {currentQuestion.image_url.split(',').map((url, idx) => (
+                                <div key={url} className="relative group rounded-xl overflow-hidden border border-outline-variant/20 bg-white/40">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={url}
+                                    alt={`Part 7 passage image ${idx + 1}`}
+                                    decoding="async"
+                                    className="w-full h-auto object-contain max-h-[500px] lg:max-h-[600px]"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ) : (

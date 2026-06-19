@@ -61,14 +61,19 @@ function normalizeText(value) {
 
 function localPathToR2Url(localPath) {
   if (!localPath || typeof localPath !== 'string') return null;
-  // "output/zenlish/test-1-ets-2026/audio/file.mp3" → R2 public URL
-  const cleaned = localPath.replace(/\\/g, '/');
-  const marker = 'output/zenlish/';
-  const idx = cleaned.indexOf(marker);
-  if (idx === -1) return null;
-  const relPath = cleaned.slice(idx + marker.length);
-  const key = `toeic/zenlish/${relPath}`;
-  return `${r2PublicUrl}/${key.split('/').map(encodeURIComponent).join('/')}`;
+
+  const paths = localPath.split(',');
+  const urls = paths.map((p) => {
+    const cleaned = p.trim().replace(/\\/g, '/');
+    const marker = 'output/zenlish/';
+    const idx = cleaned.indexOf(marker);
+    if (idx === -1) return p.trim();
+    const relPath = cleaned.slice(idx + marker.length);
+    const key = `toeic/zenlish/${relPath}`;
+    return `${r2PublicUrl}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  });
+
+  return urls.join(',');
 }
 
 function parseCorrectAnswer(raw) {

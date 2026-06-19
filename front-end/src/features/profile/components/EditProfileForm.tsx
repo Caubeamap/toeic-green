@@ -263,7 +263,8 @@ export function EditProfileForm() {
               Cập nhật thông tin cá nhân
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Các trường dưới đây được tách riêng trong profile service để sau này có thể thay bằng API backend.
+              Chỉnh sửa thông tin hiển thị trên hồ sơ TOEIC Green của bạn.
+              Email đăng nhập được giữ cố định để bảo vệ tài khoản.
             </p>
           </div>
 

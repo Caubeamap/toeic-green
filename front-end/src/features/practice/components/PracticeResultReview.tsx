@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useUrlState } from "@/lib/url-state";
 import {
   Award,
@@ -1397,156 +1398,157 @@ export function PracticeResultReview({
             </div> {/* Container 1 End */}
 
             {/* Sidebar Jump Board on Review */}
-            {isNavOpen && (
+            {typeof window !== "undefined" && isNavOpen && createPortal(
               <div
                 className="fixed inset-0 z-50 flex justify-end bg-transparent p-3 sm:p-5"
                 role="presentation"
                 onClick={() => setIsNavOpen(false)}
               >
-              <aside
-                className="review-nav-drawer w-full max-w-[360px] border border-primary/15 bg-[#f8fff7]/95 rounded-3xl flex flex-col h-full max-h-[calc(100vh-2rem)] overflow-hidden shadow-[0_20px_60px_rgba(17,24,23,0.14)] ring-1 ring-white/80"
-                role="dialog"
-                aria-modal="false"
-                aria-label="Điều hướng câu hỏi"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="border-b border-primary/10 bg-gradient-to-br from-primary-container/55 via-white/88 to-white/70 p-4 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-soft">
-                        <Flag className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <h3 className="text-sm font-black text-ink">Điều hướng câu hỏi</h3>
-                        <p className="text-[10px] font-semibold text-muted mt-0.5">
-                          Đang xem {reviewPositionLabel} · Câu {currentQuestion?.questionNumber ?? "-"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsNavOpen(false)}
-                    className="rounded-xl p-2 text-muted hover:bg-white/80 hover:text-ink transition-colors"
-                    title="Thu nhỏ điều hướng"
-                    aria-label="Đóng điều hướng câu hỏi"
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Grid with correct/incorrect coloring */}
-                <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 [scrollbar-gutter:stable] [will-change:scroll-position]">
-                  
-                  {/* Listening List */}
-                  {activeListeningQuestions.length > 0 && (
-                    <div className="rounded-2xl border border-primary/10 bg-white/75 p-3 shadow-soft space-y-2">
-                      <div className="flex justify-between items-center border-b border-primary/10 pb-2">
-                        <span className="text-[10px] font-black uppercase text-primary">Listening</span>
-                        <span className="text-[9px] font-bold text-muted">
-                          {activeListeningQuestions[0].questionNumber}-{activeListeningQuestions[activeListeningQuestions.length - 1].questionNumber}
+                <aside
+                  className="review-nav-drawer w-full max-w-[360px] border border-primary/15 bg-[#f8fff7]/95 rounded-3xl flex flex-col h-full max-h-[calc(100vh-2rem)] overflow-hidden shadow-[0_20px_60px_rgba(17,24,23,0.14)] ring-1 ring-white/80"
+                  role="dialog"
+                  aria-modal="false"
+                  aria-label="Điều hướng câu hỏi"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="border-b border-primary/10 bg-gradient-to-br from-primary-container/55 via-white/88 to-white/70 p-4 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-soft">
+                          <Flag className="h-4 w-4" />
                         </span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
-                        {activeListeningQuestions.map((q) => {
-                          const idx = activeQuestions.indexOf(q);
-                          const isSelected = idx === reviewIndex;
-                          const selected = result.answers[q.id];
-                          const isCorrect = selected === q.correctAnswer;
-
-                          return (
-                            <button
-                              key={q.id}
-                              type="button"
-                              onClick={() => {
-                                goTo(idx);
-                                setIsNavOpen(false);
-                              }}
-                              aria-current={isSelected ? "true" : undefined}
-                              className={cn(
-                                "relative flex h-8 w-full items-center justify-center rounded-xl text-[10px] font-black transition-colors",
-                                isSelected
-                                  ? "ring-2 ring-primary ring-offset-1 text-ink bg-primary-container/60"
-                                  : "",
-                                selected
-                                  ? isCorrect
-                                    ? "bg-green-600 text-white shadow-soft"
-                                    : "bg-red-500 text-white shadow-soft"
-                                  : "bg-surface-container-low text-muted hover:bg-primary-container/35 hover:text-primary"
-                              )}
-                            >
-                              {q.questionNumber}
-                            </button>
-                          );
-                        })}
+                        <div>
+                          <h3 className="text-sm font-black text-ink">Điều hướng câu hỏi</h3>
+                          <p className="text-[10px] font-semibold text-muted mt-0.5">
+                            Đang xem {reviewPositionLabel} · Câu {currentQuestion?.questionNumber ?? "-"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setIsNavOpen(false)}
+                      className="rounded-xl p-2 text-muted hover:bg-white/80 hover:text-ink transition-colors"
+                      title="Thu nhỏ điều hướng"
+                      aria-label="Đóng điều hướng câu hỏi"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  </div>
 
-                  {/* Reading List */}
-                  {activeReadingQuestions.length > 0 && (
-                    <div className="rounded-2xl border border-secondary/10 bg-white/75 p-3 shadow-soft space-y-2">
-                      <div className="flex justify-between items-center border-b border-secondary/10 pb-2">
-                        <span className="text-[10px] font-black uppercase text-secondary">Reading</span>
-                        <span className="text-[9px] font-bold text-muted">
-                          {activeReadingQuestions[0].questionNumber}-{activeReadingQuestions[activeReadingQuestions.length - 1].questionNumber}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
-                        {activeReadingQuestions.map((q) => {
-                          const idx = activeQuestions.indexOf(q);
-                          const isSelected = idx === reviewIndex;
-                          const selected = result.answers[q.id];
-                          const isCorrect = selected === q.correctAnswer;
+                  {/* Grid with correct/incorrect coloring */}
+                  <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 [scrollbar-gutter:stable] [will-change:scroll-position]">
+                    
+                    {/* Listening List */}
+                    {activeListeningQuestions.length > 0 && (
+                      <div className="rounded-2xl border border-primary/10 bg-white/75 p-3 shadow-soft space-y-2">
+                        <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                          <span className="text-[10px] font-black uppercase text-primary">Listening</span>
+                          <span className="text-[9px] font-bold text-muted">
+                            {activeListeningQuestions[0].questionNumber}-{activeListeningQuestions[activeListeningQuestions.length - 1].questionNumber}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
+                          {activeListeningQuestions.map((q) => {
+                            const idx = activeQuestions.indexOf(q);
+                            const isSelected = idx === reviewIndex;
+                            const selected = result.answers[q.id];
+                            const isCorrect = selected === q.correctAnswer;
 
-                          return (
-                            <button
-                              key={q.id}
-                              type="button"
-                              onClick={() => {
-                                goTo(idx);
-                                setIsNavOpen(false);
-                              }}
-                              aria-current={isSelected ? "true" : undefined}
-                              className={cn(
-                                "relative flex h-8 w-full items-center justify-center rounded-xl text-[10px] font-black transition-colors",
-                                isSelected
-                                  ? "ring-2 ring-primary ring-offset-1 text-ink bg-primary-container/60"
-                                  : "",
-                                selected
-                                  ? isCorrect
-                                    ? "bg-green-600 text-white shadow-soft"
-                                    : "bg-red-500 text-white shadow-soft"
-                                  : "bg-surface-container-low text-muted hover:bg-primary-container/35 hover:text-primary"
-                              )}
-                            >
-                              {q.questionNumber}
-                            </button>
-                          );
-                        })}
+                            return (
+                              <button
+                                key={q.id}
+                                type="button"
+                                onClick={() => {
+                                  goTo(idx);
+                                  setIsNavOpen(false);
+                                }}
+                                aria-current={isSelected ? "true" : undefined}
+                                className={cn(
+                                  "relative flex h-8 w-full items-center justify-center rounded-xl text-[10px] font-black transition-colors",
+                                  isSelected
+                                    ? "ring-2 ring-primary ring-offset-1 text-ink bg-primary-container/60"
+                                    : "",
+                                  selected
+                                    ? isCorrect
+                                      ? "bg-green-600 text-white shadow-soft"
+                                      : "bg-red-500 text-white shadow-soft"
+                                    : "bg-surface-container-low text-muted hover:bg-primary-container/35 hover:text-primary"
+                                )}
+                              >
+                                {q.questionNumber}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+                    )}
+
+                    {/* Reading List */}
+                    {activeReadingQuestions.length > 0 && (
+                      <div className="rounded-2xl border border-secondary/10 bg-white/75 p-3 shadow-soft space-y-2">
+                        <div className="flex justify-between items-center border-b border-secondary/10 pb-2">
+                          <span className="text-[10px] font-black uppercase text-secondary">Reading</span>
+                          <span className="text-[9px] font-bold text-muted">
+                            {activeReadingQuestions[0].questionNumber}-{activeReadingQuestions[activeReadingQuestions.length - 1].questionNumber}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
+                          {activeReadingQuestions.map((q) => {
+                            const idx = activeQuestions.indexOf(q);
+                            const isSelected = idx === reviewIndex;
+                            const selected = result.answers[q.id];
+                            const isCorrect = selected === q.correctAnswer;
+
+                            return (
+                              <button
+                                key={q.id}
+                                type="button"
+                                onClick={() => {
+                                  goTo(idx);
+                                  setIsNavOpen(false);
+                                }}
+                                aria-current={isSelected ? "true" : undefined}
+                                className={cn(
+                                  "relative flex h-8 w-full items-center justify-center rounded-xl text-[10px] font-black transition-colors",
+                                  isSelected
+                                    ? "ring-2 ring-primary ring-offset-1 text-ink bg-primary-container/60"
+                                    : "",
+                                  selected
+                                    ? isCorrect
+                                      ? "bg-green-600 text-white shadow-soft"
+                                      : "bg-red-500 text-white shadow-soft"
+                                    : "bg-surface-container-low text-muted hover:bg-primary-container/35 hover:text-primary"
+                                )}
+                              >
+                                {q.questionNumber}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* Sidebar Legend for Review */}
+                  <div className="border-t border-primary/10 p-4 bg-white/65 grid grid-cols-3 gap-2 text-[9px] font-black text-muted shrink-0">
+                    <div className="flex items-center justify-center gap-1.5 rounded-xl bg-green-50 px-2 py-2 text-green-700">
+                      <span className="h-2 w-2 rounded bg-green-600" />
+                      <span>Đúng ({result.correct})</span>
                     </div>
-                  )}
-
-                </div>
-
-                {/* Sidebar Legend for Review */}
-                <div className="border-t border-primary/10 p-4 bg-white/65 grid grid-cols-3 gap-2 text-[9px] font-black text-muted shrink-0">
-                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-green-50 px-2 py-2 text-green-700">
-                    <span className="h-2 w-2 rounded bg-green-600" />
-                    <span>Đúng ({result.correct})</span>
+                    <div className="flex items-center justify-center gap-1.5 rounded-xl bg-red-50 px-2 py-2 text-red-700">
+                      <span className="h-2 w-2 rounded bg-red-500" />
+                      <span>Sai ({result.answered - result.correct})</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-container-low px-2 py-2 text-muted">
+                      <span className="h-2 w-2 rounded bg-surface-container-highest" />
+                      <span>Chưa làm ({result.total - result.answered})</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-red-50 px-2 py-2 text-red-700">
-                    <span className="h-2 w-2 rounded bg-red-500" />
-                    <span>Sai ({result.answered - result.correct})</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-container-low px-2 py-2 text-muted">
-                    <span className="h-2 w-2 rounded bg-surface-container-highest" />
-                    <span>Chưa làm ({result.total - result.answered})</span>
-                  </div>
-                </div>
-              </aside>
-              </div>
+                </aside>
+              </div>,
+              document.body
             )}
 
           </div>

@@ -304,11 +304,11 @@ export function PracticeExamSession({
 
   // Reset imageLoading when image_url changes
   useEffect(() => {
-    if (currentQuestion?.image_url) {
-      setImageLoading(true);
-    } else {
-      setImageLoading(false);
-    }
+    const timer = window.setTimeout(() => {
+      setImageLoading(Boolean(currentQuestion?.image_url));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [currentQuestion?.image_url]);
 
   // Intercept browser tab close / refresh

@@ -23,6 +23,7 @@ import {
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import type { PracticeAttemptResult, ToeicQuestion } from "@/features/practice";
+import { normalizeExplanationForDisplay } from "@/features/practice/lib/explanations";
 import { isQuestionNumberOnlyStem, formatQuestionStem } from "@/features/practice/lib/toeic-questions";
 import { formatPracticeTestTitle } from "@/features/practice/lib/practice-tests";
 import { cn } from "@/lib/utils";
@@ -194,7 +195,7 @@ function getSmartExplanation(q: ToeicQuestion, passageText?: string): string {
     return gen;
   }
   
-  explanation = cleanGarbledText(explanation);
+  explanation = cleanGarbledText(normalizeExplanationForDisplay(explanation));
   
   if (passageText) {
     const plainPassage = passageText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
@@ -620,11 +621,11 @@ export function PracticeResultReview({
 
   // Reset imageLoading when image_url changes
   useEffect(() => {
-    if (currentQuestion?.image_url) {
-      setImageLoading(true);
-    } else {
-      setImageLoading(false);
-    }
+    const timer = window.setTimeout(() => {
+      setImageLoading(Boolean(currentQuestion?.image_url));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [currentQuestion?.image_url]);
 
   // Format display helper

@@ -29,6 +29,10 @@ import { useUrlParam, useUrlState } from "@/lib/url-state";
 import { useAuth } from "@/features/auth/hooks/auth";
 import { POS_LABELS } from "@/features/vocabulary/types";
 import { playAudio } from "@/features/vocabulary/services/storage";
+import {
+  getNearbyReviewImageUrls,
+  preloadReviewImages
+} from "../lib/review-media";
 import { loadExploreCollection, loadExploreCollections } from "../services/catalog";
 import {
   fetchCollectionProgress,
@@ -126,6 +130,8 @@ const WORD_FILTERS: { key: WordFilter; label: string }[] = [
 ];
 
 type ExploreVocabularyProps = {
+  initialCollection?: ExploreCollection;
+  initialCollections?: ExploreCollectionSummary[];
   initialCollectionSlug?: string;
   initialView?: ExploreView;
 };
@@ -138,6 +144,14 @@ function getCollectionHref(collection: ExploreCollectionSummary) {
   return `/explore/${encodeURIComponent(getCollectionRouteId(collection))}`;
 }
 
+function summaryFromCollection(
+  collection: ExploreCollection
+): ExploreCollectionSummary {
+  const { words, ...summary } = collection;
+  void words;
+  return summary;
+}
+
 function findCollectionByRouteId(
   collections: ExploreCollectionSummary[],
   routeId: string
@@ -148,6 +162,8 @@ function findCollectionByRouteId(
 }
 
 export function ExploreVocabulary({
+  initialCollection,
+  initialCollections,
   initialCollectionSlug,
   initialView
 }: ExploreVocabularyProps = {}) {
@@ -156,21 +172,35 @@ export function ExploreVocabulary({
   const routeCollectionId = initialCollectionSlug?.trim() ?? "";
   const resolvedInitialView: ExploreView =
     initialView ?? (routeCollectionId ? "detail" : "collections");
+  const initialCollectionList =
+    initialCollections ??
+    (initialCollection ? [summaryFromCollection(initialCollection)] : []);
+  const initialSelectedCollectionId =
+    initialCollection?.id ?? routeCollectionId;
   const [view, setView] = useState<ExploreView>(resolvedInitialView);
   const [query, setQuery] = useUrlParam("q", { replace: true });
-  const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
-  const [collections, setCollections] = useState<ExploreCollectionSummary[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState<LoadStatus>(
+    initialCollectionList.length > 0 ? "ready" : "loading"
+  );
+  const [collections, setCollections] =
+    useState<ExploreCollectionSummary[]>(initialCollectionList);
   const [wordsByCollection, setWordsByCollection] = useState<
     Record<string, ExploreWord[]>
-  >({});
+  >(() =>
+    initialCollection
+      ? { [initialCollection.id]: initialCollection.words }
+      : {}
+  );
   const [wordStatusByCollection, setWordStatusByCollection] = useState<
     Record<string, LoadStatus>
-  >({});
+  >(() => (initialCollection ? { [initialCollection.id]: "ready" } : {}));
   const [progressStatusByCollection, setProgressStatusByCollection] = useState<
     Record<string, LoadStatus>
   >({});
   const [progress, setProgress] = useState<ExploreProgress>(emptyProgress);
-  const [selectedCollectionId, setSelectedCollectionId] = useState("");
+  const [selectedCollectionId, setSelectedCollectionId] = useState(
+    initialSelectedCollectionId
+  );
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   // Deck flashcard ôn tập: đã loại từ "đã biết" và xáo trộn ngẫu nhiên mỗi lượt vào.
@@ -341,6 +371,16 @@ export function ExploreVocabulary({
   const deckSize = reviewDeck.length;
   const currentWord =
     deckSize > 0 ? reviewDeck[currentWordIndex % deckSize] : undefined;
+
+  useEffect(() => {
+    if (view !== "review" || reviewDeck.length === 0) {
+      return;
+    }
+
+    preloadReviewImages(
+      getNearbyReviewImageUrls(reviewDeck, currentWordIndex, 2)
+    );
+  }, [currentWordIndex, reviewDeck, view]);
   // % tiến độ: dùng wordCount (có sẵn từ summary, tức thì) làm mẫu số thay vì
   // chờ tải hết danh sách từ nặng → thanh hiển thị nhanh ngay khi có rating.
   // Trên route chi tiết/review chỉ fetch progress của đúng bộ này nên số key
@@ -1310,6 +1350,17 @@ function FlashcardReview({
   onResetKnown: () => void;
   onClose: () => void;
 }) {
+  // Ảnh ví dụ mặt sau được mount sẵn (cùng lúc thẻ hiện ra) nên tải nền ngay
+  // trong lúc người dùng còn xem mặt trước → khi lật, ảnh đã sẵn sàng cùng nghĩa.
+  // Reset cờ ngay trong render khi đổi từ (theo pattern điều chỉnh state khi prop
+  // đổi của React) để tránh setState trong effect gây render dây chuyền.
+  const [isImageReady, setImageReady] = useState(!currentWord.imageUrl);
+  const [trackedImageUrl, setTrackedImageUrl] = useState(currentWord.imageUrl);
+  if (trackedImageUrl !== currentWord.imageUrl) {
+    setTrackedImageUrl(currentWord.imageUrl);
+    setImageReady(!currentWord.imageUrl);
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <Link
@@ -1387,21 +1438,32 @@ function FlashcardReview({
           <button
             type="button"
             onClick={onToggleAnswer}
-            className="mt-5 grid min-h-[320px] w-full place-items-center rounded-xl bg-white px-5 text-center shadow-[inset_0_0_0_1px_rgba(226,232,240,1)]"
+            aria-pressed={showAnswer}
+            className="mt-5 block min-h-[320px] w-full rounded-xl bg-white text-center shadow-[inset_0_0_0_1px_rgba(226,232,240,1)] [perspective:1400px]"
           >
-            {!showAnswer ? (
-              <div>
-                <h3 className="text-3xl font-extrabold text-ink md:text-4xl">
-                  {currentWord.word}
-                </h3>
-                <p className="mt-4 text-lg font-bold text-muted">
-                  ({POS_LABELS[currentWord.partOfSpeech]}) {currentWord.phonetic}
-                </p>
+            <div
+              className={cn(
+                "grid min-h-[320px] w-full transition-transform duration-500 ease-out [transform-style:preserve-3d] motion-reduce:transition-none",
+                showAnswer && "[transform:rotateY(180deg)]"
+              )}
+            >
+              {/* Mặt trước: từ + phiên âm. Cả hai mặt cùng nằm trong 1 ô grid
+                  (1/1) nên container cao bằng mặt cao nhất và giữ auto-height. */}
+              <div className="col-start-1 row-start-1 grid place-items-center px-5 [backface-visibility:hidden] [transform:translateZ(0.01px)]">
+                <div>
+                  <h3 className="text-3xl font-extrabold text-ink md:text-4xl">
+                    {currentWord.word}
+                  </h3>
+                  <p className="mt-4 text-lg font-bold text-muted">
+                    ({POS_LABELS[currentWord.partOfSpeech]}) {currentWord.phonetic}
+                  </p>
+                </div>
               </div>
-            ) : (
+
+              {/* Mặt sau: nghĩa + ví dụ + ảnh. Mount sẵn nên ảnh tải nền ngay. */}
               <div
                 className={cn(
-                  "grid w-full gap-6 text-left",
+                  "col-start-1 row-start-1 grid w-full gap-6 p-5 text-left [backface-visibility:hidden] [transform:rotateY(180deg)]",
                   currentWord.imageUrl &&
                     "md:grid-cols-[minmax(0,1fr)_240px] md:items-center"
                 )}
@@ -1433,16 +1495,25 @@ function FlashcardReview({
                   ) : null}
                 </div>
                 {currentWord.imageUrl ? (
-                  <Image
-                    src={currentWord.imageUrl}
-                    alt={currentWord.word}
-                    width={320}
-                    height={220}
-                    className="h-44 w-full rounded-lg object-cover"
-                  />
+                  <div className="relative h-44 w-full overflow-hidden rounded-lg bg-slate-100">
+                    {!isImageReady ? (
+                      <div className="absolute inset-0 animate-pulse bg-slate-100" />
+                    ) : null}
+                    <Image
+                      src={currentWord.imageUrl}
+                      alt={currentWord.word}
+                      width={320}
+                      height={220}
+                      className={cn(
+                        "h-44 w-full object-cover transition-opacity duration-200",
+                        isImageReady ? "opacity-100" : "opacity-0"
+                      )}
+                      onLoad={() => setImageReady(true)}
+                    />
+                  </div>
                 ) : null}
               </div>
-            )}
+            </div>
           </button>
 
           <div className="mt-4 flex items-center justify-between gap-3">

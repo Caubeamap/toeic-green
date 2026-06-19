@@ -4,6 +4,10 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RequireAuth } from "@/features/auth";
 import { ExploreVocabulary } from "@/features/explore";
+import {
+  fetchPublicExploreCollection,
+  fetchPublicExploreCollections
+} from "@/features/explore/services/explore-server";
 
 type ExploreCollectionPageProps = {
   params: Promise<{
@@ -19,6 +23,10 @@ export default async function ExploreCollectionPage({
   params
 }: ExploreCollectionPageProps) {
   const { collectionSlug } = await params;
+  const [initialCollections, initialCollection] = await Promise.all([
+    fetchPublicExploreCollections(),
+    fetchPublicExploreCollection(collectionSlug)
+  ]);
 
   return (
     <>
@@ -26,7 +34,11 @@ export default async function ExploreCollectionPage({
       <main className="pt-20">
         <Suspense fallback={<div className="min-h-screen bg-[#f5f7f9]" />}>
           <RequireAuth>
-            <ExploreVocabulary initialCollectionSlug={collectionSlug} />
+            <ExploreVocabulary
+              initialCollection={initialCollection}
+              initialCollections={initialCollections}
+              initialCollectionSlug={collectionSlug}
+            />
           </RequireAuth>
         </Suspense>
       </main>

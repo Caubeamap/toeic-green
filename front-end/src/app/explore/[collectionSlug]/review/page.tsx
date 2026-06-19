@@ -4,6 +4,10 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RequireAuth } from "@/features/auth";
 import { ExploreVocabulary } from "@/features/explore";
+import {
+  fetchPublicExploreCollection,
+  fetchPublicExploreCollections
+} from "@/features/explore/services/explore-server";
 
 type ExploreReviewPageProps = {
   params: Promise<{
@@ -19,6 +23,10 @@ export default async function ExploreReviewPage({
   params
 }: ExploreReviewPageProps) {
   const { collectionSlug } = await params;
+  const [initialCollections, initialCollection] = await Promise.all([
+    fetchPublicExploreCollections(),
+    fetchPublicExploreCollection(collectionSlug)
+  ]);
 
   return (
     <>
@@ -27,6 +35,8 @@ export default async function ExploreReviewPage({
         <Suspense fallback={<div className="min-h-screen bg-[#f5f7f9]" />}>
           <RequireAuth>
             <ExploreVocabulary
+              initialCollection={initialCollection}
+              initialCollections={initialCollections}
               initialCollectionSlug={collectionSlug}
               initialView="review"
             />

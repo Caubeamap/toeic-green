@@ -17,6 +17,7 @@ import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
 import mailConfig from './config/mail.config';
+import storageConfig from './config/storage.config';
 import { validateEnvironment } from './config/env.validation';
 
 // Build a Redis-backed throttler store so rate limits are shared across
@@ -48,7 +49,14 @@ function createThrottlerStorage(url: string | undefined) {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, redisConfig, mailConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        redisConfig,
+        mailConfig,
+        storageConfig,
+      ],
       validate: validateEnvironment,
     }),
     // Rate limiting uses a shared Redis store when REDIS_URL points at a real

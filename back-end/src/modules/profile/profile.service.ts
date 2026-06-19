@@ -1,10 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import {
+  AvatarUploadFile,
+  ProfileAvatarStorage,
+} from './profile-avatar.storage';
 
 @Injectable()
 export class ProfileService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private avatarStorage: ProfileAvatarStorage,
+  ) {}
 
   async getProfile(userId: string) {
     const profile = await this.prisma.userProfile.findUnique({
@@ -38,17 +49,13 @@ export class ProfileService {
       throw new NotFoundException('Không tìm thấy hồ sơ cá nhân để cập nhật');
     }
 
-    const { displayName, avatarUrl, ...profileData } = updateProfileDto;
+    const { displayName, ...profileData } = updateProfileDto;
 
     // 1. Cập nhật thông tin User nếu có thay đổi
-    if (displayName !== undefined || avatarUrl !== undefined) {
-      const userData: { displayName?: string; avatarUrl?: string } = {};
-      if (displayName !== undefined) userData.displayName = displayName;
-      if (avatarUrl !== undefined) userData.avatarUrl = avatarUrl;
-
+    if (displayName !== undefined) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: userData,
+        data: { displayName },
       });
     }
 
@@ -67,5 +74,60 @@ export class ProfileService {
         },
       },
     });
+  }
+
+  async uploadAvatar(userId: string, file: AvatarUploadFile | undefined) {
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn ảnh đại diện.');
+    }
+
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Không tìm thấy hồ sơ cá nhân để cập nhật');
+    }
+
+    const previousAvatarUrl = profile.user.avatarUrl;
+    const nextAvatarUrl = await this.avatarStorage.upload(userId, file);
+
+    try {
+      const updatedProfile = await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { avatarUrl: nextAvatarUrl },
+        });
+
+        return tx.userProfile.update({
+          where: { userId },
+          data: { updatedAt: new Date() },
+          include: {
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+                avatarUrl: true,
+                role: true,
+              },
+            },
+          },
+        });
+      });
+
+      void this.avatarStorage.deleteIfOwnedByUser(userId, previousAvatarUrl);
+
+      return updatedProfile;
+    } catch (error) {
+      await this.avatarStorage.deleteIfOwnedByUser(userId, nextAvatarUrl);
+      throw error;
+    }
   }
 }

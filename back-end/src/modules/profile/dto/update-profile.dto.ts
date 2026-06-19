@@ -21,11 +21,4 @@ export class UpdateProfileDto {
   @IsString({ message: 'Họ và tên phải là chuỗi ký tự' })
   @Length(2, 50, { message: 'Họ và tên phải từ 2 đến 50 ký tự' })
   displayName?: string;
-
-  @IsOptional()
-  @IsString({ message: 'Đường dẫn ảnh đại diện phải là chuỗi ký tự' })
-  @MaxLength(2048, {
-    message: 'Ảnh đại diện không được vượt quá 2048 ký tự',
-  })
-  avatarUrl?: string;
 }

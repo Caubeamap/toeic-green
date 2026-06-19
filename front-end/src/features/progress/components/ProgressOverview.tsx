@@ -11,7 +11,6 @@ import {
   FileText,
   History,
   ListChecks,
-  LogIn,
   PlayCircle,
   Target,
   Timer,
@@ -22,7 +21,6 @@ import type { PracticeAttempt, PracticeStats } from "@/features/practice";
 import { usePracticeStats, useRecentAttempts } from "@/features/practice";
 import { useVocabularyWords } from "@/features/vocabulary/hooks/useVocabulary";
 import type { VocabularyWord } from "@/features/vocabulary/types";
-import { useAuth } from "@/features/auth/hooks/auth";
 import { cn } from "@/lib/utils";
 
 const emptyPracticeStats: PracticeStats = {
@@ -163,8 +161,6 @@ function getStatusMessage({
 }
 
 export function ProgressOverview() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-
   // Cache trong RAM (React Query): stats + recent + vocab, tự dedup/revalidate.
   const statsQuery = usePracticeStats();
   const recentQuery = useRecentAttempts();
@@ -211,11 +207,7 @@ export function ProgressOverview() {
     ...progress.activityDays.map((day) => day.total)
   );
 
-  const showGuestPrompt = !authLoading && !isAuthenticated;
-  const showLoading =
-    authLoading ||
-    (isAuthenticated &&
-      (statsQuery.isLoading || recentQuery.isLoading || vocabQuery.isLoading));
+  const showLoading = statsQuery.isLoading || recentQuery.isLoading || vocabQuery.isLoading;
 
   return (
     <section className="min-h-screen bg-[#f5f7f9] pb-20">
@@ -261,9 +253,7 @@ export function ProgressOverview() {
         </div>
       </div>
 
-      {showGuestPrompt ? (
-        <GuestPrompt />
-      ) : showLoading ? (
+      {showLoading ? (
         <ProgressLoading />
       ) : (
       <div className="container-shell pt-7">
@@ -502,31 +492,7 @@ export function ProgressOverview() {
   );
 }
 
-function GuestPrompt() {
-  return (
-    <div className="container-shell pt-10">
-      <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-soft md:p-10">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary-container text-primary">
-          <LogIn size={26} />
-        </span>
-        <h2 className="mt-5 text-2xl font-extrabold text-ink">
-          Đăng nhập để xem tiến độ
-        </h2>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted">
-          Tiến độ luyện đề và từ vựng được lưu theo tài khoản. Đăng nhập để theo
-          dõi số liệu của riêng bạn.
-        </p>
-        <Link
-          href="/login?next=/progress"
-          className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
-        >
-          <LogIn size={17} />
-          Đăng nhập
-        </Link>
-      </div>
-    </div>
-  );
-}
+
 
 function ProgressLoading() {
   return (

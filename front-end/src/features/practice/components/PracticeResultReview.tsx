@@ -402,6 +402,9 @@ export function PracticeResultReview({
   const [leftPanelLang, setLeftPanelLang] = useState<"en" | "vi">("en");
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
+  const [trackedImageUrl, setTrackedImageUrl] = useState<string | null | undefined>(
+    undefined
+  );
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -450,6 +453,14 @@ export function PracticeResultReview({
   );
   const currentQuestion = activeQuestions[reviewIndex];
   const hasReviewContextPanel = currentQuestion?.partId !== "part-5";
+
+  // Reset cờ loading ảnh ĐỒNG BỘ trong render khi đổi câu (pattern tracked-url),
+  // không dùng setTimeout/effect: ảnh đã preload nên onLoad bắn trước khi effect
+  // chạy → reset trễ lật cờ về true vĩnh viễn (spinner kẹt). Xem lessons.md.
+  if (trackedImageUrl !== currentQuestion?.image_url) {
+    setTrackedImageUrl(currentQuestion?.image_url);
+    setImageLoading(Boolean(currentQuestion?.image_url));
+  }
 
   // Resolve audio URL for the current active question/group
   const currentQuestionAudioUrl = useMemo(() => {
@@ -612,15 +623,6 @@ export function PracticeResultReview({
       return audio;
     });
   }, [currentTrackIndex, uniqueAudioUrls]);
-
-  // Reset imageLoading when image_url changes
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setImageLoading(Boolean(currentQuestion?.image_url));
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [currentQuestion?.image_url]);
 
   // Format display helper
   function formatTime(seconds: number) {
@@ -889,6 +891,13 @@ export function PracticeResultReview({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         key={currentQuestion.image_url ?? "no-image"}
+                        ref={(node) => {
+                          // Ảnh đã cache có thể bắn 'load' trước khi React gắn
+                          // onLoad → kiểm tra complete ngay khi mount để gỡ spinner.
+                          if (node && node.complete && node.naturalWidth > 0) {
+                            setImageLoading(false);
+                          }
+                        }}
                         src={currentQuestion.image_url ?? undefined}
                         alt="Question Visual"
                         decoding="async"
@@ -899,6 +908,7 @@ export function PracticeResultReview({
                           imageLoading ? "opacity-0" : "opacity-100"
                         )}
                         onLoad={() => setImageLoading(false)}
+                        onError={() => setImageLoading(false)}
                       />
                     </div>
                   </div>
@@ -927,9 +937,14 @@ export function PracticeResultReview({
                 {(currentQuestion.partId === "part-3" || currentQuestion.partId === "part-4") && (() => {
                   const { english, vietnamese } = splitTranscript(currentQuestion.transcript);
                   const displayEn = currentQuestion.passage || english;
-                  
+                  // Câu chỉ có graphic (vd Part 4 "Look at the graphic") không có lời
+                  // thoại → ẩn toàn bộ khối transcript để không hiện khung trắng rỗng.
+                  const hasTranscript = Boolean(displayEn) || Boolean(vietnamese);
+                  const activeContent = leftPanelLang === "en" ? displayEn : vietnamese;
+
                   return (
                     <div className="space-y-4">
+                      {hasTranscript && (
                       <div className="flex flex-col gap-2 border-b border-outline-variant/20 pb-2">
                         <div className="flex items-center justify-between">
                           <h4 className="text-xs font-black text-ink uppercase tracking-wider flex items-center gap-1.5">
@@ -973,10 +988,12 @@ export function PracticeResultReview({
                           )}
                         </div>
                       </div>
+                      )}
 
+                      {activeContent && (
                       <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[300px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] text-xs leading-relaxed text-ink font-semibold whitespace-pre-line transition-colors duration-150">
                         {leftPanelLang === "en" ? (
-                          <div dangerouslySetInnerHTML={{ 
+                          <div dangerouslySetInnerHTML={{
                             __html: (() => {
                               const smartExplanation = getSmartExplanation(currentQuestion, displayEn);
                               const quotes = extractQuotesFromExplanation(smartExplanation);
@@ -985,12 +1002,13 @@ export function PracticeResultReview({
                                 html = highlightHtmlTextSafe(html, q);
                               }
                               return html;
-                            })() 
+                            })()
                           }} />
                         ) : (
                           <div className="text-muted">{vietnamese}</div>
                         )}
                       </div>
+                      )}
 
                       {currentQuestion.image_url && (
                         <div className="space-y-4">

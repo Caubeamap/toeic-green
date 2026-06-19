@@ -6,7 +6,6 @@ import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
-  ImageIcon,
   Loader2,
   Save,
   Upload,
@@ -356,18 +355,12 @@ export function EditProfileForm() {
                   </div>
                 </div>
                 <p className="mt-3 text-xs font-semibold leading-5 text-muted">
-                  Tải ảnh JPEG, PNG hoặc WebP tối đa 2 MB. Ảnh được lưu trên R2
-                  và dùng URL cache dài để hiển thị nhanh.
+                  Chọn ảnh rõ mặt để hồ sơ dễ nhận diện hơn. Hỗ trợ JPEG, PNG
+                  hoặc WebP, tối đa 2 MB.
                 </p>
                 {avatarError ? (
                   <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
                     {avatarError}
-                  </p>
-                ) : null}
-                {!displayedAvatarUrl ? (
-                  <p className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-muted">
-                    <ImageIcon className="h-4 w-4" />
-                    Chưa có ảnh, hệ thống dùng chữ viết tắt.
                   </p>
                 ) : null}
               </div>

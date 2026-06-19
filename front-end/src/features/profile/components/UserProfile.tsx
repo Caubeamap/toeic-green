@@ -12,6 +12,7 @@ import {
   Sparkles,
   UserRound
 } from "lucide-react";
+import { UserAvatar } from "@/components/common/UserAvatar";
 import { useAuth } from "@/features/auth";
 import { usePracticeStats } from "@/features/practice";
 import { useVocabularyWords } from "@/features/vocabulary/hooks/useVocabulary";
@@ -181,9 +182,12 @@ export function UserProfile() {
           <div className="px-5 pb-7 sm:px-8">
             <div className="relative -mt-16 flex flex-col items-center text-center">
               <div className="relative">
-                <div className="grid h-32 w-32 place-items-center rounded-full border-4 border-white bg-[#d4f9d2] text-3xl font-extrabold text-primary shadow-soft">
-                  {profile.avatar}
-                </div>
+                <UserAvatar
+                  alt={`${profile.displayName} avatar`}
+                  avatarUrl={profile.avatarUrl}
+                  className="h-32 w-32 border-4 border-white bg-[#d4f9d2] text-3xl font-extrabold text-primary shadow-soft"
+                  initials={profile.avatar}
+                />
                 <Link
                   href="/profile/edit"
                   aria-label="Chỉnh sửa thông tin cá nhân"

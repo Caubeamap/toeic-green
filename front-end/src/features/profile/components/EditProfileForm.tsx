@@ -1,19 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { ArrowLeft, CheckCircle2, Save, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ImageIcon,
+  Loader2,
+  Save,
+  Upload,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { UserAvatar } from "@/components/common/UserAvatar";
 import { useAuth } from "@/features/auth";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   getDefaultUserProfile,
   loadUserProfile,
-  saveUserProfile
+  saveUserProfile,
+  uploadUserAvatar
 } from "../services/profile";
 import type { UserProfile } from "../types";
+
+const MAX_AVATAR_UPLOAD_BYTES = 2 * 1024 * 1024;
+const ALLOWED_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const bannerOptions: Array<{
   label: string;
@@ -40,12 +54,26 @@ const bannerOptions: Array<{
 export function EditProfileForm() {
   const router = useRouter();
   const { isAuthenticated, isLoading, updateUser, user } = useAuth();
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const avatarPreviewUrlRef = useRef<string | null>(null);
   const [loadedProfile, setLoadedProfile] = useState<{
     profile: UserProfile;
     userId: string;
   } | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState("");
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrlRef.current) {
+        URL.revokeObjectURL(avatarPreviewUrlRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -89,6 +117,50 @@ export function EditProfileForm() {
     setError("");
   }
 
+  function replaceAvatarPreview(nextUrl: string | null) {
+    if (avatarPreviewUrlRef.current) {
+      URL.revokeObjectURL(avatarPreviewUrlRef.current);
+    }
+
+    avatarPreviewUrlRef.current = nextUrl;
+    setAvatarPreviewUrl(nextUrl);
+  }
+
+  function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+      setAvatarError("Ảnh đại diện chỉ hỗ trợ JPEG, PNG hoặc WebP.");
+      setAvatarFile(null);
+      replaceAvatarPreview(null);
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_UPLOAD_BYTES) {
+      setAvatarError("Ảnh đại diện không được vượt quá 2 MB.");
+      setAvatarFile(null);
+      replaceAvatarPreview(null);
+      return;
+    }
+
+    setAvatarError("");
+    setError("");
+    setSaved(false);
+    setAvatarFile(file);
+    replaceAvatarPreview(URL.createObjectURL(file));
+  }
+
+  function clearSelectedAvatar() {
+    setAvatarFile(null);
+    setAvatarError("");
+    replaceAvatarPreview(null);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -103,16 +175,27 @@ export function EditProfileForm() {
 
     try {
       setError("");
-      const nextProfile = await saveUserProfile(profile);
+      setAvatarError("");
+      setIsSaving(true);
+      let nextProfile = await saveUserProfile(profile);
+
+      if (avatarFile) {
+        nextProfile = await uploadUserAvatar(avatarFile);
+      }
+
       updateUser({
         avatar: nextProfile.avatar,
+        avatarUrl: nextProfile.avatarUrl,
         displayName: nextProfile.displayName
       });
+      clearSelectedAvatar();
       setLoadedProfile({ profile: nextProfile, userId: user.id });
       setSaved(true);
       router.push("/profile");
     } catch (error: unknown) {
       setError(getErrorMessage(error, "Không thể cập nhật hồ sơ cá nhân."));
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -156,6 +239,7 @@ export function EditProfileForm() {
   }
 
   const currentProfile = profile;
+  const displayedAvatarUrl = avatarPreviewUrl || currentProfile.avatarUrl;
 
   return (
     <section className="min-h-screen bg-[#f5f7f9] pb-20 pt-28">
@@ -230,20 +314,62 @@ export function EditProfileForm() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
                 <p className="text-sm font-extrabold text-ink">Ảnh đại diện</p>
                 <div className="mt-4 flex items-center gap-4">
-                  <div className="grid h-20 w-20 place-items-center rounded-full bg-[#d4f9d2] text-xl font-extrabold text-primary shadow-soft">
-                    {currentProfile.avatar}
-                  </div>
-                  <input
-                    value={currentProfile.avatar}
-                    onChange={(event) => updateField("avatar", event.target.value)}
-                    className="h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold uppercase text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    placeholder="TG"
-                    maxLength={3}
+                  <UserAvatar
+                    alt={`${currentProfile.displayName} avatar`}
+                    avatarUrl={displayedAvatarUrl}
+                    className="h-20 w-20 bg-[#d4f9d2] text-xl font-extrabold text-primary shadow-soft"
+                    initials={currentProfile.avatar}
                   />
+                  <div className="min-w-0 flex-1">
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleAvatarFileChange}
+                      className="sr-only"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-extrabold text-ink transition hover:border-primary/40 hover:text-primary"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Chọn ảnh
+                      </button>
+                      {avatarFile ? (
+                        <button
+                          type="button"
+                          onClick={clearSelectedAvatar}
+                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-extrabold text-muted transition hover:border-red-200 hover:text-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                          Bỏ chọn
+                        </button>
+                      ) : null}
+                    </div>
+                    {avatarFile ? (
+                      <p className="mt-2 truncate text-xs font-bold text-primary">
+                        {avatarFile.name}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <p className="mt-3 text-xs font-semibold leading-5 text-muted">
-                  Bản hiện tại dùng ký hiệu avatar. Khi có backend, phần này có thể đổi sang upload ảnh.
+                  Tải ảnh JPEG, PNG hoặc WebP tối đa 2 MB. Ảnh được lưu trên R2
+                  và dùng URL cache dài để hiển thị nhanh.
                 </p>
+                {avatarError ? (
+                  <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+                    {avatarError}
+                  </p>
+                ) : null}
+                {!displayedAvatarUrl ? (
+                  <p className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-muted">
+                    <ImageIcon className="h-4 w-4" />
+                    Chưa có ảnh, hệ thống dùng chữ viết tắt.
+                  </p>
+                ) : null}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
@@ -289,10 +415,15 @@ export function EditProfileForm() {
             </Link>
             <button
               type="submit"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16]"
+              disabled={isSaving}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-extrabold text-white transition hover:bg-[#005d16] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <Save className="h-4 w-4" />
-              Lưu
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isSaving ? "Đang lưu" : "Lưu"}
             </button>
           </div>
         </form>

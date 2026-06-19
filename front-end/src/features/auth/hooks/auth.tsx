@@ -22,6 +22,7 @@ import {
   clearUserProfileCache,
   type ProfileResponse,
 } from "@/features/profile/services/profile";
+import { getUserInitials, normalizeAvatarUrl } from "@/lib/user-avatar";
 import type { AuthBootstrap } from "../services/auth-server";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -32,7 +33,7 @@ export type MockUser = {
   id: string;
   email: string;
   displayName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   role: string;
   avatar: string;
 };
@@ -58,7 +59,7 @@ type AuthContextValue = {
   ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   updateUser: (
-    updates: Partial<Pick<MockUser, "avatar" | "displayName">>,
+    updates: Partial<Pick<MockUser, "avatar" | "avatarUrl" | "displayName">>,
   ) => void;
 };
 
@@ -92,12 +93,9 @@ function mapUser(backendUser: BackendUser): MockUser {
     id: backendUser.id,
     email: backendUser.email,
     displayName: backendUser.displayName,
-    avatarUrl: backendUser.avatarUrl ?? undefined,
+    avatarUrl: normalizeAvatarUrl(backendUser.avatarUrl),
     role: backendUser.role,
-    avatar:
-      backendUser.avatarUrl ||
-      backendUser.displayName?.trim().slice(0, 2).toUpperCase() ||
-      "TG",
+    avatar: getUserInitials(backendUser.displayName),
   };
 }
 
@@ -219,7 +217,9 @@ export function AuthProvider({
   }, [queryClient]);
 
   const updateUser = useCallback(
-    (updates: Partial<Pick<MockUser, "avatar" | "displayName">>) => {
+    (
+      updates: Partial<Pick<MockUser, "avatar" | "avatarUrl" | "displayName">>,
+    ) => {
       if (state.status !== "authenticated") {
         return;
       }
@@ -228,6 +228,10 @@ export function AuthProvider({
         ...state.user,
         ...updates,
         avatar: updates.avatar || state.user.avatar,
+        avatarUrl:
+          updates.avatarUrl !== undefined
+            ? updates.avatarUrl
+            : state.user.avatarUrl,
         displayName: updates.displayName || state.user.displayName,
       };
 

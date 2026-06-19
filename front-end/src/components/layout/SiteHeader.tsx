@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { UserAvatar } from "@/components/common/UserAvatar";
 import { navItems } from "@/lib/data";
 import { useAuth } from "@/features/auth";
 import { cn } from "@/lib/utils";
@@ -75,9 +76,12 @@ export function SiteHeader() {
                 onClick={() => setShowUserDropdown((prev) => !prev)}
                 className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5 transition-colors hover:bg-black/5 focus:outline-none"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary shadow-sm">
-                  {user.avatar}
-                </div>
+                <UserAvatar
+                  alt={`${user.displayName} avatar`}
+                  avatarUrl={user.avatarUrl}
+                  className="h-9 w-9 text-xs font-extrabold"
+                  initials={user.avatar}
+                />
                 <span className="text-label-md font-bold text-on-surface">
                   {user.displayName}
                 </span>
@@ -171,9 +175,12 @@ export function SiteHeader() {
               {user ? (
                 <>
                   <div className="flex items-center gap-3 px-4 py-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-on-primary">
-                      {user.avatar}
-                    </div>
+                    <UserAvatar
+                      alt={`${user.displayName} avatar`}
+                      avatarUrl={user.avatarUrl}
+                      className="h-8 w-8 text-xs font-extrabold"
+                      initials={user.avatar}
+                    />
                     <span className="text-sm font-bold text-on-surface">
                       {user.displayName}
                     </span>

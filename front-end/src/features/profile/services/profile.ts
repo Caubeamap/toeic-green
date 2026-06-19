@@ -1,6 +1,7 @@
 import type { MockUser } from "@/features/auth";
 import type { UserProfile } from "../types";
 import { api } from "@/lib/api";
+import { getUserInitials, normalizeAvatarUrl } from "@/lib/user-avatar";
 
 export type ProfileResponse = {
   bannerTone?: string | null;
@@ -18,11 +19,6 @@ let cachedProfile: { profile: UserProfile; userId: string } | null = null;
 let pendingProfile: { promise: Promise<UserProfile>; userId: string } | null =
   null;
 
-function normalizeAvatar(value: string) {
-  const normalized = value.trim().slice(0, 3).toUpperCase();
-  return normalized || "TG";
-}
-
 function normalizeBannerTone(value?: string | null): UserProfile["bannerTone"] {
   if (value === "sky" || value === "sunrise") {
     return value;
@@ -34,7 +30,8 @@ function normalizeBannerTone(value?: string | null): UserProfile["bannerTone"] {
 export function getDefaultUserProfile(user: MockUser): UserProfile {
   return {
     accountId: user.id,
-    avatar: normalizeAvatar(user.avatar || user.displayName.slice(0, 2)),
+    avatar: getUserInitials(user.displayName),
+    avatarUrl: normalizeAvatarUrl(user.avatarUrl),
     bannerTone: "mint",
     bio: "",
     displayName: user.displayName,
@@ -48,9 +45,8 @@ export function getDefaultUserProfile(user: MockUser): UserProfile {
 function mapProfileResponse(data: ProfileResponse): UserProfile {
   return {
     accountId: data.userId,
-    avatar: normalizeAvatar(
-      data.user.avatarUrl || data.user.displayName?.slice(0, 2) || "TG",
-    ),
+    avatar: getUserInitials(data.user.displayName),
+    avatarUrl: normalizeAvatarUrl(data.user.avatarUrl),
     bannerTone: normalizeBannerTone(data.bannerTone),
     bio: data.bio || "",
     displayName: data.user.displayName || "",
@@ -102,10 +98,18 @@ export async function saveUserProfile(
     bio: profile.bio.trim(),
     bannerTone: profile.bannerTone,
     displayName: profile.displayName.trim(),
-    avatarUrl: profile.avatar,
   };
 
   const data = await api.patch<ProfileResponse>("/profile", updateData);
+
+  return cacheUserProfileResponse(data);
+}
+
+export async function uploadUserAvatar(file: File): Promise<UserProfile> {
+  const formData = new FormData();
+  formData.set("avatar", file);
+
+  const data = await api.post<ProfileResponse>("/profile/avatar", formData);
 
   return cacheUserProfileResponse(data);
 }

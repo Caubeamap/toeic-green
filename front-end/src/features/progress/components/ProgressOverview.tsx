@@ -362,22 +362,21 @@ export function ProgressOverview() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-xl bg-[#123f2a] p-5 text-white shadow-soft md:p-6">
-              <div className="flex items-center justify-between gap-4">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/12 text-growth">
-                  <Target size={21} />
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <Target size={19} />
                 </span>
-                <span className="rounded-lg bg-white/12 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-growth">
-                  Trạng thái
-                </span>
+                <div>
+                  <h2 className="text-lg font-extrabold text-ink">
+                    {progress.status.title}
+                  </h2>
+                  <p className="mt-0.5 text-sm leading-5 text-muted">
+                    {progress.status.copy}
+                  </p>
+                </div>
               </div>
-              <h2 className="mt-5 text-2xl font-extrabold">
-                {progress.status.title}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-white/78">
-                {progress.status.copy}
-              </p>
-              <div className="mt-6 grid gap-3">
+              <div className="mt-5 grid gap-3">
                 <StatusLine
                   label="Lượt luyện"
                   value={formatNumber(progress.totalAttempts)}
@@ -435,50 +434,52 @@ export function ProgressOverview() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-extrabold text-ink">
-                  Sổ từ vựng
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-muted">
-                  Tình trạng ghi nhớ từ vựng của bạn.
-                </p>
+          <aside className="space-y-6">
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-extrabold text-ink">
+                    Sổ từ vựng
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-muted">
+                    Tình trạng ghi nhớ từ vựng của bạn.
+                  </p>
+                </div>
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-50 text-amber-700">
+                  <BookOpenCheck size={19} />
+                </span>
               </div>
-              <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-50 text-amber-700">
-                <BookOpenCheck size={19} />
-              </span>
-            </div>
 
-            <div className="mt-5 space-y-4">
-              <VocabularyRatio
-                label="Đã thuộc"
-                value={progress.masteredWords}
-                total={progress.words.length}
-                color="bg-emerald-500"
-              />
-              <VocabularyRatio
-                label="Đang học"
-                value={progress.learningWords}
-                total={progress.words.length}
-                color="bg-amber-500"
-              />
-              <VocabularyRatio
-                label="Yêu thích"
-                value={progress.favoriteWords}
-                total={progress.words.length}
-                color="bg-blue-500"
-              />
-            </div>
+              <div className="mt-5 space-y-4">
+                <VocabularyRatio
+                  label="Đã thuộc"
+                  value={progress.masteredWords}
+                  total={progress.words.length}
+                  color="bg-emerald-500"
+                />
+                <VocabularyRatio
+                  label="Đang học"
+                  value={progress.learningWords}
+                  total={progress.words.length}
+                  color="bg-amber-500"
+                />
+                <VocabularyRatio
+                  label="Yêu thích"
+                  value={progress.favoriteWords}
+                  total={progress.words.length}
+                  color="bg-blue-500"
+                />
+              </div>
 
-            <Link
-              href="/vocabulary"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-4 text-sm font-extrabold text-on-primary-container transition hover:bg-primary-fixed-dim"
-            >
-              Mở sổ từ vựng
-              <ArrowRight size={16} />
-            </Link>
-          </section>
+              <Link
+                href="/vocabulary"
+                className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-4 text-sm font-extrabold text-on-primary-container transition hover:bg-primary-fixed-dim"
+              >
+                Mở sổ từ vựng
+                <ArrowRight size={16} />
+              </Link>
+            </section>
+          </aside>
         </div>
       </div>
       )}
@@ -562,9 +563,9 @@ function MiniPanel({
 
 function StatusLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/12 pb-3 last:border-0 last:pb-0">
-      <span className="text-sm font-bold text-white/72">{label}</span>
-      <span className="font-extrabold text-growth">{value}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+      <span className="text-sm font-bold text-muted">{label}</span>
+      <span className="font-extrabold text-ink">{value}</span>
     </div>
   );
 }

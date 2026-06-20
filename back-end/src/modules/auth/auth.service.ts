@@ -21,6 +21,7 @@ import { EmailVerificationService } from './email-verification.service';
 import { GoogleTokenVerifier } from './strategies/google-token-verifier';
 
 const GOOGLE_PROVIDER = 'google';
+const SESSION_REFRESH_EXPIRES_IN = '8h';
 
 interface SessionUser {
   id: string;
@@ -35,6 +36,7 @@ interface RefreshTokenPayload {
   email: string;
   role: string;
   jti: string;
+  rememberMe?: boolean;
   exp: number;
 }
 
@@ -121,7 +123,7 @@ export class AuthService {
       );
     }
 
-    return this.issueSession(user);
+    return this.issueSession(user, loginDto.rememberMe === true);
   }
 
   /**
@@ -144,7 +146,7 @@ export class AuthService {
       if (linked.status !== 'ACTIVE') {
         throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
       }
-      return this.issueSession(linked);
+      return this.issueSession(linked, true);
     }
 
     // 2. Email đã thuộc một tài khoản khác. Vì tài khoản Google đã được bắt ở
@@ -166,7 +168,7 @@ export class AuthService {
         provider: GOOGLE_PROVIDER,
         providerUserId: identity.sub,
       });
-      return this.issueSession(created);
+      return this.issueSession(created, true);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -182,7 +184,7 @@ export class AuthService {
           if (raced.status !== 'ACTIVE') {
             throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
           }
-          return this.issueSession(raced);
+          return this.issueSession(raced, true);
         }
 
         const racedByEmail = await this.usersService.findOneByEmail(email);
@@ -198,8 +200,13 @@ export class AuthService {
 
   /** Cấp access/refresh token + tạo refresh session cho một user đã xác thực.
    *  Dùng chung cho đăng nhập mật khẩu và đăng nhập Google. */
-  private async issueSession(user: SessionUser) {
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+  private async issueSession(user: SessionUser, rememberMe: boolean) {
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      rememberMe,
+    );
     await this.refreshSessionsService.create(user.id, tokens.refreshSession);
 
     return {
@@ -212,6 +219,7 @@ export class AuthService {
       },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      rememberMe,
     };
   }
 
@@ -224,7 +232,13 @@ export class AuthService {
         throw new UnauthorizedException('Tài khoản không còn hoạt động');
       }
 
-      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      const rememberMe = payload.rememberMe ?? true;
+      const tokens = await this.generateTokens(
+        user.id,
+        user.email,
+        user.role,
+        rememberMe,
+      );
       await this.refreshSessionsService.rotate(
         user.id,
         payload.jti,
@@ -253,6 +267,7 @@ export class AuthService {
               },
             }
           : null,
+        rememberMe,
       };
     } catch {
       throw new UnauthorizedException(
@@ -362,9 +377,17 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private async generateTokens(userId: string, email: string, role: string) {
+  private async generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+    rememberMe: boolean,
+  ) {
     const jwtPayload = { sub: userId, email, role };
     const refreshSessionId = randomUUID();
+    const refreshExpiration = rememberMe
+      ? this.configService.get<string>('jwt.refreshExpiration')
+      : SESSION_REFRESH_EXPIRES_IN;
     const [accessToken, refreshToken] = await Promise.all([
       // @ts-expect-error: config values provide general string, but JwtSignOptions expects StringValue
       this.jwtService.signAsync(jwtPayload, {
@@ -373,10 +396,10 @@ export class AuthService {
       }),
       // @ts-expect-error: config values provide general string, but JwtSignOptions expects StringValue
       this.jwtService.signAsync(
-        { ...jwtPayload, jti: refreshSessionId },
+        { ...jwtPayload, jti: refreshSessionId, rememberMe },
         {
           secret: this.configService.get<string>('jwt.refreshSecret'),
-          expiresIn: this.configService.get<string>('jwt.refreshExpiration'),
+          expiresIn: refreshExpiration,
         },
       ),
     ]);

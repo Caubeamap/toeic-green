@@ -24,6 +24,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { PasswordResetService } from './password-reset.service';
 
+const PERSISTENT_REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -103,7 +105,11 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.login(loginDto);
-    this.setRefreshTokenCookie(response, result.refreshToken);
+    this.setRefreshTokenCookie(
+      response,
+      result.refreshToken,
+      result.rememberMe,
+    );
 
     return {
       user: result.user,
@@ -122,7 +128,11 @@ export class AuthController {
     const result = await this.authService.loginWithGoogle(
       googleLoginDto.credential,
     );
-    this.setRefreshTokenCookie(response, result.refreshToken);
+    this.setRefreshTokenCookie(
+      response,
+      result.refreshToken,
+      result.rememberMe,
+    );
 
     return {
       user: result.user,
@@ -156,7 +166,11 @@ export class AuthController {
     }
 
     const result = await this.authService.refresh(refreshToken);
-    this.setRefreshTokenCookie(response, result.refreshToken);
+    this.setRefreshTokenCookie(
+      response,
+      result.refreshToken,
+      result.rememberMe,
+    );
 
     return {
       accessToken: result.accessToken,
@@ -192,10 +206,19 @@ export class AuthController {
     return requestCookies?.refresh_token || requestBody?.refreshToken;
   }
 
-  private setRefreshTokenCookie(response: Response, refreshToken: string) {
-    response.cookie('refresh_token', refreshToken, {
+  private setRefreshTokenCookie(
+    response: Response,
+    refreshToken: string,
+    rememberMe: boolean,
+  ) {
+    const options: CookieOptions = {
       ...this.refreshCookieOptions(),
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    };
+
+    if (rememberMe) {
+      options.maxAge = PERSISTENT_REFRESH_COOKIE_MAX_AGE_MS;
+    }
+
+    response.cookie('refresh_token', refreshToken, options);
   }
 }

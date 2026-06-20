@@ -1,6 +1,8 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Length,
   MaxLength,
@@ -21,4 +23,10 @@ export class LoginDto {
   @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   @Length(6, 128, { message: 'Mật khẩu phải từ 6 đến 128 ký tự' })
   password!: string;
+
+  @IsOptional()
+  @IsBoolean({
+    message: 'Ghi nhớ đăng nhập phải là true hoặc false',
+  })
+  rememberMe?: boolean;
 }

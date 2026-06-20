@@ -53,8 +53,8 @@ export function AuthPanel({ initialMode, redirectTo }: AuthPanelProps) {
   /* Listen for login attempt from LoginForm */
   useEffect(() => {
     async function handleLoginAttempt(e: Event) {
-      const { email, password } = (e as CustomEvent).detail;
-      const result = await login(email, password);
+      const { email, password, rememberMe } = (e as CustomEvent).detail;
+      const result = await login(email, password, rememberMe === true);
 
       if (!result.ok) {
         /* Re-dispatch error back so LoginForm can display it */

@@ -199,6 +199,35 @@ describe('Backend security baseline (e2e)', () => {
       .expect(200);
   });
 
+  it('uses a session refresh cookie unless rememberMe is requested', async () => {
+    const sessionLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password, rememberMe: false })
+      .expect(200);
+    const sessionSetCookie = getRefreshSetCookie(sessionLogin);
+    const sessionCookie = getRefreshCookie(sessionLogin);
+
+    expect(sessionSetCookie).not.toContain('Max-Age=');
+    expect(sessionSetCookie).not.toContain('Expires=');
+
+    const sessionRefresh = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', sessionCookie)
+      .expect(200);
+    const sessionRefreshSetCookie = getRefreshSetCookie(sessionRefresh);
+
+    expect(sessionRefreshSetCookie).not.toContain('Max-Age=');
+    expect(sessionRefreshSetCookie).not.toContain('Expires=');
+
+    const rememberedLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password, rememberMe: true })
+      .expect(200);
+    const rememberedSetCookie = getRefreshSetCookie(rememberedLogin);
+
+    expect(rememberedSetCookie).toContain('Max-Age=604800');
+  });
+
   it('does not reveal whether a resend email belongs to an account', async () => {
     const existingResponse = await request(app.getHttpServer())
       .post('/api/auth/resend-verification')
@@ -374,6 +403,11 @@ describe('Backend security baseline (e2e)', () => {
 });
 
 function getRefreshCookie(response: Response) {
+  const cookie = getRefreshSetCookie(response);
+  return [cookie.split(';')[0]];
+}
+
+function getRefreshSetCookie(response: Response) {
   const headers = response.headers as Record<string, unknown>;
   const setCookie = headers['set-cookie'];
   const cookie =
@@ -385,5 +419,5 @@ function getRefreshCookie(response: Response) {
     throw new Error('Expected refresh_token cookie');
   }
 
-  return [cookie.split(';')[0]];
+  return cookie;
 }

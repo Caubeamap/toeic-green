@@ -353,6 +353,7 @@ function SubmitButton({
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email: FieldError; password: FieldError }>({
     email: null,
     password: null
@@ -387,7 +388,7 @@ export function LoginForm() {
 
     /* Dispatch a custom event so the page-level component can call useAuth().login */
     const event = new CustomEvent("toeic-login-attempt", {
-      detail: { email: email.trim(), password }
+      detail: { email: email.trim(), password, rememberMe }
     });
     window.dispatchEvent(event);
   }
@@ -449,6 +450,8 @@ export function LoginForm() {
       <label className="flex cursor-pointer items-center gap-3 select-none">
         <input
           type="checkbox"
+          checked={rememberMe}
+          onChange={(e) => setRememberMe(e.target.checked)}
           className="h-[18px] w-[18px] rounded border-outline-variant text-primary accent-primary focus:ring-primary/30"
         />
         <span className="text-[14px] font-semibold text-on-surface-variant">

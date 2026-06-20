@@ -51,6 +51,7 @@ type AuthContextValue = {
   login: (
     email: string,
     password: string,
+    rememberMe: boolean,
   ) => Promise<{ ok: boolean; error?: string }>;
   loginWithGoogle: (
     credential: string,
@@ -165,11 +166,13 @@ export function AuthProvider({
     async (
       email: string,
       password: string,
+      rememberMe: boolean,
     ): Promise<{ ok: boolean; error?: string }> => {
       try {
         const data = await api.post<LoginResponse>("/auth/login", {
           email,
           password,
+          rememberMe,
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);

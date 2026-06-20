@@ -1574,16 +1574,40 @@ export function PracticeExamSession({
           </div>
         </main>
 
-        {/* SIDEBAR: Question Nav Sheet */}
+        {/* Backdrop cho drawer trên mobile (desktop dùng cột inline nên ẩn) */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden
+          />
+        )}
+
+        {/* SIDEBAR: Question Nav Sheet.
+            Mobile: drawer overlay trượt từ phải (fixed) → KHÔNG bóp nội dung đề thi.
+            Desktop (lg+): trở lại cột inline thu/phóng theo chiều rộng như cũ. */}
         <aside
           className={cn(
-            "w-72 shrink-0 border-l border-outline-variant/20 bg-white/88 flex flex-col transition-[width] duration-150 overflow-hidden relative",
-            sidebarOpen ? "translate-x-0" : "w-0 border-l-0"
+            "fixed inset-y-0 right-0 z-50 flex w-[280px] max-w-[85vw] flex-col overflow-hidden border-l border-outline-variant/20 bg-white shadow-2xl transition-transform duration-200",
+            "lg:static lg:z-auto lg:max-w-none lg:translate-x-0 lg:bg-white/88 lg:shadow-none lg:transition-[width] lg:duration-150",
+            sidebarOpen
+              ? "translate-x-0 lg:w-72"
+              : "translate-x-full lg:w-0 lg:border-l-0"
           )}
         >
           {/* Header Part Jump Selectors */}
           <div className="border-b border-outline-variant/30 p-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-muted mb-2.5">Chuyển nhanh Phần thi</h3>
+            <div className="mb-2.5 flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted">Chuyển nhanh Phần thi</h3>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-container-low lg:hidden"
+                aria-label="Đóng bảng câu hỏi"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <div className="grid grid-cols-4 gap-1.5">
               {partGroups.map((g) => {
                 const isPartActive = currentPart?.partId === g.partId;

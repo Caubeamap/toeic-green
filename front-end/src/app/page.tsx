@@ -57,7 +57,7 @@ export default function Home() {
   return (
     <>
       <SiteHeader />
-      <main className="relative pt-32">
+      <main className="relative overflow-x-clip pt-32">
         <HomeHero />
         <FeatureBento />
         <PersonalizedPath />

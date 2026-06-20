@@ -67,8 +67,8 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        {/* Desktop auth area */}
-        <div className="hidden shrink-0 items-center gap-4 sm:flex">
+        {/* Desktop auth area — md để khớp nav + hamburger (tránh hiện trùng ở 640–767px) */}
+        <div className="hidden shrink-0 items-center gap-4 md:flex">
           {user ? (
             <div className="relative">
               <button

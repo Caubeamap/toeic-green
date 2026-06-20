@@ -42,6 +42,7 @@ export class AuthController {
     return {
       httpOnly: true,
       secure: this.configService.get<boolean>('app.cookieSecure') ?? false,
+      domain: this.configService.get<string>('app.cookieDomain') || undefined,
       sameSite: 'strict',
       path: '/',
     };

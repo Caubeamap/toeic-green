@@ -4,6 +4,7 @@ import { validateEnvironment } from './env.validation';
 const PROD_INFRA = {
   DATABASE_URL: 'postgresql://user:pass@db.example:5432/app',
   REDIS_URL: 'rediss://default:pass@cache.example:6379',
+  COOKIE_DOMAIN: '.toeicgreen.com',
   R2_ACCOUNT_ID: 'acc',
   R2_ACCESS_KEY: 'key',
   R2_SECRET_KEY: 'secret',
@@ -67,6 +68,9 @@ describe('validateEnvironment', () => {
     expect(() =>
       validateEnvironment({ ...base, REDIS_URL: undefined }),
     ).toThrow('REDIS_URL must be configured');
+    expect(() =>
+      validateEnvironment({ ...base, COOKIE_DOMAIN: undefined }),
+    ).toThrow('COOKIE_DOMAIN must be configured');
     expect(() =>
       validateEnvironment({ ...base, R2_SECRET_KEY: undefined }),
     ).toThrow('R2_SECRET_KEY must be configured');

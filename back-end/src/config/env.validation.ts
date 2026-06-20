@@ -50,6 +50,7 @@ export function validateEnvironment(config: Record<string, unknown>) {
   // - R2_*: thiếu → upload/đọc media (avatar, ảnh/audio đề thi) hỏng.
   requireProductionValue(config, 'DATABASE_URL');
   requireProductionValue(config, 'REDIS_URL');
+  requireProductionValue(config, 'COOKIE_DOMAIN');
   requireProductionValue(config, 'R2_ACCOUNT_ID');
   requireProductionValue(config, 'R2_ACCESS_KEY');
   requireProductionValue(config, 'R2_SECRET_KEY');

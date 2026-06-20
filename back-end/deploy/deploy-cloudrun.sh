@@ -27,7 +27,7 @@ gcloud run deploy "$SERVICE" \
   --memory 512Mi \
   --concurrency 80 \
   --cpu-boost \
-  --set-env-vars "^|^NODE_ENV=production|FRONTEND_URL=https://toeicgreen.com|CORS_ALLOWED_ORIGINS=https://www.toeicgreen.com|TRUST_PROXY=1|COOKIE_SECURE=true|DB_POOL_MAX=5|MAIL_PROVIDER=resend|EMAIL_FROM=TOEIC Green <no-reply@toeicgreen.com>|EMAIL_VERIFICATION_URL=https://toeicgreen.com/verify-email|GOOGLE_CLIENT_ID=739130230350-ett9c8812jardb9a5jaagpjuu5cdhl7n.apps.googleusercontent.com|R2_BUCKET_NAME=toeic-green-assets|R2_PUBLIC_URL=https://pub-4f8cb610d7574526affd8f9e156e874e.r2.dev" \
+  --set-env-vars "^|^NODE_ENV=production|FRONTEND_URL=https://toeicgreen.com|CORS_ALLOWED_ORIGINS=https://www.toeicgreen.com|TRUST_PROXY=1|COOKIE_SECURE=true|COOKIE_DOMAIN=.toeicgreen.com|DB_POOL_MAX=5|MAIL_PROVIDER=resend|EMAIL_FROM=TOEIC Green <no-reply@toeicgreen.com>|EMAIL_VERIFICATION_URL=https://toeicgreen.com/verify-email|GOOGLE_CLIENT_ID=739130230350-ett9c8812jardb9a5jaagpjuu5cdhl7n.apps.googleusercontent.com|R2_BUCKET_NAME=toeic-green-assets|R2_PUBLIC_URL=https://pub-4f8cb610d7574526affd8f9e156e874e.r2.dev" \
   --set-secrets "JWT_SECRET=JWT_SECRET:latest,JWT_REFRESH_SECRET=JWT_REFRESH_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_URL:latest,REDIS_URL=REDIS_URL:latest,R2_ACCOUNT_ID=R2_ACCOUNT_ID:latest,R2_ACCESS_KEY=R2_ACCESS_KEY:latest,R2_SECRET_KEY=R2_SECRET_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest"
 
 echo "Xong. Lấy URL service:"

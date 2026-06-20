@@ -26,13 +26,19 @@ declare global {
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+let googleScriptPromise: Promise<void> | null = null;
+let googleInitialized = false;
+let latestCredentialHandler:
+  | ((response: GoogleCredentialResponse) => void)
+  | null = null;
 
 /** Tải script GIS đúng một lần cho cả ứng dụng. */
 function loadGoogleScript(): Promise<void> {
   if (typeof window === "undefined") return Promise.reject();
   if (window.google?.accounts?.id) return Promise.resolve();
+  if (googleScriptPromise) return googleScriptPromise;
 
-  return new Promise((resolve, reject) => {
+  googleScriptPromise = new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(
       `script[src="${GIS_SRC}"]`,
     );
@@ -50,12 +56,25 @@ function loadGoogleScript(): Promise<void> {
     script.onerror = () => reject();
     document.head.appendChild(script);
   });
+
+  return googleScriptPromise;
+}
+
+function initializeGoogleId(clientId: string, id: GoogleAccountsId) {
+  if (googleInitialized) return;
+
+  id.initialize({
+    client_id: clientId,
+    callback: (response) => {
+      latestCredentialHandler?.(response);
+    },
+  });
+  googleInitialized = true;
 }
 
 export function GoogleSignInButton() {
   const { loginWithGoogle } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
-  const renderedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleCredential = useCallback(
@@ -82,22 +101,21 @@ export function GoogleSignInButton() {
   }, [handleCredential]);
 
   useEffect(() => {
-    if (!CLIENT_ID || renderedRef.current) return;
+    if (!CLIENT_ID) return;
     let cancelled = false;
+    const currentHandler = (response: GoogleCredentialResponse) => {
+      void handleCredentialRef.current(response);
+    };
+    latestCredentialHandler = currentHandler;
 
     loadGoogleScript()
       .then(() => {
-        if (cancelled || renderedRef.current) return;
+        if (cancelled) return;
         const id = window.google?.accounts?.id;
         const container = containerRef.current;
         if (!id || !container) return;
 
-        id.initialize({
-          client_id: CLIENT_ID,
-          callback: (response) => {
-            void handleCredentialRef.current(response);
-          },
-        });
+        initializeGoogleId(CLIENT_ID, id);
         container.innerHTML = "";
         id.renderButton(container, {
           type: "standard",
@@ -109,7 +127,6 @@ export function GoogleSignInButton() {
           locale: "vi",
           width: 320,
         });
-        renderedRef.current = true;
       })
       .catch(() => {
         if (!cancelled) {
@@ -119,9 +136,11 @@ export function GoogleSignInButton() {
 
     return () => {
       cancelled = true;
+      if (latestCredentialHandler === currentHandler) {
+        latestCredentialHandler = null;
+      }
     };
     // Khởi tạo GIS một lần duy nhất; callback được đọc qua ref nên không cần deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Tính năng tắt khi chưa cấu hình client id → không render gì.

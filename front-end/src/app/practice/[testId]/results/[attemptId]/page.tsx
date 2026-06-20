@@ -12,7 +12,11 @@ import { getErrorMessage } from "@/lib/api";
 export default function AttemptResultPage() {
   const params = useParams<{ attemptId: string; testId: string }>();
   const router = useRouter();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const {
+    isAuthenticated,
+    isApiReady,
+    isLoading: isAuthLoading
+  } = useAuth();
 
   // Kết quả qua React Query (cache RAM). Vào ngay sau khi nộp bài là tức thì vì
   // useSubmitAttempt đã seed sẵn cache cho đúng attemptId.
@@ -40,7 +44,8 @@ export default function AttemptResultPage() {
   const errorMessage = error
     ? getErrorMessage(error, "Không tải được kết quả làm bài.")
     : null;
-  const showLoading = isAuthLoading || !isAuthenticated || isLoading;
+  const showLoading =
+    isAuthLoading || !isAuthenticated || !isApiReady || isLoading;
 
   return (
     <>

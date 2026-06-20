@@ -25,7 +25,7 @@ export function TestPageClient({
   const resolvedTestId = testId || params.testId;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isApiReady, isLoading } = useAuth();
 
   const testQuery = usePracticeTest(resolvedTestId, initialTest);
   const questionsQuery = usePracticeQuestions(
@@ -84,7 +84,8 @@ export function TestPageClient({
     }
   }, [isLoading, isAuthenticated, router]);
 
-  const showLoading = isLoading || (isAuthenticated && loadingQuestions);
+  const showLoading =
+    isLoading || (isAuthenticated && (!isApiReady || loadingQuestions));
 
   if (showLoading) {
     return (

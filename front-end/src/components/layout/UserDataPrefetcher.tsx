@@ -26,12 +26,12 @@ import { fetchVocabularyWords } from "@/features/vocabulary/services/api";
  * khác). prefetchQuery tôn trọng staleTime → không refetch nếu dữ liệu còn tươi.
  */
 export function UserDataPrefetcher() {
-  const { isAuthenticated, user } = useAuth();
+  const { isApiReady, user } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.id;
 
   useEffect(() => {
-    if (!isAuthenticated || !userId) return;
+    if (!isApiReady || !userId) return;
 
     // Fire-and-forget, song song. Lỗi (vd mạng) không cản UI — trang vẫn tự fetch lại.
     void queryClient.prefetchQuery({
@@ -50,7 +50,7 @@ export function UserDataPrefetcher() {
       queryKey: vocabularyQueryKey(userId),
       queryFn: fetchVocabularyWords
     });
-  }, [isAuthenticated, userId, queryClient]);
+  }, [isApiReady, userId, queryClient]);
 
   return null;
 }

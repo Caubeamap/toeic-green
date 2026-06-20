@@ -15,7 +15,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isApiReady, isLoading } = useAuth();
 
   useEffect(() => {
     if (isLoading || isAuthenticated) {
@@ -27,7 +27,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     router.replace(`/login?next=${encodeURIComponent(next)}`);
   }, [isAuthenticated, isLoading, pathname, router, searchParams]);
 
-  if (isAuthenticated) {
+  if (isAuthenticated && isApiReady) {
     return <>{children}</>;
   }
 

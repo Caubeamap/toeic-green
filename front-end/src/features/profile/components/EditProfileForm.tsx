@@ -51,7 +51,7 @@ const bannerOptions: Array<{
 
 export function EditProfileForm() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, updateUser, user } = useAuth();
+  const { isAuthenticated, isApiReady, isLoading, updateUser, user } = useAuth();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarPreviewUrlRef = useRef<string | null>(null);
   const [loadedProfile, setLoadedProfile] = useState<{
@@ -74,7 +74,7 @@ export function EditProfileForm() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !isApiReady) {
       return;
     }
 
@@ -98,7 +98,7 @@ export function EditProfileForm() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, isApiReady]);
 
   const profile =
     loadedProfile && loadedProfile.userId === user?.id

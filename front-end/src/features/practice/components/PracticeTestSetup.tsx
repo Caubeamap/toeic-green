@@ -84,7 +84,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   }
 
   const pageTitle = formatPracticeTestTitle(currentTest);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isApiReady } = useAuth();
   const prefetchQuestionsFor = usePrefetchQuestions();
   const prefetchComments = usePrefetchTestComments(currentTest.id);
 
@@ -104,7 +104,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   const isSpeakingWriting = currentTest.type === "Speaking & Writing";
 
   function prefetchQuestions() {
-    if (!isAuthenticated || isSpeakingWriting) {
+    if (!isApiReady || isSpeakingWriting) {
       return;
     }
 
@@ -112,7 +112,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   }
 
   useEffect(() => {
-    if (!isAuthenticated || isSpeakingWriting) {
+    if (!isApiReady || isSpeakingWriting) {
       return;
     }
 
@@ -120,7 +120,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
     router.prefetch(`/practice/${currentTest.id}/test?mode=full`);
   }, [
     currentTest.id,
-    isAuthenticated,
+    isApiReady,
     isSpeakingWriting,
     prefetchQuestionsFor,
     router

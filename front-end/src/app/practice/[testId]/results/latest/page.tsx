@@ -14,7 +14,11 @@ export default function LatestResultPage() {
   const params = useParams<{ testId: string }>();
   const router = useRouter();
   const qc = useQueryClient();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const {
+    isAuthenticated,
+    isApiReady,
+    isLoading: isAuthLoading
+  } = useAuth();
   const { data, error } = useLatestAttemptResult(params.testId);
 
   useEffect(() => {
@@ -42,7 +46,9 @@ export default function LatestResultPage() {
       <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#effaf0_0%,#fbf9f8_44%),radial-gradient(circle_at_100%_20%,#eef4ff_0%,#fbf9f8_36%)] pt-32">
         <section className="container-shell pb-16">
           <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
-            {errorMessage ? (
+            {isAuthLoading || (isAuthenticated && !isApiReady) ? (
+              "\u0110ang m\u1edf k\u1ebft qu\u1ea3 m\u1edbi nh\u1ea5t..."
+            ) : errorMessage ? (
               <>
                 <p className="font-semibold text-red-700">{errorMessage}</p>
                 <Link

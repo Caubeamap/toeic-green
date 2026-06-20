@@ -47,6 +47,7 @@ type AuthContextValue = {
   state: AuthState;
   user: MockUser | null;
   isAuthenticated: boolean;
+  isApiReady: boolean;
   isLoading: boolean;
   login: (
     email: string,
@@ -115,6 +116,7 @@ export function AuthProvider({
       ? { status: "authenticated", user: mapUser(initialAuth.user) }
       : { status: "loading" },
   );
+  const [isApiReady, setIsApiReady] = useState(false);
   const queryClient = useQueryClient();
 
   /* Khôi phục phiên khi mở web HOÀN TOÀN bằng refresh token (httpOnly cookie):
@@ -123,6 +125,14 @@ export function AuthProvider({
      Refresh vẫn chạy nền để mint access token RAM cho các API protected. */
   useEffect(() => {
     async function hydrate() {
+      setIsApiReady(false);
+
+      if (!initialAuth?.user) {
+        clearUserProfileCache();
+        setState({ status: "unauthenticated" });
+        return;
+      }
+
       if (initialAuth?.profile) {
         cacheUserProfileResponse(initialAuth.profile);
       }
@@ -137,10 +147,12 @@ export function AuthProvider({
         }
 
         cacheUserProfileResponse(data.profile);
+        setIsApiReady(true);
         setState({ status: "authenticated", user: mapUser(data.user) });
       } catch {
         // Không tìm thấy phiên hoặc refresh token đã hết hạn
         clearUserProfileCache();
+        setIsApiReady(false);
         setState({ status: "unauthenticated" });
       }
     }
@@ -152,6 +164,7 @@ export function AuthProvider({
   useEffect(() => {
     function handleAuthFailure() {
       setAccessToken(null);
+      setIsApiReady(false);
       clearUserProfileCache();
       queryClient.clear();
       setState({ status: "unauthenticated" });
@@ -176,6 +189,7 @@ export function AuthProvider({
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
+        setIsApiReady(true);
         setState({ status: "authenticated", user });
         return { ok: true };
       } catch (error: unknown) {
@@ -196,6 +210,7 @@ export function AuthProvider({
         });
         const user = mapUser(data.user);
         setAccessToken(data.accessToken);
+        setIsApiReady(true);
         setState({ status: "authenticated", user });
         return { ok: true };
       } catch (error: unknown) {
@@ -234,6 +249,7 @@ export function AuthProvider({
     } finally {
       // broadcast → các tab khác cũng đăng xuất theo (đồng bộ phiên chéo tab).
       setAccessToken(null, { broadcast: true });
+      setIsApiReady(false);
       clearUserProfileCache();
       // Dữ liệu server nằm trong cache React Query (RAM) → xoá sạch để không lẫn
       // sang tài khoản khác trên cùng trình duyệt.
@@ -271,6 +287,7 @@ export function AuthProvider({
       state,
       user: "user" in state ? state.user ?? null : null,
       isAuthenticated: state.status === "authenticated",
+      isApiReady,
       isLoading: state.status === "loading",
       login,
       loginWithGoogle,
@@ -278,7 +295,7 @@ export function AuthProvider({
       logout,
       updateUser,
     }),
-    [state, login, loginWithGoogle, register, logout, updateUser],
+    [state, isApiReady, login, loginWithGoogle, register, logout, updateUser],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

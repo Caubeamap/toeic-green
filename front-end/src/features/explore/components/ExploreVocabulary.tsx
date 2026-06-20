@@ -168,7 +168,7 @@ export function ExploreVocabulary({
   initialView
 }: ExploreVocabularyProps = {}) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isApiReady } = useAuth();
   const routeCollectionId = initialCollectionSlug?.trim() ?? "";
   const resolvedInitialView: ExploreView =
     initialView ?? (routeCollectionId ? "detail" : "collections");
@@ -308,7 +308,7 @@ export function ExploreVocabulary({
 
   const ensureCollectionProgress = useCallback(
     async (summary: ExploreCollectionSummary) => {
-      if (!isAuthenticated || progressStatusByCollection[summary.id]) {
+      if (!isApiReady || progressStatusByCollection[summary.id]) {
         return;
       }
 
@@ -349,7 +349,7 @@ export function ExploreVocabulary({
         }));
       }
     },
-    [isAuthenticated, progressStatusByCollection]
+    [isApiReady, progressStatusByCollection]
   );
 
   const filteredCollections = useMemo(() => {
@@ -439,7 +439,7 @@ export function ExploreVocabulary({
     if (
       (view !== "detail" && view !== "review") ||
       !selectedSummary ||
-      !isAuthenticated
+      !isApiReady
     ) {
       return;
     }
@@ -450,7 +450,7 @@ export function ExploreVocabulary({
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [ensureCollectionProgress, selectedSummary, view, isAuthenticated]);
+  }, [ensureCollectionProgress, selectedSummary, view, isApiReady]);
 
   // Dựng deck ôn tập đúng 1 lần mỗi lượt vào review (sau khi đã có words + rating).
   useEffect(() => {
@@ -462,8 +462,7 @@ export function ExploreVocabulary({
     // Lỗi tải tiến độ vẫn dựng deck (coi như chưa có rating) để không kẹt loading.
     const progressReady =
       !isAuthenticated ||
-      progressState === "ready" ||
-      progressState === "error";
+      (isApiReady && (progressState === "ready" || progressState === "error"));
 
     if (!wordsReady || !progressReady || deckCollectionId === id) return;
 
@@ -482,6 +481,7 @@ export function ExploreVocabulary({
     wordStatusByCollection,
     progressStatusByCollection,
     isAuthenticated,
+    isApiReady,
     wordsByCollection,
     deckCollectionId,
     buildReviewDeck
@@ -544,7 +544,7 @@ export function ExploreVocabulary({
       activeCollectionId: collectionId
     }));
 
-    if (isAuthenticated) {
+    if (isApiReady) {
       void setCollectionSaved(slug, willSave).catch(() => {});
     }
   }
@@ -571,7 +571,9 @@ export function ExploreVocabulary({
     }
     setShowAnswer(false);
 
-    void rateWordApi(wordId, rating).catch(() => {});
+    if (isApiReady) {
+      void rateWordApi(wordId, rating).catch(() => {});
+    }
   }
 
   function moveWord(direction: "previous" | "next") {
@@ -588,7 +590,7 @@ export function ExploreVocabulary({
   }
 
   async function handleResetKnown() {
-    if (!selectedSummary || isResettingKnown) return;
+    if (!selectedSummary || !isApiReady || isResettingKnown) return;
 
     const { id, slug } = selectedSummary;
     setIsResettingKnown(true);

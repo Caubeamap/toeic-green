@@ -62,7 +62,7 @@ function formatDate(value: string) {
 
 export function UserProfile() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isApiReady, isLoading, user } = useAuth();
   const [loadedProfile, setLoadedProfile] = useState<{
     profile: UserProfileData;
     userId: string;
@@ -73,7 +73,7 @@ export function UserProfile() {
   const attemptCount = usePracticeStats().data?.totalAttempts ?? 0;
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !isApiReady) {
       return;
     }
 
@@ -97,7 +97,7 @@ export function UserProfile() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, isApiReady]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

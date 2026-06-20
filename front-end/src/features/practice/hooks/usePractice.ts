@@ -48,7 +48,12 @@ export function usePracticeCatalog(
   initialTests?: PracticeTest[],
   initialProgressTests?: PracticeTest[],
 ) {
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const {
+    isAuthenticated,
+    isApiReady,
+    isLoading: authLoading,
+    user
+  } = useAuth();
   const userId = user?.id;
 
   const publicQuery = useQuery({
@@ -60,7 +65,7 @@ export function usePracticeCatalog(
   const progressQuery = useQuery({
     queryKey: practiceKeys.tests(scopeFor(true, userId)),
     queryFn: listPracticeTestsWithProgress,
-    enabled: isAuthenticated && Boolean(userId),
+    enabled: isApiReady && Boolean(userId),
     initialData: initialProgressTests,
     refetchOnMount: "always"
   });
@@ -68,7 +73,9 @@ export function usePracticeCatalog(
   const tests = progressQuery.data ?? publicQuery.data ?? [];
   const isUserProgressPending =
     !progressQuery.data &&
-    (authLoading || (isAuthenticated && progressQuery.isFetching));
+    (authLoading ||
+      (isAuthenticated && !isApiReady) ||
+      (isApiReady && progressQuery.isFetching));
 
   return {
     tests,
@@ -87,7 +94,7 @@ export function usePracticeTestDetail(
   slug: string,
   initialTest?: PracticeTest
 ) {
-  const { isAuthenticated, user } = useAuth();
+  const { isApiReady, user } = useAuth();
 
   const publicQuery = useQuery({
     queryKey: practiceKeys.test(slug, "public"),
@@ -99,7 +106,7 @@ export function usePracticeTestDetail(
   const progressQuery = useQuery({
     queryKey: practiceKeys.test(slug, scopeFor(true, user?.id)),
     queryFn: () => getPracticeTestWithProgress(slug),
-    enabled: isAuthenticated && Boolean(user?.id) && Boolean(slug)
+    enabled: isApiReady && Boolean(user?.id) && Boolean(slug)
   });
 
   const test = progressQuery.data ?? publicQuery.data ?? null;
@@ -127,39 +134,41 @@ export function usePracticeQuestions(
   enabled = true,
   initialQuestions?: ToeicQuestion[]
 ) {
+  const { isApiReady } = useAuth();
+
   return useQuery({
     queryKey: practiceKeys.questions(slug),
     queryFn: () => listPracticeQuestions(slug),
-    enabled: enabled && Boolean(slug),
+    enabled: isApiReady && enabled && Boolean(slug),
     staleTime: 10 * 60_000,
     initialData: initialQuestions
   });
 }
 
 export function usePracticeStats() {
-  const { isAuthenticated, user } = useAuth();
+  const { isApiReady, user } = useAuth();
   return useQuery({
     queryKey: practiceKeys.stats(user?.id),
     queryFn: getPracticeStats,
-    enabled: isAuthenticated && Boolean(user?.id)
+    enabled: isApiReady && Boolean(user?.id)
   });
 }
 
 export function useRecentAttempts() {
-  const { isAuthenticated, user } = useAuth();
+  const { isApiReady, user } = useAuth();
   return useQuery({
     queryKey: practiceKeys.recent(user?.id),
     queryFn: listRecentPracticeAttempts,
-    enabled: isAuthenticated && Boolean(user?.id)
+    enabled: isApiReady && Boolean(user?.id)
   });
 }
 
 export function useAttemptResult(slug: string, attemptId: string) {
-  const { isAuthenticated } = useAuth();
+  const { isApiReady } = useAuth();
   return useQuery({
     queryKey: practiceKeys.attempt(slug, attemptId),
     queryFn: () => getPracticeAttemptResult(slug, attemptId),
-    enabled: isAuthenticated && Boolean(slug) && Boolean(attemptId),
+    enabled: isApiReady && Boolean(slug) && Boolean(attemptId),
     // Bài đã nộp là bất biến → coi là tươi lâu, khỏi refetch khi quay lại.
     staleTime: 5 * 60_000,
     retry: false
@@ -167,11 +176,11 @@ export function useAttemptResult(slug: string, attemptId: string) {
 }
 
 export function useLatestAttemptResult(slug: string) {
-  const { isAuthenticated } = useAuth();
+  const { isApiReady } = useAuth();
   return useQuery({
     queryKey: practiceKeys.latest(slug),
     queryFn: () => getLatestPracticeAttemptResult(slug),
-    enabled: isAuthenticated && Boolean(slug),
+    enabled: isApiReady && Boolean(slug),
     staleTime: 5 * 60_000,
     retry: false
   });

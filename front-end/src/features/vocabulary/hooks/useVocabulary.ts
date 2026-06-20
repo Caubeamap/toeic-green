@@ -19,13 +19,13 @@ export function vocabularyQueryKey(userId: string | undefined) {
 
 /** Query thuần: danh sách từ vựng của user hiện tại (cache trong RAM). */
 export function useVocabularyWords() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isApiReady } = useAuth();
   const userId = user?.id;
 
   return useQuery({
     queryKey: vocabularyQueryKey(userId),
     queryFn: fetchVocabularyWords,
-    enabled: isAuthenticated && Boolean(userId)
+    enabled: isApiReady && Boolean(userId)
   });
 }
 

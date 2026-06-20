@@ -8,7 +8,7 @@ export default defineConfig([
   globalIgnores([
     ".next/**",
     "node_modules/**",
-    "crosstab-e2e.cjs",
+    "e2e/**",
     "skills/**",
     "stitch_toeic_green_learning_hub/**"
   ])

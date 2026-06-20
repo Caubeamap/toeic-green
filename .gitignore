@@ -9,7 +9,6 @@ yarn-error.log*
 pnpm-debug.log*
 tmp-dev-logs/
 skills/
-stitch_toeic_green_learning_hub/
 .vscode/
 .cursor/
 .claude/
@@ -18,7 +17,6 @@ CODEX.md
 CLAUDE.md
 .agents/
 toeic-crawler/
-flashcard-crawler/
 
 
 # TypeScript build info

@@ -1,8 +1,16 @@
 node_modules
 dist
 npm-debug.log
+# Loại MỌI .env* (kể cả .env.production chứa secret) khỏi build context để không
+# lọt vào image / Cloud Build. Runtime lấy biến từ Cloud Run + Secret Manager.
 .env
+.env.*
 .git
 .dockerignore
 Dockerfile
 docker-compose.yml
+# Script deploy không cần trong image
+deploy
+# Test không cần trong image (chỉ dist/ được copy sang runner)
+test
+**/*.spec.ts

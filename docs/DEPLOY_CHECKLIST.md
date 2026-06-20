@@ -54,7 +54,7 @@
 ## 4. Dịch vụ ngoài
 
 - ✅ Google OAuth: Authorized JS origins đã có `https://toeicgreen.com`, `https://www.toeicgreen.com`; app đã Publish (In production).
-- ⬜ Resend: verify domain `toeicgreen.com` để gửi từ `no-reply@toeicgreen.com` (nếu chưa, email vào spam hoặc bị từ chối).
+- ✅ Resend: domain `toeicgreen.com` đã verify, gửi email từ `no-reply@toeicgreen.com` hoạt động.
 - ✅ Upstash Redis, Cloudflare R2: đã cấu hình.
 
 ## 5. Build & smoke trước khi mở cho người dùng
@@ -72,7 +72,9 @@
 - ✅ Deploy script đã nhúng sẵn config không bí mật; `create-secrets.sh .env.production` đẩy secret lên Secret Manager.
 
 ### Blocker còn lại (thuần vận hành khi bấm deploy)
-1. Map custom domain `api.toeicgreen.com` vào Cloud Run (để cookie `sameSite:strict` chạy).
-2. Set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_MEDIA_ORIGIN` khi build frontend.
-3. Verify domain `toeicgreen.com` trong Resend.
+1. Deploy backend lên Cloud Run (xem `CLOUD_RUN_DEPLOY.md`).
+2. Map custom domain `api.toeicgreen.com` vào Cloud Run (để cookie `sameSite:strict` chạy).
+3. Set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_MEDIA_ORIGIN` khi build frontend.
 4. `prisma migrate deploy` lên DB prod (hiện đã up-to-date).
+
+✅ Resend đã verify (2026-06-20).

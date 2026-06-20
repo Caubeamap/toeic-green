@@ -25,11 +25,10 @@ gcloud config set project <PROJECT_ID>
 # Bật API
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
   secretmanager.googleapis.com artifactregistry.googleapis.com
-
-# Tạo Artifact Registry repo chứa image (Tokyo)
-gcloud artifacts repositories create toeic-green \
-  --repository-format=docker --location=asia-northeast1
 ```
+
+> Deploy dùng `gcloud run deploy --source .` nên Artifact Registry repo
+> (`cloud-run-source-deploy`) được **tạo tự động** — không cần tạo thủ công.
 
 ## 2. Đẩy bí mật lên Secret Manager
 

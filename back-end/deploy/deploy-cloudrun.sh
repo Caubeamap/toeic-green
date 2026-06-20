@@ -5,21 +5,16 @@
 set -euo pipefail
 
 # ─────────── CHỈNH CÁC GIÁ TRỊ NÀY ───────────
-PROJECT_ID="CHANGE_ME"                 # ID project GCP
+PROJECT_ID="toeic-green"               # ID project GCP (Toeic Green, number 739130230350)
 REGION="asia-northeast1"               # Tokyo — CÙNG vùng Supabase ap-northeast-1 để giảm latency
 SERVICE="toeic-green-api"
-REPO="toeic-green"                     # Artifact Registry repo (tạo trước nếu chưa có)
 # ──────────────────────────────────────────────
 
-TAG="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${TAG}"
-
-echo "Building & pushing $IMAGE ..."
-gcloud builds submit --project "$PROJECT_ID" --tag "$IMAGE" .
-
-echo "Deploying $SERVICE ..."
+# --source . : Cloud Build tự build từ Dockerfile rồi đẩy lên Artifact Registry
+# (tự tạo repo "cloud-run-source-deploy"), không cần tạo repo/builds submit thủ công.
+echo "Building from source & deploying $SERVICE ..."
 gcloud run deploy "$SERVICE" \
-  --image "$IMAGE" \
+  --source . \
   --project "$PROJECT_ID" \
   --region "$REGION" \
   --platform managed \

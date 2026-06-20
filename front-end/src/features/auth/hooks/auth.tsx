@@ -127,12 +127,6 @@ export function AuthProvider({
     async function hydrate() {
       setIsApiReady(false);
 
-      if (!initialAuth?.user) {
-        clearUserProfileCache();
-        setState({ status: "unauthenticated" });
-        return;
-      }
-
       if (initialAuth?.profile) {
         cacheUserProfileResponse(initialAuth.profile);
       }
@@ -140,13 +134,15 @@ export function AuthProvider({
       try {
         const data = await refreshSession<RefreshResponse>();
 
-        if (!data?.user || !data.profile) {
+        if (!data?.user) {
           throw new Error(
-            "Refresh response is missing the current user profile",
+            "Refresh response is missing the current user",
           );
         }
 
-        cacheUserProfileResponse(data.profile);
+        if (data.profile) {
+          cacheUserProfileResponse(data.profile);
+        }
         setIsApiReady(true);
         setState({ status: "authenticated", user: mapUser(data.user) });
       } catch {

@@ -62,6 +62,7 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 | `CORS_ALLOWED_ORIGINS` | `https://www.toeicgreen.com` | Origin phụ (apex đã có ở FRONTEND_URL) |
 | `TRUST_PROXY` | `1` | Sau Cloud Run/CDN — lấy IP thật cho rate-limit |
 | `COOKIE_SECURE` | `true` | HTTPS |
+| `COOKIE_DOMAIN` | `.toeicgreen.com` | Cho `toeicgreen.com` và `api.toeicgreen.com` cùng dùng refresh cookie |
 | `DB_POOL_MAX` | `5` | Pool/instance. Tổng = 5 × max-instances (xem mục 5) |
 | `MAIL_PROVIDER` | `resend` | |
 | `EMAIL_FROM` | `TOEIC Green <no-reply@toeicgreen.com>` | Domain phải verify trong Resend |

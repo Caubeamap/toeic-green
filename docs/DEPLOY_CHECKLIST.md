@@ -23,6 +23,7 @@
 | `CORS_ALLOWED_ORIGINS` | ⬜ | ✅ | `https://www.toeicgreen.com`. |
 | `TRUST_PROXY=1` | 🔴 | ✅ | Sau Cloud Run/CDN — lấy IP thật cho rate-limit. |
 | `COOKIE_SECURE=true` | 🔴 | ✅ | Cookie refresh chỉ gửi qua HTTPS. |
+| `COOKIE_DOMAIN=.toeicgreen.com` | 🔴 | ✅ | Cookie refresh dùng chung cho frontend SSR và API subdomain. |
 | `MAIL_PROVIDER=resend` + `RESEND_API_KEY` | 🔴 | ✅ | Key thật. |
 | `EMAIL_FROM` | 🔴 | ✅ | `no-reply@toeicgreen.com` — domain phải **verify trong Resend** (mục 4). |
 | `EMAIL_VERIFICATION_URL` | 🔴 | ✅ | `https://toeicgreen.com/verify-email` (đã đổi từ localhost). |

@@ -21,7 +21,10 @@ export class PrismaService
     if (!PrismaService.pool) {
       PrismaService.pool = new Pool({
         connectionString,
-        max: 20, // Configure pool connection size limit
+        // Pool size MỖI INSTANCE. Trên môi trường serverless scale ngang (vd Cloud
+        // Run), tổng connection = max × số instance → đặt nhỏ hơn qua DB_POOL_MAX để
+        // không vượt giới hạn pooler Supabase. Mặc định 20 cho server đơn.
+        max: parseDbPoolMax(process.env.DB_POOL_MAX, 20),
         idleTimeoutMillis: 30000,
         // Remote Supabase: give bursts/cold acquires headroom instead of the
         // aggressive 2s that fails fast under load.
@@ -53,4 +56,9 @@ export class PrismaService
       await PrismaService.pool.end();
     }
   }
+}
+
+function parseDbPoolMax(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
 }

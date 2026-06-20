@@ -1,6 +1,8 @@
 node_modules
-# Keep environment variables out of version control
+# Keep environment variables out of version control (mọi .env*, trừ file mẫu)
 .env
+.env.*
+!.env.example
 
 /generated/prisma
 /dist

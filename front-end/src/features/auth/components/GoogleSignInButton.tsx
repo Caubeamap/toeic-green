@@ -165,10 +165,10 @@ export function GoogleSignInButton() {
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-outline-variant bg-surface text-[15px] font-medium text-on-surface transition hover:bg-surface-variant/40 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-outline-variant bg-surface text-[15px] font-medium text-on-surface transition hover:border-primary/40 hover:bg-primary-container/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <GoogleLogo />
-        <span>{loading ? "Đang đăng nhập…" : "Đăng nhập bằng Google"}</span>
+        <span>{loading ? "Đang đăng nhập…" : "Đăng nhập với Google"}</span>
       </button>
       {error ? (
         <p className="mt-3 text-center text-[13px] font-medium text-red-600">

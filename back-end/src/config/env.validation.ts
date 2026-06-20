@@ -6,6 +6,10 @@ const MINIMUM_SECRET_LENGTH = 32;
 const KNOWN_DEFAULT_SECRETS = new Set([
   'default_jwt_access_secret_2026',
   'default_jwt_refresh_secret_2026',
+  // Placeholder công khai trong .env.example — dài >=32 nên không bị chặn bởi luật độ
+  // dài; phải liệt kê tường minh để không ai vô tình ship bằng giá trị mẫu.
+  'your_very_long_jwt_access_secret_key_2026',
+  'your_very_long_jwt_refresh_secret_key_2026',
 ]);
 
 export function validateEnvironment(config: Record<string, unknown>) {
@@ -37,6 +41,20 @@ export function validateEnvironment(config: Record<string, unknown>) {
 
   requireProductionValue(config, 'EMAIL_FROM');
   validateMailProvider(config);
+
+  // Hạ tầng bắt buộc ở production: thiếu các giá trị này hiện đang fail âm thầm
+  // (config đọc với fallback hoặc undefined) → khởi động nhầm với cấu hình thiếu.
+  // - DATABASE_URL: không có DB thì app vô dụng.
+  // - REDIS_URL: thiếu → throttler tụt về in-memory per-instance → rate-limit KHÔNG
+  //   chia sẻ giữa các instance khi scale (đúng yêu cầu nhiều người dùng đồng thời).
+  // - R2_*: thiếu → upload/đọc media (avatar, ảnh/audio đề thi) hỏng.
+  requireProductionValue(config, 'DATABASE_URL');
+  requireProductionValue(config, 'REDIS_URL');
+  requireProductionValue(config, 'R2_ACCOUNT_ID');
+  requireProductionValue(config, 'R2_ACCESS_KEY');
+  requireProductionValue(config, 'R2_SECRET_KEY');
+  requireProductionValue(config, 'R2_BUCKET_NAME');
+  requireProductionValue(config, 'R2_PUBLIC_URL');
 
   return config;
 }

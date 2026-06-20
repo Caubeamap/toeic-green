@@ -73,12 +73,31 @@ export function configureApp(app: NestExpressApplication) {
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:6868';
+  // CORS chấp nhận origin canonical (FRONTEND_URL) cộng các origin phụ khai báo qua
+  // CORS_ALLOWED_ORIGINS (phân tách bằng dấu phẩy) — ví dụ phục vụ cả apex và www
+  // (https://toeicgreen.com + https://www.toeicgreen.com). FRONTEND_URL vẫn là URL
+  // đơn dùng để dựng link (email...), nên KHÔNG nhồi danh sách vào nó.
+  const allowedOrigins = buildAllowedOrigins(
+    frontendUrl,
+    process.env.CORS_ALLOWED_ORIGINS,
+  );
   app.enableCors({
-    origin: frontendUrl,
+    origin: allowedOrigins,
     credentials: true,
   });
 
   return { frontendUrl };
+}
+
+function buildAllowedOrigins(
+  primary: string,
+  extra: string | undefined,
+): string[] {
+  const fromExtra = (extra ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  return Array.from(new Set([primary, ...fromExtra]));
 }
 
 function parseTrustProxy(value: string | undefined): number | boolean | null {

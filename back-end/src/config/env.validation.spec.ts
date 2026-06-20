@@ -1,5 +1,16 @@
 import { validateEnvironment } from './env.validation';
 
+// Hạ tầng bắt buộc ở production (ngoài JWT + mail) — dùng chung cho các case hợp lệ.
+const PROD_INFRA = {
+  DATABASE_URL: 'postgresql://user:pass@db.example:5432/app',
+  REDIS_URL: 'rediss://default:pass@cache.example:6379',
+  R2_ACCOUNT_ID: 'acc',
+  R2_ACCESS_KEY: 'key',
+  R2_SECRET_KEY: 'secret',
+  R2_BUCKET_NAME: 'bucket',
+  R2_PUBLIC_URL: 'https://assets.example.com',
+};
+
 describe('validateEnvironment', () => {
   it('allows development defaults', () => {
     expect(validateEnvironment({ NODE_ENV: 'development' })).toEqual({
@@ -33,9 +44,32 @@ describe('validateEnvironment', () => {
       MAIL_PROVIDER: 'resend',
       RESEND_API_KEY: 're_test',
       EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+      ...PROD_INFRA,
     };
 
     expect(validateEnvironment(config)).toBe(config);
+  });
+
+  it('requires production infrastructure config (database/redis/r2)', () => {
+    const base = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a'.repeat(32),
+      JWT_REFRESH_SECRET: 'b'.repeat(32),
+      MAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_test',
+      EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+      ...PROD_INFRA,
+    };
+
+    expect(() =>
+      validateEnvironment({ ...base, DATABASE_URL: undefined }),
+    ).toThrow('DATABASE_URL must be configured');
+    expect(() =>
+      validateEnvironment({ ...base, REDIS_URL: undefined }),
+    ).toThrow('REDIS_URL must be configured');
+    expect(() =>
+      validateEnvironment({ ...base, R2_SECRET_KEY: undefined }),
+    ).toThrow('R2_SECRET_KEY must be configured');
   });
 
   it('requires production mail delivery configuration', () => {
@@ -59,6 +93,15 @@ describe('validateEnvironment', () => {
     ).toThrow('known default');
   });
 
+  it('rejects the public .env.example placeholder secrets', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'development',
+        JWT_SECRET: 'your_very_long_jwt_access_secret_key_2026',
+      }),
+    ).toThrow('known default');
+  });
+
   it('rejects a weak secret even outside production', () => {
     expect(() =>
       validateEnvironment({
@@ -77,6 +120,7 @@ describe('validateEnvironment', () => {
       SMTP_USER: 'demo@gmail.com',
       SMTP_APP_PASSWORD: 'example-app-password',
       EMAIL_FROM: 'TOEIC Green <demo@gmail.com>',
+      ...PROD_INFRA,
     };
 
     expect(validateEnvironment(config)).toBe(config);

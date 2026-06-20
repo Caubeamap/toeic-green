@@ -22,7 +22,10 @@ describe('PracticeService.listQuestions', () => {
       question: { findMany },
     } as never);
     const snapshotSpy = jest
-      .spyOn(service as unknown as { getTestsSnapshot: () => Promise<never> }, 'getTestsSnapshot')
+      .spyOn(
+        service as unknown as { getTestsSnapshot: () => Promise<never> },
+        'getTestsSnapshot',
+      )
       .mockRejectedValue(new Error('snapshot should not be loaded'));
 
     const result = await service.listQuestions('ets-2026-test-10');

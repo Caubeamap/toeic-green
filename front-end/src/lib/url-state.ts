@@ -12,6 +12,13 @@ type UpdateOptions = {
   replace?: boolean;
   /** Có để Next tự cuộn lên đầu trang sau khi đổi URL hay không. Mặc định false. */
   scroll?: boolean;
+  /**
+   * `true` => cập nhật URL bằng native `window.history` (Next 14.1+/16 đồng bộ với
+   * `useSearchParams`) thay vì `router.push/replace`. Tránh refetch RSC + reconcile
+   * server tree → cập nhật state-điều-hướng tần suất cao (vd duyệt câu trong bài
+   * review) gần như tức thì, không giật. Vẫn giữ URL bookmark được + back/forward.
+   */
+  native?: boolean;
 };
 
 type ParamUpdates = Record<string, string | number | null | undefined>;
@@ -45,6 +52,16 @@ export function useUrlState() {
       const queryString = params.toString();
       const url = queryString ? `${pathname}?${queryString}` : pathname;
       const scroll = options.scroll ?? false;
+
+      if (options.native && typeof window !== "undefined") {
+        // Native history: không refetch RSC, useSearchParams vẫn đồng bộ (Next 16).
+        if (options.replace) {
+          window.history.replaceState(null, "", url);
+        } else {
+          window.history.pushState(null, "", url);
+        }
+        return;
+      }
 
       if (options.replace) {
         router.replace(url, { scroll });

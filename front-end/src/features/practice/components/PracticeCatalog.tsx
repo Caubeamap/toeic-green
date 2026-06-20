@@ -205,7 +205,7 @@ export function PracticeCatalog({
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <PracticeTestCardSkeleton key={index} />
             ))}
@@ -221,7 +221,7 @@ export function PracticeCatalog({
         ) : isHistoryView ? (
           <HistoryList tests={paginatedTests} />
         ) : paginatedTests.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {paginatedTests.map((test) => (
               <PracticeTestCard
                 key={test.id}

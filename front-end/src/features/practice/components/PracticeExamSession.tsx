@@ -237,9 +237,6 @@ export function PracticeExamSession({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement[]>([]);
 
-  // Responsive tab state for mobile
-  const [mobileActiveTab, setMobileActiveTab] = useState<"passage" | "questions">("passage");
-
   // Part 7 tabs state (Multi-passages)
   const [activePassageTab, setActivePassageTab] = useState(0);
 
@@ -249,6 +246,9 @@ export function PracticeExamSession({
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+  // Trên mobile cả màn là MỘT cột cuộn (audio → tranh/đoạn → câu hỏi) nên
+  // ref này trỏ vào vùng cuộn chung để đưa media lên đầu mỗi khi đổi nhóm câu.
+  const mainScrollRef = useRef<HTMLDivElement>(null);
 
   const examMinutes = customTimeLimit !== undefined ? customTimeLimit : test.minutes;
   const timer = useCountdown(examMinutes);
@@ -412,7 +412,6 @@ export function PracticeExamSession({
     }
     
     setActivePassageTab(0);
-    setMobileActiveTab("passage"); // Default to passage tab when switching questions
   }
 
   // Handle direct navigation
@@ -424,6 +423,13 @@ export function PracticeExamSession({
         // Auto scroll to focused card
         const qNum = questions[index].questionNumber;
         setTimeout(() => {
+          // Mobile (1 cột cuộn): đưa vùng cuộn chung về đầu để hiện audio/tranh/đoạn
+          // trước, rồi người dùng cuộn xuống chọn đáp án (giống study4). Desktop (2
+          // cột): căn thẻ câu hỏi vào giữa panel phải như cũ.
+          if (typeof window !== "undefined" && window.innerWidth < 768) {
+            mainScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+          }
           const element = document.getElementById(`question-card-${qNum}`);
           if (element) {
             element.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -749,20 +755,20 @@ export function PracticeExamSession({
         />
       )}
       {/* ──── Sticky Header ──── */}
-      <header className="z-30 flex h-16 shrink-0 items-center justify-between border-b border-outline-variant/30 bg-white/95 px-4 shadow-glass md:px-6">
-        <div className="flex items-center gap-3">
+      <header className="z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-outline-variant/30 bg-white/95 px-3 shadow-glass md:gap-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
           <button
             type="button"
             onClick={() => setShowExitDialog(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-container-low"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-container-low"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <div>
-            <h1 className="text-sm font-extrabold tracking-tight text-ink md:text-base">
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-extrabold tracking-tight text-ink md:text-base">
               {displayTestTitle}
             </h1>
-            <p className="text-[11px] font-black text-primary md:text-xs">
+            <p className="truncate text-[11px] font-black text-primary md:text-xs">
               {PART_SHORT_LABELS[currentQuestion.partId]}: {PART_DESCRIPTIONS[currentQuestion.partId]}
             </p>
           </div>
@@ -782,14 +788,14 @@ export function PracticeExamSession({
         </div>
 
         {/* Stats & Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
           {/* Audio toggle helper during practice (only in Listening Parts) */}
 
 
           {/* Clock timer */}
           <div
             className={cn(
-              "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black tabular-nums transition-colors",
+              "flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-black tabular-nums transition-colors md:gap-2 md:px-3",
               (!timer.isCountUp && timer.remaining <= 300)
                 ? "bg-red-50 text-red-600 border-red-200"
                 : "border-outline-variant/40 bg-primary-container/20 text-on-primary-container"
@@ -804,7 +810,7 @@ export function PracticeExamSession({
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-xl border transition",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition",
               sidebarOpen
                 ? "border-primary/20 bg-primary-container/25 text-primary"
                 : "border-outline-variant/60 bg-white/60 text-muted hover:bg-white/80"
@@ -818,7 +824,7 @@ export function PracticeExamSession({
           <button
             type="button"
             onClick={() => setShowSubmitDialog(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-extrabold text-white shadow-glow transition-colors hover:bg-primary/95"
+            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-extrabold text-white shadow-glow transition-colors hover:bg-primary/95 md:px-4"
           >
             <Send className="h-3.5 w-3.5" />
             <span>Nộp bài</span>
@@ -852,55 +858,29 @@ export function PracticeExamSession({
           })}
         </div>
       </div>
-      {/* Mobile Tab Selector (Only shown on screens < md, and not in Part 5) */}
-      {currentQuestion.partId !== "part-5" && (
-        <div className="flex border-b border-outline-variant/20 bg-white md:hidden shrink-0 z-20">
-          <button
-            type="button"
-            onClick={() => setMobileActiveTab("passage")}
-            className={cn(
-              "flex-1 py-3 text-center text-xs font-black transition-colors border-b-2",
-              mobileActiveTab === "passage"
-                ? "border-primary text-primary bg-primary/5"
-                : "border-transparent text-muted hover:bg-surface-container-low"
-            )}
-          >
-            {isListening ? "🎧 Nghe & Đề bài" : "📄 Đoạn văn đọc"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileActiveTab("questions")}
-            className={cn(
-              "flex-1 py-3 text-center text-xs font-black transition-colors border-b-2",
-              mobileActiveTab === "questions"
-                ? "border-primary text-primary bg-primary/5"
-                : "border-transparent text-muted hover:bg-surface-container-low"
-            )}
-          >
-            ✍️ Questions & Answers
-          </button>
-        </div>
-      )}
-
-      {/* ──── Main Layout ──── */}
-      <div className="flex flex-1 overflow-hidden relative">
+      {/* ──── Main Layout ────
+          Mobile: MỘT cột cuộn dọc (audio/tranh/đoạn → câu hỏi + đáp án ngay dưới)
+          để điền đáp án nhanh, không phải đổi tab (tham khảo study4).
+          md+: trở lại 2 cột scroll riêng như cũ. */}
+      <div
+        ref={mainScrollRef}
+        className="relative flex flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden"
+      >
         
         {/* LEFT COLUMN: Media / Transcript / Passage */}
         <div
           ref={leftPanelRef}
           className={cn(
-            "flex-1 overflow-y-auto border-r border-outline-variant/20 p-4 md:p-6 lg:p-8 bg-surface-container-low flex-col",
+            // Mobile: khối full-width cao tự nhiên, nằm trên cùng cột cuộn.
+            // md+: cột trái scroll riêng, chia tỉ lệ theo part.
+            "flex w-full flex-col border-b border-outline-variant/20 bg-surface-container-low p-4 md:w-auto md:border-b-0 md:border-r md:overflow-y-auto md:p-6 lg:p-8",
             currentQuestion.partId === "part-1"
               ? "md:flex-[1.45] lg:flex-[1.7]"
               : "md:flex-[1.2] lg:flex-[1.3]",
-            currentQuestion.partId === "part-5"
-              ? "hidden"
-              : mobileActiveTab === "passage"
-              ? "flex"
-              : "hidden md:flex"
+            currentQuestion.partId === "part-5" && "hidden"
           )}
         >
-          <div className="mx-auto w-full max-w-3xl flex-1 flex flex-col justify-center">
+          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-start md:justify-center">
             
             {/* Unified Listening Player */}
             {isListening && (
@@ -1045,7 +1025,7 @@ export function PracticeExamSession({
                     loading="eager"
                     fetchPriority="high"
                     className={cn(
-                      "h-[min(70vh,700px)] min-h-[420px] w-full object-contain bg-zinc-50 transition-opacity duration-150",
+                      "h-[min(46vh,360px)] min-h-[240px] w-full object-contain bg-zinc-50 transition-opacity duration-150 md:h-[min(70vh,700px)] md:min-h-[420px]",
                       imageLoading ? "opacity-0" : "opacity-100"
                     )}
                     onLoad={() => setImageLoading(false)}
@@ -1063,7 +1043,7 @@ export function PracticeExamSession({
                   </div>
                 </div>
                 <p className="text-xs text-center text-muted italic">
-                  * Nhìn vào tranh và chọn câu mô tả đúng nhất trên bảng câu hỏi bên phải.
+                  * Nhìn vào tranh và chọn câu mô tả đúng nhất ở phần trả lời.
                 </p>
               </div>
             )}
@@ -1080,7 +1060,7 @@ export function PracticeExamSession({
                 <div>
                   <h3 className="text-lg font-extrabold text-ink">Phần thi Nghe & Trả lời</h3>
                   <p className="mt-2 text-xs text-muted max-w-sm mx-auto leading-relaxed">
-                    Bạn sẽ nghe một câu hỏi/câu nói và 3 phương án phản hồi. Chọn phản hồi chính xác nhất trên bảng câu hỏi bên phải.
+                    Bạn sẽ nghe một câu hỏi/câu nói và 3 phương án phản hồi. Chọn phản hồi chính xác nhất ở phần trả lời.
                   </p>
                 </div>
 
@@ -1150,7 +1130,7 @@ export function PracticeExamSession({
                       <Headphones className="h-8 w-8 text-primary" />
                     </div>
                     <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
-                      Listen to the {currentQuestion.partId === "part-3" ? "conversation" : "short talk"} from the player above and answer the questions on the right.
+                      Listen to the {currentQuestion.partId === "part-3" ? "conversation" : "short talk"} from the player above and answer the questions.
                     </p>
                   </div>
                 )}
@@ -1161,8 +1141,8 @@ export function PracticeExamSession({
             {/* 4. TEXT COMPLETION (PART 6) */}
             {currentQuestion.partId === "part-6" && (
               <div className="space-y-4">
-                <div 
-                  className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto leading-relaxed"
+                <div
+                  className="rounded-3xl border border-white bg-white/86 p-5 shadow-glass leading-relaxed md:p-6 md:max-h-[650px] md:overflow-y-auto lg:max-h-[750px]"
                 >
                   {currentQuestion.image_url ? (
                     <div className="space-y-4">
@@ -1227,7 +1207,7 @@ export function PracticeExamSession({
                   </div>
                 )}
                 
-                <div className="rounded-3xl border border-white bg-white/86 p-6 shadow-glass max-h-[650px] lg:max-h-[750px] overflow-y-auto">
+                <div className="rounded-3xl border border-white bg-white/86 p-5 shadow-glass md:p-6 md:max-h-[650px] md:overflow-y-auto lg:max-h-[750px]">
                   {passagesList.length > 0 ? (
                     <div 
                       className="text-sm leading-relaxed text-ink font-medium passage-content"
@@ -1275,14 +1255,7 @@ export function PracticeExamSession({
         {/* RIGHT COLUMN: Question and Answers Area */}
         <main
           ref={rightPanelRef}
-          className={cn(
-            "flex-1 overflow-y-auto p-4 md:p-6 lg:p-8",
-            currentQuestion.partId === "part-5"
-              ? "block"
-              : mobileActiveTab === "questions"
-              ? "block"
-              : "hidden md:block"
-          )}
+          className="w-full p-4 md:flex-1 md:overflow-y-auto md:p-6 lg:p-8"
         >
           <div className="mx-auto max-w-2xl space-y-5">
             

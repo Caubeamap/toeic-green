@@ -267,7 +267,7 @@ export function EditProfileForm() {
             </p>
           </div>
 
-          <div className="grid gap-7 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-7 px-5 py-6 md:px-8 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-5">
               <Field label="Email">
                 <input

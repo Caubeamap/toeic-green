@@ -637,7 +637,7 @@ export function ExploreVocabulary({
                   luyện tập.
                 </p>
               </div>
-              <div className="relative w-full md:max-w-sm">
+              <div className="relative w-full lg:max-w-sm">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <input
                   value={query}
@@ -1195,7 +1195,7 @@ function CollectionWordsPage({
                 <button
                   type="button"
                   onClick={() => handlePageChange(currentPage - 1)}
-                  className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
+                  className="inline-flex h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
                   title="Trang trước"
                 >
                   <ChevronLeft size={16} />
@@ -1211,7 +1211,7 @@ function CollectionWordsPage({
                     type="button"
                     onClick={() => handlePageChange(pageNum)}
                     className={cn(
-                      "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border text-sm font-bold transition px-3",
+                      "inline-flex h-10 min-w-10 items-center justify-center rounded-lg border text-sm font-bold transition px-3",
                       isActive
                         ? "bg-primary border-primary text-white hover:bg-primary/90 shadow-sm"
                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -1226,7 +1226,7 @@ function CollectionWordsPage({
                 <button
                   type="button"
                   onClick={() => handlePageChange(currentPage + 1)}
-                  className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
+                  className="inline-flex h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
                   title="Trang sau"
                 >
                   <ChevronRight size={16} />
@@ -1467,7 +1467,7 @@ function FlashcardReview({
                 className={cn(
                   "col-start-1 row-start-1 grid w-full gap-6 p-5 text-left [backface-visibility:hidden] [transform:rotateY(180deg)]",
                   currentWord.imageUrl &&
-                    "md:grid-cols-[minmax(0,1fr)_240px] md:items-center"
+                    "md:grid-cols-[minmax(0,1fr)_200px] md:items-center lg:grid-cols-[minmax(0,1fr)_240px]"
                 )}
               >
                 <div>

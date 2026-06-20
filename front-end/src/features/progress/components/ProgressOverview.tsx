@@ -290,7 +290,7 @@ export function ProgressOverview() {
           />
         </div>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -399,7 +399,7 @@ export function ProgressOverview() {
           </aside>
         </div>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:p-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -501,7 +501,7 @@ function ProgressLoading() {
           />
         ))}
       </div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="h-80 animate-pulse rounded-xl border border-slate-200 bg-white" />
         <div className="h-80 animate-pulse rounded-xl border border-slate-200 bg-white" />
       </div>

@@ -751,6 +751,9 @@ export function PracticeResultReview({
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+  // Mobile (<lg): cả khối review là MỘT cột cuộn theo trang nên ref này dùng để
+  // đưa media câu mới lên đầu khi đổi câu (desktop vẫn cuộn riêng panel phải).
+  const reviewPanelRef = useRef<HTMLDivElement>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement[]>([]);
 
   // Derive active parts and active questions from the submitted attempt.
@@ -883,6 +886,12 @@ export function PracticeResultReview({
 
   const scrollToReviewCard = useCallback((questionNumber: number) => {
     requestAnimationFrame(() => {
+      // Mobile (<lg): trang là một cột cuộn → đưa khối review về đầu để hiện
+      // media câu mới trước, rồi cuộn xuống xem đáp án/giải thích (giống màn thi).
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        reviewPanelRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+        return;
+      }
       const container = rightPanelRef.current;
       const element = document.getElementById(`review-card-${questionNumber}`);
 
@@ -1225,13 +1234,18 @@ export function PracticeResultReview({
 
           <div className="relative grid grid-cols-1 gap-6 items-start">
             
-            {/* Container 1: Review Panel (Passage + Question Card) */}
-            <div className="h-[min(82vh,860px)] min-h-[680px] overflow-hidden rounded-3xl border border-white shadow-glass bg-white/86 relative flex flex-1 [contain:layout_paint] [transform:translateZ(0)]">
-            
+            {/* Container 1: Review Panel (Passage + Question Card)
+                Mobile (<lg): cao tự nhiên, cuộn theo trang (một cột).
+                lg+: khung cố định chiều cao, hai cột scroll riêng (giữ tối ưu jank). */}
+            <div
+              ref={reviewPanelRef}
+              className="relative flex flex-1 overflow-visible rounded-3xl border border-white bg-white/86 shadow-glass lg:h-[min(82vh,860px)] lg:min-h-[680px] lg:overflow-hidden [contain:layout_paint] [transform:translateZ(0)]"
+            >
+
             {/* 2-Column Split Review Panels */}
             <div
               className={cn(
-                "flex flex-1 overflow-hidden h-full min-w-0",
+                "flex flex-1 min-w-0 overflow-visible lg:h-full lg:overflow-hidden",
                 hasReviewContextPanel ? "flex-col lg:flex-row" : "flex-col"
               )}
             >
@@ -1240,8 +1254,8 @@ export function PracticeResultReview({
               <div
                 ref={leftPanelRef}
                 className={cn(
-                  "h-[46%] w-full min-w-0 overflow-y-auto border-b border-outline-variant/20 bg-surface-container-low p-4 md:p-6 lg:h-full lg:flex-none lg:border-b-0 lg:border-r",
-                  "lg:w-[60%] xl:w-[62%] 2xl:w-[64%] flex flex-col justify-start",
+                  "flex w-full min-w-0 flex-col justify-start border-b border-outline-variant/20 bg-surface-container-low p-4 md:p-6",
+                  "lg:h-full lg:flex-none lg:overflow-y-auto lg:border-b-0 lg:border-r lg:w-[60%] xl:w-[62%] 2xl:w-[64%]",
                   "overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]",
                   currentQuestion.partId === "part-5" && "hidden"
                 )}
@@ -1369,7 +1383,7 @@ export function PracticeResultReview({
                       )}
 
                       {activeContent && (
-                      <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[300px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] text-xs leading-relaxed text-ink font-semibold whitespace-pre-line transition-colors duration-150">
+                      <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft lg:max-h-[300px] lg:overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] text-xs leading-relaxed text-ink font-semibold whitespace-pre-line transition-colors duration-150">
                         {leftPanelLang === "en" ? (
                           <div dangerouslySetInnerHTML={{
                             __html: (() => {
@@ -1449,7 +1463,7 @@ export function PracticeResultReview({
                     </div>
                     
                     <div 
-                      className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] leading-relaxed"
+                      className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft lg:max-h-[600px] xl:max-h-[700px] lg:overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] leading-relaxed"
                     >
                       {leftPanelLang === "en" ? (
                         currentQuestion.image_url ? (
@@ -1545,7 +1559,7 @@ export function PracticeResultReview({
                             ))}
                           </div>
                         )}
-                        <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]">
+                        <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft lg:max-h-[600px] xl:max-h-[700px] lg:overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]">
                           {passagesList.length > 0 ? (
                             <div 
                               className="text-sm leading-relaxed text-ink font-medium passage-content"
@@ -1571,7 +1585,7 @@ export function PracticeResultReview({
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft max-h-[600px] lg:max-h-[700px] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] whitespace-pre-line text-sm text-muted font-medium leading-relaxed">
+                      <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-soft lg:max-h-[600px] xl:max-h-[700px] lg:overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)] whitespace-pre-line text-sm text-muted font-medium leading-relaxed">
                         {currentQuestion.transcript}
                       </div>
                     )}
@@ -1584,9 +1598,9 @@ export function PracticeResultReview({
               <main
                 ref={rightPanelRef}
                 className={cn(
-                  "min-w-0 overflow-y-auto overscroll-contain p-4 xl:p-5 [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]",
+                  "min-w-0 overscroll-contain p-4 xl:p-5 lg:overflow-y-auto [scrollbar-gutter:stable] [will-change:scroll-position] [transform:translateZ(0)]",
                   hasReviewContextPanel
-                    ? "w-full flex-1 lg:flex-none lg:w-[40%] xl:w-[38%] 2xl:w-[36%]"
+                    ? "w-full lg:flex-none lg:w-[40%] xl:w-[38%] 2xl:w-[36%]"
                     : "w-full flex-1"
                 )}
               >

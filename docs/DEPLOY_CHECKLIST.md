@@ -63,7 +63,7 @@
 - ✅ Frontend build → thành công (Vercel build OK, đã set đủ `NEXT_PUBLIC_*`).
 - ✅ Smoke API trên domain thật: `GET https://api.toeicgreen.com/api/practice/tests` → 200 + data.
 - ✅ Rate-limit hoạt động (response có header `x-ratelimit-limit: 100`, Redis-backed). Stack trace ẩn theo thiết kế (PrismaClientExceptionFilter + NODE_ENV=production).
-- ⬜ **Test end-to-end trên trình duyệt thật** (`https://toeicgreen.com`): đăng nhập mật khẩu + Google, reload giữ phiên, upload avatar, làm 1 đề + xem lại, bình luận. ← CHƯA xác nhận, đang chờ bạn test.
+- ✅ **Test end-to-end trên trình duyệt thật** (`https://toeicgreen.com`): đăng nhập mật khẩu + Google chạy, giữ phiên. Xác nhận 2026-06-20.
 
 ---
 
@@ -89,7 +89,11 @@
 
 **Dịch vụ ngoài**: Supabase (pooler) ✅ · Upstash Redis ✅ · Cloudflare R2 ✅ · Resend (domain verified) ✅ · Google OAuth (origins + published) ✅
 
-### Việc còn lại
-1. ⬜ **Test end-to-end trên trình duyệt thật** tại `https://toeicgreen.com`: đăng nhập (mật khẩu + Google), reload giữ phiên, làm đề + xem lại, bình luận.
-2. ⬜ (Tùy chọn) Thêm `www.toeicgreen.com` trong Vercel nếu muốn www chạy.
-3. ⬜ (Tùy chọn) Đổi `--min-instances 1` → `0` nếu muốn tiết kiệm chi phí lúc ít user.
+### 🚀 HỆ THỐNG HOÀN TẤT (2026-06-20)
+- ✅ Backend (Cloud Run) + Frontend (Vercel) + domain + Google login đều LIVE và đã test thật.
+- ✅ Đăng nhập Google dùng **authorization-code flow** + nút tự vẽ generic ("Đăng nhập bằng Google", không cá nhân hoá). Backend đổi code→token rồi tái dùng `verifyIdToken`; endpoint vẫn nhận `credential` cũ (tương thích ngược).
+
+### Việc còn lại (đều tùy chọn)
+1. ⬜ **Bảo mật**: `GOOGLE_CLIENT_SECRET` từng dán qua chat → nên tạo secret mới (Add secret → cập nhật `.env`/`.env.production` → `create-secrets.sh` → redeploy) cho an toàn tuyệt đối.
+2. ⬜ Thêm `www.toeicgreen.com` trong Vercel nếu muốn www chạy.
+3. ⬜ Đổi `--min-instances 1` → `0` để tiết kiệm chi phí lúc ít user (đánh đổi cold-start).

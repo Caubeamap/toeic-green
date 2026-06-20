@@ -71,10 +71,16 @@
 - ✅ `back-end/.env` giữ cho local dev; `.gitignore` đã chặn mọi `.env*` trừ `.env.example`.
 - ✅ Deploy script đã nhúng sẵn config không bí mật; `create-secrets.sh .env.production` đẩy secret lên Secret Manager.
 
-### Blocker còn lại (thuần vận hành khi bấm deploy)
-1. Deploy backend lên Cloud Run (xem `CLOUD_RUN_DEPLOY.md`).
-2. Map custom domain `api.toeicgreen.com` vào Cloud Run (để cookie `sameSite:strict` chạy).
-3. Set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_MEDIA_ORIGIN` khi build frontend.
-4. `prisma migrate deploy` lên DB prod (hiện đã up-to-date).
+### Trạng thái deploy backend (2026-06-20)
+- ✅ **Backend ĐÃ LIVE trên Cloud Run** (project `toeic-green`, region `asia-northeast1`).
+  - URL tạm: `https://toeic-green-api-739130230350.asia-northeast1.run.app`
+  - SA riêng `toeic-api@toeic-green.iam.gserviceaccount.com` (chỉ quyền đọc secret).
+  - min-instances 1, cpu 1, 512Mi, 9 secret qua Secret Manager.
+- ✅ Smoke `GET /api/practice/tests` → 200 + data thật; rate-limit (Redis) + helmet + CORS xác nhận hoạt động.
+
+### Blocker còn lại
+1. 🔴 Map custom domain `api.toeicgreen.com` vào Cloud Run (để cookie `sameSite:strict` chạy — nếu giữ URL `run.app` thì auth hỏng).
+2. Deploy frontend + set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_MEDIA_ORIGIN`.
+3. `prisma migrate deploy` lên DB prod (hiện đã up-to-date).
 
 ✅ Resend đã verify (2026-06-20).

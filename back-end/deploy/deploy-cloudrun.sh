@@ -8,6 +8,7 @@ set -euo pipefail
 PROJECT_ID="toeic-green"               # ID project GCP (Toeic Green, number 739130230350)
 REGION="asia-northeast1"               # Tokyo — CÙNG vùng Supabase ap-northeast-1 để giảm latency
 SERVICE="toeic-green-api"
+RUNTIME_SA="toeic-api@toeic-green.iam.gserviceaccount.com"  # SA riêng, chỉ có quyền đọc secret
 # ──────────────────────────────────────────────
 
 # --source . : Cloud Build tự build từ Dockerfile rồi đẩy lên Artifact Registry
@@ -19,6 +20,7 @@ gcloud run deploy "$SERVICE" \
   --region "$REGION" \
   --platform managed \
   --allow-unauthenticated \
+  --service-account "$RUNTIME_SA" \
   --min-instances 1 \
   --max-instances 10 \
   --cpu 1 \

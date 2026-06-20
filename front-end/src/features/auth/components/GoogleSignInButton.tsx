@@ -74,6 +74,13 @@ export function GoogleSignInButton() {
     [loginWithGoogle],
   );
 
+  // Giữ callback mới nhất trong ref để effect khởi tạo GIS chỉ chạy một lần,
+  // không bị chạy lại (và gọi initialize() nhiều lần) khi handleCredential đổi identity.
+  const handleCredentialRef = useRef(handleCredential);
+  useEffect(() => {
+    handleCredentialRef.current = handleCredential;
+  }, [handleCredential]);
+
   useEffect(() => {
     if (!CLIENT_ID || renderedRef.current) return;
     let cancelled = false;
@@ -88,7 +95,7 @@ export function GoogleSignInButton() {
         id.initialize({
           client_id: CLIENT_ID,
           callback: (response) => {
-            void handleCredential(response);
+            void handleCredentialRef.current(response);
           },
         });
         container.innerHTML = "";
@@ -113,7 +120,9 @@ export function GoogleSignInButton() {
     return () => {
       cancelled = true;
     };
-  }, [handleCredential]);
+    // Khởi tạo GIS một lần duy nhất; callback được đọc qua ref nên không cần deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Tính năng tắt khi chưa cấu hình client id → không render gì.
   if (!CLIENT_ID) return null;

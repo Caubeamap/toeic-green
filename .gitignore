@@ -12,12 +12,14 @@ skills/
 stitch_toeic_green_learning_hub/
 .vscode/
 .cursor/
+.claude/
 tasks/
 CODEX.md
 CLAUDE.md
 .agents/
 toeic-crawler/
 flashcard-crawler/
+
 
 # TypeScript build info
 *.tsbuildinfo

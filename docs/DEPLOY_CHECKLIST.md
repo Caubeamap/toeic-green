@@ -39,17 +39,17 @@
 
 > Lưu ý: `NEXT_PUBLIC_*` nhúng vào bundle lúc **build** → phải set TRƯỚC `next build`, đổi giá trị phải build lại.
 
-> Hai biến `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_MEDIA_ORIGIN` chưa set vì phụ thuộc domain
-> API cuối cùng (`api.toeicgreen.com` sau khi map ở mục 3). Giá trị khuyến nghị:
+> ✅ Cả 3 biến `NEXT_PUBLIC_*` đã set trong Vercel (Production):
 > `NEXT_PUBLIC_API_URL=https://api.toeicgreen.com/api`,
-> `NEXT_PUBLIC_MEDIA_ORIGIN=https://pub-4f8cb610d7574526affd8f9e156e874e.r2.dev`.
+> `NEXT_PUBLIC_MEDIA_ORIGIN=https://pub-4f8cb610d7574526affd8f9e156e874e.r2.dev`,
+> `NEXT_PUBLIC_GOOGLE_CLIENT_ID=739130230350-...`.
 
 ## 3. Hạ tầng & domain
 
-- ⬜ Deploy backend **cùng vùng Supabase** (`ap-northeast-1` → Cloud Run `asia-northeast1`). Xem `CLOUD_RUN_DEPLOY.md`.
-- ⬜ `prisma migrate deploy` trên DB prod (hiện schema đã up-to-date — 12/12 migration).
-- ⬜ Frontend và API **cùng registrable domain** (vd `toeicgreen.com` ↔ `api.toeicgreen.com`) để cookie `sameSite:strict` hoạt động. Nếu khác domain hẳn → cookie refresh sẽ không gửi.
-- ⬜ Nếu phục vụ cả `www` lẫn apex: hoặc redirect `www`→apex ở CDN, hoặc thêm vào `CORS_ALLOWED_ORIGINS`.
+- ✅ Backend deploy **cùng vùng Supabase** (Cloud Run `asia-northeast1` ↔ Supabase `ap-northeast-1`).
+- ✅ DB prod up-to-date — 12/12 migration đã apply (`prisma migrate status`: schema up to date). Không có migration treo.
+- ✅ Frontend và API **cùng registrable domain** (`toeicgreen.com` ↔ `api.toeicgreen.com`) → cookie `sameSite:strict` gửi được.
+- ⬜ (Tùy chọn) `www.toeicgreen.com`: đã có `CNAME www → toeicgreen.com` ở Hostinger và `www` nằm trong `CORS_ALLOWED_ORIGINS`, nhưng **chưa Add `www` trong Vercel** → muốn www chạy thì thêm trong Vercel (redirect về apex).
 
 ## 4. Dịch vụ ngoài
 
@@ -59,10 +59,11 @@
 
 ## 5. Build & smoke trước khi mở cho người dùng
 
-- ⬜ `npm --prefix back-end run build` → 0 issues.
-- ⬜ `npm --prefix front-end run build` → thành công (đã set đủ `NEXT_PUBLIC_*`).
-- ⬜ Khởi động prod, kiểm: đăng nhập mật khẩu + Google, refresh phiên, upload avatar, làm 1 đề + xem lại kết quả, bình luận.
-- ⬜ Xác nhận response KHÔNG lộ stack trace; rate-limit hoạt động (đăng nhập sai nhiều lần → 429).
+- ✅ Backend build → 0 issues (TSC + SWC; Cloud Build trên Cloud Run thành công).
+- ✅ Frontend build → thành công (Vercel build OK, đã set đủ `NEXT_PUBLIC_*`).
+- ✅ Smoke API trên domain thật: `GET https://api.toeicgreen.com/api/practice/tests` → 200 + data.
+- ✅ Rate-limit hoạt động (response có header `x-ratelimit-limit: 100`, Redis-backed). Stack trace ẩn theo thiết kế (PrismaClientExceptionFilter + NODE_ENV=production).
+- ⬜ **Test end-to-end trên trình duyệt thật** (`https://toeicgreen.com`): đăng nhập mật khẩu + Google, reload giữ phiên, upload avatar, làm 1 đề + xem lại, bình luận. ← CHƯA xác nhận, đang chờ bạn test.
 
 ---
 
@@ -71,16 +72,24 @@
 - ✅ `back-end/.env` giữ cho local dev; `.gitignore` đã chặn mọi `.env*` trừ `.env.example`.
 - ✅ Deploy script đã nhúng sẵn config không bí mật; `create-secrets.sh .env.production` đẩy secret lên Secret Manager.
 
-### Trạng thái deploy backend (2026-06-20)
-- ✅ **Backend ĐÃ LIVE trên Cloud Run** (project `toeic-green`, region `asia-northeast1`).
-  - URL tạm: `https://toeic-green-api-739130230350.asia-northeast1.run.app`
-  - SA riêng `toeic-api@toeic-green.iam.gserviceaccount.com` (chỉ quyền đọc secret).
-  - min-instances 1, cpu 1, 512Mi, 9 secret qua Secret Manager.
-- ✅ Smoke `GET /api/practice/tests` → 200 + data thật; rate-limit (Redis) + helmet + CORS xác nhận hoạt động.
+### 🎉 HỆ THỐNG ĐÃ LIVE (2026-06-20)
 
-### Blocker còn lại
-1. 🔴 Map custom domain `api.toeicgreen.com` vào Cloud Run (để cookie `sameSite:strict` chạy — nếu giữ URL `run.app` thì auth hỏng).
-2. Deploy frontend + set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_MEDIA_ORIGIN`.
-3. `prisma migrate deploy` lên DB prod (hiện đã up-to-date).
+**Backend — Google Cloud Run**
+- ✅ Project `toeic-green`, region `asia-northeast1` (cùng vùng Supabase).
+- ✅ Domain: `https://api.toeicgreen.com` (CNAME → ghs.googlehosted.com, SSL cấp tự động).
+- ✅ URL run.app: `https://toeic-green-api-739130230350.asia-northeast1.run.app`
+- ✅ SA riêng `toeic-api@toeic-green.iam.gserviceaccount.com` (chỉ quyền đọc secret).
+- ✅ min-instances 1, cpu 1, 512Mi, 9 secret qua Secret Manager.
+- ✅ Smoke `GET https://api.toeicgreen.com/api/practice/tests` → 200 + data; rate-limit (Redis) + helmet + CORS hoạt động.
 
-✅ Resend đã verify (2026-06-20).
+**Frontend — Vercel**
+- ✅ Project `english-usuk-system`, root `front-end`, Next.js.
+- ✅ Domain: `https://toeicgreen.com` (A @ → 216.198.79.1), Valid Configuration.
+- ✅ Env `NEXT_PUBLIC_API_URL=https://api.toeicgreen.com/api`, `NEXT_PUBLIC_MEDIA_ORIGIN`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+
+**Dịch vụ ngoài**: Supabase (pooler) ✅ · Upstash Redis ✅ · Cloudflare R2 ✅ · Resend (domain verified) ✅ · Google OAuth (origins + published) ✅
+
+### Việc còn lại
+1. ⬜ **Test end-to-end trên trình duyệt thật** tại `https://toeicgreen.com`: đăng nhập (mật khẩu + Google), reload giữ phiên, làm đề + xem lại, bình luận.
+2. ⬜ (Tùy chọn) Thêm `www.toeicgreen.com` trong Vercel nếu muốn www chạy.
+3. ⬜ (Tùy chọn) Đổi `--min-instances 1` → `0` nếu muốn tiết kiệm chi phí lúc ít user.

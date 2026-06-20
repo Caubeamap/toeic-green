@@ -133,8 +133,21 @@ export class AuthService {
    * dùng đồng thời nhờ find-or-create dựa trên unique constraint + bắt P2002 (không
    * chỉ check-then-create vốn có TOCTOU race).
    */
+  /** Luồng id-token cũ (GIS renderButton). Giữ để tương thích ngược. */
   async loginWithGoogle(credential: string) {
     const identity = await this.googleTokenVerifier.verify(credential);
+    return this.resolveGoogleSession(identity);
+  }
+
+  /** Luồng authorization-code mới (nút tự vẽ + initCodeClient popup). */
+  async loginWithGoogleCode(code: string) {
+    const identity = await this.googleTokenVerifier.verifyAuthCode(code);
+    return this.resolveGoogleSession(identity);
+  }
+
+  private async resolveGoogleSession(
+    identity: Awaited<ReturnType<GoogleTokenVerifier['verify']>>,
+  ) {
     const email = normalizeEmail(identity.email);
 
     // 1. Người dùng Google đã từng đăng nhập → có sẵn OAuthAccount khớp `sub`.

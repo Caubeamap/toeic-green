@@ -22,11 +22,47 @@ export interface GoogleIdentity {
 @Injectable()
 export class GoogleTokenVerifier {
   private readonly client: OAuth2Client;
+  private readonly exchangeClient: OAuth2Client;
   private readonly clientId: string;
+  private readonly clientSecret: string;
 
   constructor(private readonly configService: ConfigService) {
     this.clientId = this.configService.get<string>('app.googleClientId') || '';
+    this.clientSecret =
+      this.configService.get<string>('app.googleClientSecret') || '';
     this.client = new OAuth2Client(this.clientId);
+    // 'postmessage' = redirect_uri đặc biệt cho authorization-code lấy từ popup
+    // (initCodeClient ux_mode 'popup' ở frontend). Không cần đăng ký redirect URI.
+    this.exchangeClient = new OAuth2Client(
+      this.clientId,
+      this.clientSecret,
+      'postmessage',
+    );
+  }
+
+  /**
+   * Đổi authorization code (từ nút Google tự vẽ + initCodeClient popup) lấy id_token,
+   * rồi xác minh y như luồng credential → cùng một mô hình bảo mật.
+   */
+  async verifyAuthCode(code: string): Promise<GoogleIdentity> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new UnauthorizedException(
+        'Đăng nhập bằng Google chưa được cấu hình',
+      );
+    }
+
+    let idToken: string | null | undefined;
+    try {
+      const { tokens } = await this.exchangeClient.getToken(code);
+      idToken = tokens.id_token;
+    } catch {
+      throw new UnauthorizedException('Mã đăng nhập Google không hợp lệ');
+    }
+
+    if (!idToken) {
+      throw new UnauthorizedException('Token Google không hợp lệ');
+    }
+    return this.verify(idToken);
   }
 
   async verify(idToken: string): Promise<GoogleIdentity> {

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -125,9 +126,16 @@ export class AuthController {
     @Body() googleLoginDto: GoogleLoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.authService.loginWithGoogle(
-      googleLoginDto.credential,
-    );
+    let result: Awaited<ReturnType<AuthService['loginWithGoogle']>>;
+    if (googleLoginDto.code) {
+      result = await this.authService.loginWithGoogleCode(googleLoginDto.code);
+    } else if (googleLoginDto.credential) {
+      result = await this.authService.loginWithGoogle(
+        googleLoginDto.credential,
+      );
+    } else {
+      throw new BadRequestException('Thiếu mã đăng nhập Google');
+    }
     this.setRefreshTokenCookie(
       response,
       result.refreshToken,

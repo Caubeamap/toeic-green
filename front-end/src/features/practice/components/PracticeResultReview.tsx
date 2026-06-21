@@ -470,8 +470,8 @@ const ReviewQuestionCard = memo(function ReviewQuestionCard({
         )}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-ink">Question {q.questionNumber}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-black text-ink whitespace-nowrap">Question {q.questionNumber}</span>
             {isMarked && (
               <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-50 text-amber-600 border border-amber-200">
                 <Flag className="h-2.5 w-2.5 fill-current" />
@@ -479,7 +479,7 @@ const ReviewQuestionCard = memo(function ReviewQuestionCard({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             {q.options.map((opt) => {
               const isOptSelected = selected === opt.label;
               const isOptCorrect = q.correctAnswer === opt.label;
@@ -514,7 +514,7 @@ const ReviewQuestionCard = memo(function ReviewQuestionCard({
 
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border self-end sm:self-auto",
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border self-end sm:self-auto shrink-0",
               selected
                 ? isCorrect
                   ? "bg-green-50 text-green-700 border-green-200"

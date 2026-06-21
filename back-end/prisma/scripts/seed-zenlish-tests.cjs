@@ -48,9 +48,10 @@ const partDescriptions = {
 
 function crawlerSlugToWebSlug(crawlerSlug) {
   // "test-1-ets-2026" → "ets-2026-test-1"
-  const match = crawlerSlug.match(/^test-(\d+)-ets-(\d+)$/);
+  // "test-4-est-2023" → "ets-2023-test-4"
+  const match = crawlerSlug.match(/^test-(\d+)-(ets|est)-(\d+)$/i);
   if (!match) return crawlerSlug;
-  return `ets-${match[2]}-test-${match[1]}`;
+  return `ets-${match[3]}-test-${match[1]}`;
 }
 
 function normalizeText(value) {
@@ -91,22 +92,9 @@ function parseChoices(choices) {
     const raw =
       typeof choices?.[index] === 'string' ? choices[index].trim() : '';
 
-    // Zenlish format: "(A) text" or "(A)"
-    let match = raw.match(/^\(([A-D])\)\s*(.*)$/i);
-    if (match) {
-      parsed[label] = match[2].trim();
-      return;
-    }
-
-    // Fallback study4 format: "A. text" or "A."
-    match = raw.match(/^([A-D])\.\s*(.*)$/i);
-    if (match) {
-      parsed[label] = match[2].trim();
-      return;
-    }
-
-    // Raw value without known prefix
-    parsed[label] = raw;
+    // Support single labels like "(A)", "A." or duplicate labels like "(A) (A)", "(A) A." or "A. A."
+    const match = raw.match(/^\s*(?:\([A-D]\)|[A-D]\.)\s*(?:\([A-D]\)|[A-D]\.)?\s*(.*)$/i);
+    parsed[label] = match ? match[1].trim() : raw;
   });
 
   return parsed;
@@ -296,7 +284,7 @@ async function main() {
   }
 
   const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-  console.log(`Found ${index.tests.length} zenlish ETS 2026 tests to seed.\n`);
+  console.log(`Found ${index.tests.length} zenlish tests to seed.\n`);
 
   const completed = [];
   const skipped = [];
@@ -318,7 +306,7 @@ async function main() {
   );
 
   console.log(
-    `\nSeeded ${completed.length} ETS 2026 tests with ${totalQuestions} questions.`,
+    `\nSeeded ${completed.length} zenlish tests with ${totalQuestions} questions.`,
   );
 
   if (skipped.length > 0) {

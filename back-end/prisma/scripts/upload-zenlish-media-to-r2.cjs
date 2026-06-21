@@ -1,5 +1,5 @@
 require('dotenv/config');
-// Upload local zenlish ETS 2026 media (audio + images) to Cloudflare R2.
+// Upload local zenlish media (audio + images) to Cloudflare R2.
 // Usage: node prisma/scripts/upload-zenlish-media-to-r2.cjs
 
 const fs = require('node:fs');

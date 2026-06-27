@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   formatPracticeTestTitle,
+  practiceTimeStorageKey,
   type PracticeAttempt,
   type PracticeTest
 } from "../lib/practice-tests";
@@ -92,11 +93,19 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
   if (selectedPartIds.length > 0) {
     queryParams.set("parts", selectedPartIds.join(","));
   }
-  queryParams.set("time", String(timeLimit));
 
   const practiceHref = isAuthenticated
     ? `/practice/${currentTest.id}/test?${queryParams.toString()}`
     : "/login";
+
+  // Thời gian luyện tập đi qua sessionStorage (không để trên URL) để người dùng
+  // không sửa được giữa bài. Ghi ngay trước khi điều hướng sang trang thi.
+  function persistTimeLimit() {
+    sessionStorage.setItem(
+      practiceTimeStorageKey(currentTest.id),
+      String(timeLimit)
+    );
+  }
 
   const fullTestHref = isAuthenticated
     ? `/practice/${currentTest.id}/test?mode=full`
@@ -194,6 +203,7 @@ export function PracticeTestSetup({ test }: { test: PracticeTest }) {
                     onUnavailableClick={() => setShowDevelopmentNotice(true)}
                     onPrefetch={prefetchQuestions}
                     onSelectAll={selectAllParts}
+                    onStart={persistTimeLimit}
                     onTimeLimitChange={setTimeLimit}
                     onTogglePart={togglePart}
                   />
@@ -261,6 +271,7 @@ function PracticeTab({
   onUnavailableClick,
   onPrefetch,
   onSelectAll,
+  onStart,
   onTimeLimitChange,
   onTogglePart
 }: {
@@ -274,6 +285,7 @@ function PracticeTab({
   onUnavailableClick?: () => void;
   onPrefetch: () => void;
   onSelectAll: () => void;
+  onStart: () => void;
   onTimeLimitChange: (value: number) => void;
   onTogglePart: (partId: string) => void;
 }) {
@@ -394,6 +406,7 @@ function PracticeTab({
         <Link
           href={canPractice ? actionHref : "#"}
           aria-disabled={!canPractice}
+          onClick={canPractice ? onStart : undefined}
           onFocus={canPractice ? onPrefetch : undefined}
           onMouseEnter={canPractice ? onPrefetch : undefined}
           onTouchStart={canPractice ? onPrefetch : undefined}

@@ -7,6 +7,7 @@ export { PracticeTestSetup } from "./components/PracticeTestSetup";
 // Tests and types
 export {
   practiceFilters,
+  practiceTimeStorageKey,
 } from "./lib/practice-tests";
 export type {
   TestType,

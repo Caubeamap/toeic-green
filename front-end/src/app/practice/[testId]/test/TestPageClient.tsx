@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth";
 import {
   PracticeExamSession,
+  practiceTimeStorageKey,
   usePracticeQuestions,
   usePracticeTest,
   type PracticeTest,
@@ -27,6 +28,14 @@ export function TestPageClient({
   const searchParams = useSearchParams();
   const { isAuthenticated, isApiReady, isLoading } = useAuth();
 
+  // Thời gian thi do trang setup ghi vào sessionStorage (không nằm trên URL nên
+  // người dùng không sửa được giữa bài). Đọc đồng bộ ở lần render đầu — phần thi
+  // chỉ hiển thị sau khi qua loading gate nên không gây hydration mismatch.
+  const [storedTimeLimit] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(practiceTimeStorageKey(resolvedTestId));
+  });
+
   const testQuery = usePracticeTest(resolvedTestId, initialTest);
   const questionsQuery = usePracticeQuestions(
     resolvedTestId,
@@ -48,7 +57,6 @@ export function TestPageClient({
       : null;
 
   const partsParam = searchParams.get("parts");
-  const timeParam = searchParams.get("time");
   const modeParam = searchParams.get("mode");
   const isDevMode =
     searchParams.get("dev") === "true" || searchParams.get("bypass") === "true";
@@ -71,12 +79,12 @@ export function TestPageClient({
       return test.minutes;
     }
 
-    if (timeParam !== null) {
-      return Number(timeParam);
+    if (storedTimeLimit !== null) {
+      return Number(storedTimeLimit);
     }
 
     return test.minutes;
-  }, [test, timeParam, modeParam]);
+  }, [test, storedTimeLimit, modeParam]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

@@ -48,6 +48,16 @@ export const practiceFilters: PracticeFilter[] = [
   "Test History"
 ];
 
+/**
+ * Key sessionStorage giữ lựa chọn thời gian luyện tập theo từng đề. Đặt ở đây để
+ * trang setup (ghi) và trang thi (đọc) dùng chung một chuỗi, không bị lệch.
+ * Time là tùy chọn UI (số phút), cố tình KHÔNG để trên URL để người dùng không
+ * sửa được giữa bài qua thanh địa chỉ.
+ */
+export function practiceTimeStorageKey(testId: string) {
+  return `toeic-practice-time:${testId}`;
+}
+
 function normalizeTitlePart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -23,161 +23,17 @@ import {
 } from "lucide-react";
 import { formatPracticeTestTitle, type PracticeTest } from "../lib/practice-tests";
 import { useSubmitAttempt } from "../hooks/usePractice";
+import { useCountdown } from "../hooks/useCountdown";
 import { isQuestionNumberOnlyStem, formatQuestionStem, type ToeicQuestion } from "../lib/toeic-questions";
 import {
   getNearbyQuestionImageUrls,
   getNextAudioUrls,
   preloadImageUrls
 } from "../lib/media-preload";
+import { PART_DESCRIPTIONS, PART_SHORT_LABELS } from "../lib/exam-parts";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/api";
-
-/* ═══════════════════════════════════════════════════════════════
-   Types & Constants
-   ═══════════════════════════════════════════════════════════════ */
-
-type AnswerMap = Record<string, string>; // questionId → selected option label
-type FlagSet = Set<string>; // questionId set
-
-/* Lưới điều hướng 200 câu — memo hoá để không re-render mỗi tick audio.
-   Dựng sẵn Map id→index (O(n)) thay vì gọi indexOf trong vòng lặp (O(n²)). */
-const QuestionNavGrid = memo(function QuestionNavGrid({
-  questions,
-  answers,
-  flags,
-  currentIndex,
-  isNavigationBlocked,
-  onGoTo
-}: {
-  questions: ToeicQuestion[];
-  answers: AnswerMap;
-  flags: FlagSet;
-  currentIndex: number;
-  isNavigationBlocked: boolean;
-  onGoTo: (index: number) => void;
-}) {
-  const indexById = useMemo(() => {
-    const map = new Map<string, number>();
-    questions.forEach((q, idx) => map.set(q.id, idx));
-    return map;
-  }, [questions]);
-
-  const renderButton = (q: ToeicQuestion) => {
-    const idx = indexById.get(q.id) ?? 0;
-    const isAns = !!answers[q.id];
-    const isCurr = idx === currentIndex;
-    const isMark = flags.has(q.id);
-    return (
-      <button
-        key={q.id}
-        type="button"
-        disabled={isNavigationBlocked}
-        onClick={() => onGoTo(idx)}
-        title={`Question ${q.questionNumber}`}
-        className={cn(
-          "relative flex h-8 w-full items-center justify-center rounded-lg text-[10px] font-black transition-colors",
-          isCurr
-            ? "ring-2 ring-primary ring-offset-1 bg-white text-primary"
-            : isAns
-            ? "bg-primary text-white shadow-soft"
-            : "bg-surface-container-highest/50 text-muted hover:bg-primary-container/20",
-          isNavigationBlocked && "cursor-not-allowed opacity-90"
-        )}
-      >
-        {q.questionNumber}
-        {isMark && (
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 shadow-sm border border-white" />
-        )}
-      </button>
-    );
-  };
-
-  return (
-    <>
-      {/* Listening Section Q1-100 */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between border-b border-outline-variant/10 pb-1">
-          <span className="text-[10px] font-black uppercase text-primary tracking-wider">Listening Section</span>
-          <span className="text-[9px] font-bold text-muted">Q1 - Q100</span>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5">
-          {questions.slice(0, 100).map(renderButton)}
-        </div>
-      </div>
-
-      {/* Reading Section Q101-200 */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between border-b border-outline-variant/10 pb-1">
-          <span className="text-[10px] font-black uppercase text-secondary tracking-wider">Reading Section</span>
-          <span className="text-[9px] font-bold text-muted">Q101 - Q200</span>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5">
-          {questions.slice(100).map(renderButton)}
-        </div>
-      </div>
-    </>
-  );
-});
-
-const PART_DESCRIPTIONS: Record<string, string> = {
-  "part-1": "Photographs (Mô tả tranh)",
-  "part-2": "Question-Response (Hỏi đáp)",
-  "part-3": "Conversations (Hội thoại ngắn)",
-  "part-4": "Short Talks (Bài nói ngắn)",
-  "part-5": "Incomplete Sentences (Điền vào câu)",
-  "part-6": "Text Completion (Điền vào đoạn văn)",
-  "part-7": "Reading Comprehension (Đọc hiểu)",
-};
-
-const PART_SHORT_LABELS: Record<string, string> = {
-  "part-1": "Part 1",
-  "part-2": "Part 2",
-  "part-3": "Part 3",
-  "part-4": "Part 4",
-  "part-5": "Part 5",
-  "part-6": "Part 6",
-  "part-7": "Part 7",
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   Countdown Timer Hook
-   ═══════════════════════════════════════════════════════════════ */
-
-function useCountdown(totalMinutes: number) {
-  const isCountUp = totalMinutes === 0;
-  const [remaining, setRemaining] = useState(isCountUp ? 0 : totalMinutes * 60);
-  const [running, setRunning] = useState(true);
-
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => {
-      setRemaining((seconds) => {
-        if (isCountUp) {
-          return seconds + 1;
-        } else {
-          if (seconds <= 1) {
-            setRunning(false);
-            return 0;
-          }
-          return seconds - 1;
-        }
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [running, isCountUp]);
-
-  const hours = Math.floor(remaining / 3600);
-  const minutes = Math.floor((remaining % 3600) / 60);
-  const seconds = remaining % 60;
-
-  const display = hours > 0
-    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
-    : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
-  const percentage = totalMinutes > 0 ? ((totalMinutes * 60 - remaining) / (totalMinutes * 60)) * 100 : 0;
-
-  return { remaining, display, percentage, running, setRunning, isCountUp };
-}
+import { QuestionNavGrid, type AnswerMap, type FlagSet } from "./QuestionNavGrid";
 
 /* ═══════════════════════════════════════════════════════════════
    Main Component

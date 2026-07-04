@@ -100,7 +100,7 @@ function mergeRepliesIntoTree(
   return { nodes: next, merged };
 }
 
-export function insertNode(pages: CommentFeed[], node: CommentNode): CommentFeed[] {
+function insertNode(pages: CommentFeed[], node: CommentNode): CommentFeed[] {
   if (node.parentId === null) {
     // New root comment: prepend to first page, bump totalCount on every page.
     return pages.map((page, i) => ({

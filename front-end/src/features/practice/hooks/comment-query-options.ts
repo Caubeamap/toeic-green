@@ -1,8 +1,8 @@
 import type { CommentFeed } from "../services/comments-api";
 
-export const COMMENT_STALE_TIME_MS = 60_000;
-export const COMMENT_GC_TIME_MS = 10 * 60_000;
-export const COMMENT_MAX_CACHED_PAGES = 3;
+const COMMENT_STALE_TIME_MS = 60_000;
+const COMMENT_GC_TIME_MS = 10 * 60_000;
+const COMMENT_MAX_CACHED_PAGES = 3;
 
 export const commentKeys = {
   feed: (slug: string) => ["test-comments", slug] as const,

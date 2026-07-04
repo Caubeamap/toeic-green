@@ -8,10 +8,6 @@ function pushImageUrl(target: string[], seen: Set<string>, word?: ExploreWord) {
   }
 }
 
-export function getFirstReviewImageUrl(deck: ExploreWord[]) {
-  return deck.find((word) => word.imageUrl?.trim())?.imageUrl;
-}
-
 export function getNearbyReviewImageUrls(
   deck: ExploreWord[],
   currentIndex: number,

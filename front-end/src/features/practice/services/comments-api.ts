@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 
-export type CommentAuthor = { id: string; displayName: string; avatarUrl: string | null };
+type CommentAuthor = { id: string; displayName: string; avatarUrl: string | null };
 export type CommentNode = {
   id: string;
   parentId: string | null;

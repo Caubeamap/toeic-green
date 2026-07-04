@@ -37,10 +37,6 @@ export function setAccessToken(
   }
 }
 
-export function getAccessToken(): string | null {
-  return accessToken;
-}
-
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
 };

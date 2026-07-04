@@ -1,8 +1,8 @@
-export type TestType = "Listening & Reading" | "Speaking & Writing";
-export type TestStatus = "New" | "Completed";
+type TestType = "Listening & Reading" | "Speaking & Writing";
+type TestStatus = "New" | "Completed";
 export type PracticeFilter = TestType | "Completed" | "Test History";
 
-export type TestPart = {
+type TestPart = {
   id: string;
   label: string;
   description: string;

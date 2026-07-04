@@ -22,20 +22,6 @@ export type VocabularyWord = {
   lastReviewedAt?: string;
 };
 
-export const TOEIC_TAGS = [
-  "All",
-  "Business",
-  "Office",
-  "Travel",
-  "Finance",
-  "Meeting",
-  "Email",
-  "Contract",
-  "Customer Service",
-] as const;
-
-export type ToeicTag = (typeof TOEIC_TAGS)[number];
-
 export const STATUS_CONFIG: Record<
   VocabularyStatus,
   { label: string; color: string; bg: string; border: string }

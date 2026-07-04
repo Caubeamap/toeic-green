@@ -422,7 +422,7 @@ const HistoryList = memo(function HistoryList({ tests }: { tests: PracticeTest[]
   );
 });
 
-export function PracticeTestCardSkeleton() {
+function PracticeTestCardSkeleton() {
   return (
     <div className="glass-card flex h-full flex-col overflow-hidden rounded-2xl border border-white/50 p-5 animate-pulse bg-white/40">
       <div className="mb-4 flex items-start justify-between gap-3">

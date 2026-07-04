@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2409/api";
 
-export type BootstrapUser = {
+type BootstrapUser = {
   avatarUrl?: string | null;
   displayName: string;
   email: string;
@@ -10,7 +10,7 @@ export type BootstrapUser = {
   role: string;
 };
 
-export type BootstrapProfile = {
+type BootstrapProfile = {
   bio: string | null;
   bannerTone: string;
   updatedAt: string;

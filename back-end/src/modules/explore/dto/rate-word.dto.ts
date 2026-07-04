@@ -1,6 +1,6 @@
 import { IsIn } from 'class-validator';
 
-export const WORD_RATINGS = ['easy', 'medium', 'hard', 'known'] as const;
+const WORD_RATINGS = ['easy', 'medium', 'hard', 'known'] as const;
 export type WordRatingValue = (typeof WORD_RATINGS)[number];
 
 export class RateWordDto {

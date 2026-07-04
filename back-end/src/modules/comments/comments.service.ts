@@ -16,7 +16,7 @@ const MAX_REPLY_LIMIT = 20;
 
 /* ──────────────────────────── Interfaces ─────────────────────────────────── */
 
-export interface CommentAuthor {
+interface CommentAuthor {
   id: string;
   displayName: string;
   avatarUrl: string | null;

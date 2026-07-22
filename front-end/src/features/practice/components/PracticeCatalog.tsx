@@ -13,7 +13,13 @@ import Link from "next/link";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/url-state";
-import { practiceFilters, type PracticeFilter, type PracticeTest } from "../lib/practice-tests";
+import {
+  collectPracticeTestYears,
+  getPracticeTestYear,
+  practiceFilters,
+  type PracticeFilter,
+  type PracticeTest
+} from "../lib/practice-tests";
 import { usePracticeCatalog } from "../hooks/usePractice";
 
 function getLatestAttemptTimestamp(test: PracticeTest) {
@@ -59,6 +65,9 @@ export function PracticeCatalog({
     // Gõ tìm kiếm dùng replace để không làm rác lịch sử trình duyệt.
     setParams({ q: value || null, page: null }, { replace: true });
   };
+  const setYear = (year: string | null) => {
+    setParams({ year, page: null });
+  };
   const setPage = (page: number) => {
     setParams({ page: page <= 1 ? null : page });
   };
@@ -71,22 +80,36 @@ export function PracticeCatalog({
     [tests]
   );
 
-  const visibleTests = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const baseTests =
+  const baseTests = useMemo(
+    () =>
       activeFilter === "Test History"
         ? historyTests
         : activeFilter === "Completed"
           ? tests.filter((test) => test.status === "Completed")
-          : tests.filter((test) => test.type === activeFilter);
+          : tests.filter((test) => test.type === activeFilter),
+    [activeFilter, historyTests, tests]
+  );
+
+  // Danh sách năm sinh từ chính tab đang mở nên không bao giờ có chip cho ra 0 đề.
+  const availableYears = useMemo(() => collectPracticeTestYears(baseTests), [baseTests]);
+  // `?year=` lạ (URL sửa tay) hoặc không còn hợp lệ sau khi đổi tab thì coi như "Tất cả".
+  const yearParam = searchParams.get("year");
+  const activeYear = yearParam && availableYears.includes(yearParam) ? yearParam : null;
+
+  const visibleTests = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
 
     return baseTests.filter((test) => {
+      if (activeYear && getPracticeTestYear(test) !== activeYear) {
+        return false;
+      }
+
       return (
         !normalizedQuery ||
         `${test.title} ${test.subtitle} ${test.type}`.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [activeFilter, historyTests, query, tests]);
+  }, [activeYear, baseTests, query]);
 
   const itemsPerPage = 12;
   const totalPages = Math.ceil(visibleTests.length / itemsPerPage);
@@ -204,6 +227,21 @@ export function PracticeCatalog({
           </div>
         </div>
 
+        {/* Chip năm canh trái, sát ngay trên lưới đề để đọc như nhãn của lưới. */}
+        {availableYears.length > 0 ? (
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <YearChip label="Tất cả" isActive={activeYear === null} onClick={() => setYear(null)} />
+            {availableYears.map((year) => (
+              <YearChip
+                key={year}
+                label={year}
+                isActive={activeYear === year}
+                onClick={() => setYear(year)}
+              />
+            ))}
+          </div>
+        ) : null}
+
         {isLoading ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -276,6 +314,30 @@ export function PracticeCatalog({
         )}
       </div>
     </section>
+  );
+}
+
+function YearChip({
+  label,
+  isActive,
+  onClick
+}: {
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={isActive}
+      onClick={onClick}
+      className={cn(
+        "inline-flex min-h-9 items-center rounded-full border border-outline-variant/70 bg-white/50 px-4 text-label-md font-semibold text-on-surface-variant transition hover:bg-white hover:text-on-surface",
+        isActive && "border-primary bg-primary text-white hover:bg-primary hover:text-white"
+      )}
+      type="button"
+    >
+      {label}
+    </button>
   );
 }
 

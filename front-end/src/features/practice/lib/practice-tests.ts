@@ -58,6 +58,32 @@ export function practiceTimeStorageKey(testId: string) {
   return `toeic-practice-time:${testId}`;
 }
 
+/**
+ * Năm của đề nằm trong slug (`ets-2026-test-1`) chứ không phải một cột riêng
+ * trong DB. Ưu tiên đọc từ slug vì đó là chuỗi do seed sinh ra, chỉ fallback
+ * sang title khi slug không chứa năm. Đề không gắn năm (`practice-toeic-test-1`)
+ * trả về null và chỉ xuất hiện ở lựa chọn "Tất cả".
+ */
+export function getPracticeTestYear(test: Pick<PracticeTest, "id" | "title">) {
+  const slugYear = test.id.match(/(?:^|-)((?:19|20)\d{2})(?:-|$)/);
+  if (slugYear) return slugYear[1];
+
+  const titleYear = test.title.match(/\b(?:19|20)\d{2}\b/);
+  return titleYear ? titleYear[0] : null;
+}
+
+/** Các năm có thật trong danh sách đề, sắp xếp giảm dần (mới nhất trước). */
+export function collectPracticeTestYears(tests: PracticeTest[]) {
+  const years = new Set<string>();
+
+  for (const test of tests) {
+    const year = getPracticeTestYear(test);
+    if (year) years.add(year);
+  }
+
+  return Array.from(years).sort((a, b) => b.localeCompare(a));
+}
+
 function normalizeTitlePart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

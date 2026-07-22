@@ -8,9 +8,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 tmp-dev-logs/
-skills/
 .vscode/
-.cursor/
 .claude/
 tasks/
 CODEX.md

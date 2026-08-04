@@ -9,12 +9,6 @@ yarn-error.log*
 pnpm-debug.log*
 tmp-dev-logs/
 .vscode/
-.claude/
-tasks/
-CODEX.md
-CLAUDE.md
-.agents/
-toeic-crawler/
 
 
 # TypeScript build info

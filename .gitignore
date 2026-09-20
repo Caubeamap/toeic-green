@@ -9,6 +9,7 @@ yarn-error.log*
 pnpm-debug.log*
 tmp-dev-logs/
 .vscode/
+.worktrees/
 
 
 # TypeScript build info

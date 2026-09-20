@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { Redis } from 'ioredis';
 import { PrismaModule } from './prisma/prisma.module';
+import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
@@ -85,6 +86,7 @@ function createThrottlerStorage(url: string | undefined) {
       },
     }),
     PrismaModule,
+    HealthModule,
     UsersModule,
     AuthModule,
     ProfileModule,

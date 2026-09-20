@@ -1,0 +1,324 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TOEIC Green host bootstrap stack for one backend instance in ap-northeast-1
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: Email that receives AWS Budget notifications
+    AllowedPattern: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}$'
+    ConstraintDescription: Enter a valid email address.
+  RepositoryUrl:
+    Type: String
+    Default: https://github.com/Caubeamap/toeic-green.git
+    Description: Public HTTPS GitHub repository cloned onto the host
+    AllowedPattern: '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$'
+    ConstraintDescription: Use a public HTTPS GitHub URL ending in .git.
+  RepositoryBranch:
+    Type: String
+    Default: main
+    Description: Git branch to clone without deploying the application
+    AllowedPattern: '^[A-Za-z0-9](?:[A-Za-z0-9._/-]{0,253}[A-Za-z0-9_-])?$'
+    ConstraintDescription: Use a 1-255 character Git branch name without shell metacharacters.
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.24.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: toeic-green-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.24.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: toeic-green-public
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTP and HTTPS only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: toeic-green-api
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: SsmAgentAndToeicGreenParameterAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:DescribeAssociation
+                  - ssm:GetDeployablePatchSnapshotForInstance
+                  - ssm:GetDocument
+                  - ssm:DescribeDocument
+                  - ssm:GetManifest
+                  - ssm:ListAssociations
+                  - ssm:ListInstanceAssociations
+                  - ssm:PutInventory
+                  - ssm:PutComplianceItems
+                  - ssm:PutConfigurePackageResult
+                  - ssm:UpdateAssociationStatus
+                  - ssm:UpdateInstanceAssociationStatus
+                  - ssm:UpdateInstanceInformation
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ec2messages:AcknowledgeMessage
+                  - ec2messages:DeleteMessage
+                  - ec2messages:FailMessage
+                  - ec2messages:GetEndpoint
+                  - ec2messages:GetMessages
+                  - ec2messages:SendReply
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/toeic-green/prod/*
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  ApiLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}"
+        UserData:
+          Fn::Base64: !Sub |
+            #!/usr/bin/env bash
+            set -Eeuo pipefail
+
+            signal_exit() {
+              exit_code=$?
+              trap - EXIT
+              /opt/aws/bin/cfn-signal \
+                --exit-code "$exit_code" \
+                --stack '${AWS::StackName}' \
+                --resource ApiInstance \
+                --region '${AWS::Region}'
+              exit "$exit_code"
+            }
+            trap signal_exit EXIT
+
+            dnf install -y aws-cfn-bootstrap docker git jq util-linux
+            systemctl enable --now docker
+            systemctl enable --now amazon-ssm-agent
+            systemctl is-active --quiet docker
+            systemctl is-active --quiet amazon-ssm-agent
+            docker info >/dev/null
+
+            install -d -m 0755 /usr/local/lib/docker/cli-plugins
+            compose_tmp=$(mktemp)
+            curl --fail --location --retry 5 --retry-all-errors --connect-timeout 15 --max-time 300 \
+              https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-aarch64 \
+              --output "$compose_tmp"
+            printf '%s  %s\n' \
+              '49082844b87f03cdcd5f5bbef1ba8c9c897b7a2dfb80cea18d61ec8ca6117e0c' \
+              "$compose_tmp" | sha256sum -c -
+            install -m 0755 "$compose_tmp" /usr/local/lib/docker/cli-plugins/docker-compose
+            rm -f "$compose_tmp"
+            docker compose version --short | grep -Fxe '2.39.4' -e 'v2.39.4'
+
+            install -d -m 0700 /opt/toeic-green/runtime
+            if [[ ! -f /swapfile ]]; then
+              fallocate -l 2G /swapfile
+              chmod 0600 /swapfile
+              mkswap /swapfile
+            fi
+            swapon --show=NAME --noheadings | grep -Fxq /swapfile || swapon /swapfile
+            grep -Fqx '/swapfile none swap sw 0 0' /etc/fstab || \
+              printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab
+
+            repo_dir=/opt/toeic-green/repo
+            if [[ ! -d "$repo_dir/.git" ]]; then
+              for attempt in 1 2 3 4 5; do
+                if git clone --branch '${RepositoryBranch}' --single-branch --depth 1 \
+                  '${RepositoryUrl}' "$repo_dir"; then
+                  break
+                fi
+                rm -rf "$repo_dir"
+                [[ "$attempt" -lt 5 ]] || exit 1
+                sleep "$((attempt * 5))"
+              done
+            fi
+            test -d /opt/toeic-green/repo/.git
+
+  ApiInstance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - GatewayAttachment
+      - DefaultRoute
+      - PublicRouteAssociation
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT15M
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ApiLaunchTemplate
+        Version: !GetAtt ApiLaunchTemplate.LatestVersionNumber
+      InstanceType: t4g.small
+      CreditSpecification:
+        CPUCredits: standard
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref ApiSecurityGroup
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: true
+            Encrypted: true
+            VolumeSize: 30
+            VolumeType: gp3
+      Tags:
+        - Key: Name
+          Value: toeic-green-api
+        - Key: BootstrapScope
+          Value: HostOnlyApplicationDeploymentPending
+
+  ApiElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: toeic-green-api
+
+  ApiElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ApiElasticIp.AllocationId
+      InstanceId: !Ref ApiInstance
+
+  GrossCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: toeic-green-gross-cost
+        BudgetLimit:
+          Amount: 10
+          Unit: USD
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        CostTypes:
+          IncludeCredit: false
+          IncludeRefund: false
+      NotificationsWithSubscribers:
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 50
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref AlertEmail
+              SubscriptionType: EMAIL
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref AlertEmail
+              SubscriptionType: EMAIL
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: FORECASTED
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref AlertEmail
+              SubscriptionType: EMAIL
+
+Outputs:
+  InstanceId:
+    Value: !Ref ApiInstance
+  ElasticIp:
+    Value: !Ref ApiElasticIp
+  SsmParameterPath:
+    Value: /toeic-green/prod/
+    Description: Default AWS-managed aws/ssm encryption is used for SecureString parameters.
+  HostBootstrapStatus:
+    Value: Host bootstrap ready; not application-ready until SSM secrets and staging DNS exist.
+    Description: Stack success covers host and repository preparation only.
+  BudgetBehavior:
+    Value: Notification-only budget; it does not cap or stop AWS resources.
+    Description: Alerts at 50 and 80 percent actual spend and 100 percent forecasted spend.

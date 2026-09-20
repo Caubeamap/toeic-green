@@ -12,6 +12,7 @@ const DEPENDENCY_TIMEOUT_MS = 2000;
 @Injectable()
 export class HealthService implements OnModuleDestroy {
   private readonly redis: Redis;
+  private redisConnectionPromise?: Promise<void>;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -51,8 +52,19 @@ export class HealthService implements OnModuleDestroy {
   }
 
   private async pingRedis() {
-    if (this.redis.status === 'wait' || this.redis.status === 'end') {
-      await this.redis.connect();
+    if (
+      (this.redis.status === 'wait' || this.redis.status === 'end') &&
+      !this.redisConnectionPromise
+    ) {
+      this.redisConnectionPromise = this.redis.connect().finally(() => {
+        this.redisConnectionPromise = undefined;
+      });
+    }
+    if (this.redisConnectionPromise) {
+      await this.redisConnectionPromise;
+    }
+    if (this.redis.status !== 'ready') {
+      throw new Error('Redis client is not ready');
     }
     await this.redis.ping();
   }

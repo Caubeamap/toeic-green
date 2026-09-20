@@ -13,6 +13,7 @@ async function bootstrap() {
   const { frontendUrl } = configureApp(app);
 
   const port = process.env.PORT || 2409;
+  app.enableShutdownHooks();
   await app.listen(port);
 
   const readyInMs = Math.round(performance.now() - startedAt);

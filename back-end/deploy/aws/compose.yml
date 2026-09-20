@@ -1,0 +1,84 @@
+name: toeic-green
+
+services:
+  api:
+    container_name: toeic-green-api
+    image: ${API_IMAGE:-toeic-green-api:${IMAGE_TAG:-local}}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runner
+    env_file:
+      - ${RUNTIME_DIR:-/opt/toeic-green/runtime}/backend.env
+    expose:
+      - "2409"
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:2409/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 3s
+      retries: 8
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - internal
+
+  migrator:
+    image: toeic-green-migrator:${IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: builder
+    env_file:
+      - ${RUNTIME_DIR:-/opt/toeic-green/runtime}/backend.env
+    command: ["npx", "prisma", "migrate", "deploy"]
+    init: true
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - internal
+
+  caddy:
+    container_name: toeic-green-caddy
+    image: caddy:2.10.2-alpine
+    environment:
+      API_HOSTS: ${API_HOSTS:?API_HOSTS is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

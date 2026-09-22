@@ -13,6 +13,8 @@ PREVIOUS_HEAD="${PREVIOUS_HEAD:-}"
 REPO_DIR="${REPO_DIR:-}"
 API_HOST_ARRAY=()
 API_HOSTS_NORMALIZED=""
+VERIFY_HOST_ARRAY=()
+VERIFY_HOSTS_NORMALIZED=""
 
 log() {
   printf '%s\n' "$*"
@@ -78,36 +80,47 @@ verify_release() {
   printf '%s\n' "$resolved_sha"
 }
 
-parse_api_hosts() {
-  local raw="$1" part host normalized=""
+parse_host_list() {
+  local label="$1" raw="$2" array_name="$3" normalized_name="$4"
+  local part host normalized=""
   local -a parts=()
-  API_HOST_ARRAY=()
-  API_HOSTS_NORMALIZED=""
+  local -n output_array="$array_name"
+  local -n output_normalized="$normalized_name"
+  output_array=()
+  output_normalized=""
   [[ "$raw" != *$'\n'* && "$raw" != *$'\r'* ]] || {
-    die "API_HOSTS must not contain line breaks"
+    die "$label must not contain line breaks"
     return 1
   }
   IFS=',' read -r -a parts <<< "$raw"
   [[ -n "$raw" && "$raw" != ,* && "$raw" != *, ]] || {
-    die "API_HOSTS must be a non-empty comma-separated hostname list"
+    die "$label must be a non-empty comma-separated hostname list"
     return 1
   }
   for part in "${parts[@]}"; do
     host="${part#"${part%%[![:space:]]*}"}"
     host="${host%"${host##*[![:space:]]}"}"
     [[ -n "$host" ]] || {
-      die "API_HOSTS contains an empty hostname"
+      die "$label contains an empty hostname"
       return 1
     }
     [[ "$host" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || {
-      die "Invalid API_HOSTS hostname: $host"
+      die "Invalid $label hostname: $host"
       return 1
     }
-    API_HOST_ARRAY+=("$host")
+    output_array+=("$host")
     [[ -z "$normalized" ]] || normalized+=", "
     normalized+="$host"
   done
-  API_HOSTS_NORMALIZED="$normalized"
+  output_normalized="$normalized"
+}
+
+parse_api_hosts() {
+  parse_host_list API_HOSTS "$1" API_HOST_ARRAY API_HOSTS_NORMALIZED
+}
+
+parse_verify_hosts() {
+  parse_host_list VERIFY_HOSTS "$1" VERIFY_HOST_ARRAY VERIFY_HOSTS_NORMALIZED
 }
 
 prepare_transaction_snapshot() {
@@ -264,11 +277,11 @@ activate_candidate() {
 
 verify_public_hosts() {
   local host
-  (( ${#API_HOST_ARRAY[@]} > 0 )) || {
-    die "API_HOSTS has not been parsed"
+  (( ${#VERIFY_HOST_ARRAY[@]} > 0 )) || {
+    die "VERIFY_HOSTS has not been parsed"
     return 1
   }
-  for host in "${API_HOST_ARRAY[@]}"; do
+  for host in "${VERIFY_HOST_ARRAY[@]}"; do
     curl --fail --silent --show-error --max-time 15 "https://$host/api/health/live" >/dev/null || {
       die "Public liveness check failed for https://$host/api/health/live"
       return 1
@@ -363,10 +376,12 @@ main() {
   local repository_branch="${REPOSITORY_BRANCH:-main}"
   local deploy_sha="${DEPLOY_SHA:?DEPLOY_SHA is required}"
   local api_hosts="${API_HOSTS:?API_HOSTS is required}"
+  local verify_hosts="${VERIFY_HOSTS:-$api_hosts}"
   local resolved_sha render_env
 
   REPO_DIR="${REPO_DIR:-/opt/toeic-green/repo}"
   parse_api_hosts "$api_hosts"
+  parse_verify_hosts "$verify_hosts"
   acquire_deploy_lock "$runtime_dir"
   prepare_transaction_snapshot "$REPO_DIR" "$runtime_dir"
   install_transaction_traps
@@ -409,7 +424,7 @@ main() {
   DEPLOY_PHASE=committed
   cleanup_transaction_snapshot || true
   cleanup_images "$API_IMAGE" "$PREVIOUS_IMAGE"
-  log "Deployed $API_IMAGE and verified $API_HOSTS_NORMALIZED"
+  log "Deployed $API_IMAGE for $API_HOSTS_NORMALIZED and verified $VERIFY_HOSTS_NORMALIZED"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

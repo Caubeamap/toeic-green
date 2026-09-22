@@ -257,9 +257,9 @@ cd /opt/toeic-green/repo
 DEPLOY_SHA=<40-char-audited-commit-sha> REPOSITORY_BRANCH=main API_HOSTS=aws-api.toeicgreen.com back-end/deploy/aws/deploy.sh
 ```
 
-Interface hiện tại là `API_HOSTS` số nhiều. Script giữ host-wide non-blocking lock tại `/opt/toeic-green/runtime/deploy.lock`; một deploy thứ hai sẽ bị từ chối thay vì chạy chồng. Release là immutable theo SHA, checkout detached, image API được tag bằng 12 ký tự đầu của SHA.
+Interface hiện tại là `API_HOSTS` số nhiều. `API_HOSTS` là danh sách hostname Caddy phục vụ. `VERIFY_HOSTS` là danh sách hostname script bắt buộc kiểm tra public live/ready trong lần deploy đó; nếu không set thì mặc định bằng `API_HOSTS`. Script giữ host-wide non-blocking lock tại `/opt/toeic-green/runtime/deploy.lock`; một deploy thứ hai sẽ bị từ chối thay vì chạy chồng. Release là immutable theo SHA, checkout detached, image API được tag bằng 12 ký tự đầu của SHA.
 
-Script sẽ render secret từ SSM, build API/migrator, chạy `prisma migrate deploy`, chỉ thay API sau health gate, validate/recreate Caddy rồi kiểm tra live/ready qua từng hostname trong `API_HOSTS`.
+Script sẽ render secret từ SSM, build API/migrator, chạy `prisma migrate deploy`, chỉ thay API sau health gate, validate/recreate Caddy rồi kiểm tra live/ready qua từng hostname trong `VERIFY_HOSTS`.
 
 Các lệnh inspect không hiển thị secret:
 
@@ -375,14 +375,14 @@ Trên EC2, chạy cùng release SHA đã audit:
 ```bash
 sudo -i
 cd /opt/toeic-green/repo
-DEPLOY_SHA=<40-char-audited-commit-sha> REPOSITORY_BRANCH=main API_HOSTS=aws-api.toeicgreen.com,api.toeicgreen.com back-end/deploy/aws/deploy.sh
+DEPLOY_SHA=<40-char-audited-commit-sha> REPOSITORY_BRANCH=main API_HOSTS=aws-api.toeicgreen.com,api.toeicgreen.com VERIFY_HOSTS=aws-api.toeicgreen.com back-end/deploy/aws/deploy.sh
 
 docker exec toeic-green-caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 curl --fail --silent --show-error https://aws-api.toeicgreen.com/api/health/live
 curl --fail --silent --show-error https://aws-api.toeicgreen.com/api/health/ready
 ```
 
-Ở thời điểm này `api.toeicgreen.com` vẫn trỏ Cloud Run. Public health check cho hostname production chỉ chứng minh endpoint cũ còn khỏe; nó chưa chứng minh request đi qua EC2. Caddy có thể load cấu hình dual hosts, nhưng certificate cho `api.toeicgreen.com` chỉ có thể issue sau khi DNS hostname đó trỏ đến EC2 và CA truy cập được cổng 80/443.
+Ở thời điểm này `api.toeicgreen.com` vẫn trỏ Cloud Run. Vì vậy `VERIFY_HOSTS` chỉ được set `aws-api.toeicgreen.com`; nếu bắt script verify `api.toeicgreen.com` trước cutover thì kết quả chỉ phản ánh endpoint cũ, và khi Cloud Run đang 503 nó sẽ làm fail một staging deploy vốn đang khỏe. Caddy có thể load cấu hình dual hosts, nhưng certificate cho `api.toeicgreen.com` chỉ có thể issue sau khi DNS hostname đó trỏ đến EC2 và CA truy cập được cổng 80/443.
 
 ### Đổi production DNS
 
@@ -457,7 +457,7 @@ cd /opt/toeic-green/repo
 DEPLOY_SHA=<previous-40-char-sha-reachable-from-origin-main> REPOSITORY_BRANCH=main API_HOSTS=aws-api.toeicgreen.com,api.toeicgreen.com back-end/deploy/aws/deploy.sh
 ```
 
-Không checkout/chạy container thủ công để “rollback”. Database migration theo quy tắc **forward-only expand/contract**: rollback image không đảo schema. Migration trong đợt chuyển hạ tầng này không được destructive (drop/rename/bắt buộc field mới theo cách làm image cũ hỏng).
+Lệnh trên mặc định verify cả hai hostname. Nếu đang rollback trước khi `api.toeicgreen.com` trỏ EC2, thêm `VERIFY_HOSTS=aws-api.toeicgreen.com` như bước dual-host staging. Không checkout/chạy container thủ công để “rollback”. Database migration theo quy tắc **forward-only expand/contract**: rollback image không đảo schema. Migration trong đợt chuyển hạ tầng này không được destructive (drop/rename/bắt buộc field mới theo cách làm image cũ hỏng).
 
 ### DNS rollback
 

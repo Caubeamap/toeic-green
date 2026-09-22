@@ -190,6 +190,7 @@ if READINESS_ATTEMPTS=1 READINESS_INTERVAL_SECONDS=0 wait_for_api_ready; then
   fail 'candidate readiness failure was reported as success'
 fi
 curl() { return 22; }
+parse_verify_hosts 'staging.example.com'
 if verify_public_hosts 2>"$TEST_TMP/err"; then
   fail 'public verification failure was reported as success'
 fi
@@ -208,17 +209,35 @@ fi
 if parse_api_hosts 'https://outside.example.com' >"$TEST_TMP/out" 2>"$TEST_TMP/err"; then
   fail 'URL was accepted where a hostname is required'
 fi
+if parse_verify_hosts 'https://outside.example.com' >"$TEST_TMP/out" 2>"$TEST_TMP/err"; then
+  fail 'URL was accepted where a VERIFY_HOSTS hostname is required'
+fi
 CURL_LOG="$TEST_TMP/curl.log"
 curl() { printf '%s\n' "${*: -1}" >> "$CURL_LOG"; }
 export CURL_LOG
 parse_api_hosts 'staging.example.com,api.example.com'
+parse_verify_hosts 'staging.example.com,api.example.com'
 verify_public_hosts
 [[ "$(wc -l < "$CURL_LOG")" == 4 ]] || fail 'public verification did not check live and ready for every API_HOSTS entry'
 grep -q 'staging.example.com/api/health/live' "$CURL_LOG" || fail 'staging host was not verified'
 grep -q 'api.example.com/api/health/ready' "$CURL_LOG" || fail 'production host was not verified'
 
+parse_api_hosts 'staging.example.com,api.example.com'
+parse_verify_hosts 'staging.example.com'
+: > "$CURL_LOG"
+verify_public_hosts
+[[ "$(wc -l < "$CURL_LOG")" == 2 ]] || fail 'VERIFY_HOSTS did not limit public verification'
+grep -q 'staging.example.com/api/health/live' "$CURL_LOG" || fail 'VERIFY_HOSTS staging liveness was not verified'
+grep -q 'staging.example.com/api/health/ready' "$CURL_LOG" || fail 'VERIFY_HOSTS staging readiness was not verified'
+if grep -q 'api.example.com' "$CURL_LOG"; then
+  fail 'VERIFY_HOSTS still verified the production host before cutover'
+fi
+[[ "$API_HOSTS_NORMALIZED" == 'staging.example.com, api.example.com' ]] || fail 'VERIFY_HOSTS changed Caddy API_HOSTS'
+[[ "$VERIFY_HOSTS_NORMALIZED" == 'staging.example.com' ]] || fail 'VERIFY_HOSTS normalization failed'
+
 curl() { [[ "${*: -1}" == https://unrelated.example.com/* ]]; }
 parse_api_hosts 'staging.example.com,api.example.com'
+parse_verify_hosts 'staging.example.com,api.example.com'
 if verify_public_hosts >"$TEST_TMP/out" 2>"$TEST_TMP/err"; then
   fail 'an unrelated substitute hostname satisfied public verification'
 fi

@@ -15,6 +15,9 @@ API_HOST_ARRAY=()
 API_HOSTS_NORMALIZED=""
 VERIFY_HOST_ARRAY=()
 VERIFY_HOSTS_NORMALIZED=""
+PUBLIC_VERIFY_ATTEMPTS="${PUBLIC_VERIFY_ATTEMPTS:-10}"
+PUBLIC_VERIFY_INTERVAL_SECONDS="${PUBLIC_VERIFY_INTERVAL_SECONDS:-3}"
+PUBLIC_VERIFY_CURL_MAX_SECONDS="${PUBLIC_VERIFY_CURL_MAX_SECONDS:-10}"
 
 log() {
   printf '%s\n' "$*"
@@ -282,15 +285,29 @@ verify_public_hosts() {
     return 1
   }
   for host in "${VERIFY_HOST_ARRAY[@]}"; do
-    curl --fail --silent --show-error --max-time 15 "https://$host/api/health/live" >/dev/null || {
+    wait_for_public_health "https://$host/api/health/live" liveness || {
       die "Public liveness check failed for https://$host/api/health/live"
       return 1
     }
-    curl --fail --silent --show-error --max-time 15 "https://$host/api/health/ready" >/dev/null || {
+    wait_for_public_health "https://$host/api/health/ready" readiness || {
       die "Public readiness check failed for https://$host/api/health/ready"
       return 1
     }
   done
+}
+
+wait_for_public_health() {
+  local url="$1" check_name="$2" attempt
+  for (( attempt = 1; attempt <= PUBLIC_VERIFY_ATTEMPTS; attempt++ )); do
+    if curl --fail --silent --show-error --max-time "$PUBLIC_VERIFY_CURL_MAX_SECONDS" "$url" >/dev/null; then
+      return 0
+    fi
+    if (( attempt < PUBLIC_VERIFY_ATTEMPTS )); then
+      warn "Public $check_name check failed for $url; retrying ($attempt/$PUBLIC_VERIFY_ATTEMPTS)"
+      sleep "$PUBLIC_VERIFY_INTERVAL_SECONDS"
+    fi
+  done
+  return 1
 }
 
 reload_caddy() {

@@ -235,6 +235,25 @@ fi
 [[ "$API_HOSTS_NORMALIZED" == 'staging.example.com, api.example.com' ]] || fail 'VERIFY_HOSTS changed Caddy API_HOSTS'
 [[ "$VERIFY_HOSTS_NORMALIZED" == 'staging.example.com' ]] || fail 'VERIFY_HOSTS normalization failed'
 
+curl_attempts=0
+curl() {
+  curl_attempts=$((curl_attempts + 1))
+  if (( curl_attempts <= 2 )); then
+    return 7
+  fi
+  printf '%s\n' "${*: -1}" >> "$CURL_LOG"
+}
+sleep() { :; }
+export CURL_LOG
+parse_verify_hosts 'staging.example.com'
+: > "$CURL_LOG"
+if ! PUBLIC_VERIFY_ATTEMPTS=3 PUBLIC_VERIFY_INTERVAL_SECONDS=0 verify_public_hosts; then
+  fail 'public verification did not retry transient connection failures'
+fi
+[[ "$curl_attempts" == 4 ]] || fail 'public verification retry attempt count was unexpected'
+grep -q 'staging.example.com/api/health/live' "$CURL_LOG" || fail 'retry did not eventually verify liveness'
+grep -q 'staging.example.com/api/health/ready' "$CURL_LOG" || fail 'retry did not verify readiness after liveness recovered'
+
 curl() { [[ "${*: -1}" == https://unrelated.example.com/* ]]; }
 parse_api_hosts 'staging.example.com,api.example.com'
 parse_verify_hosts 'staging.example.com,api.example.com'

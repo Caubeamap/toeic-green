@@ -6,7 +6,8 @@
     "dev": "next dev -p 6868",
     "build": "next build",
     "start": "next start -p 6868",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",

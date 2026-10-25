@@ -51,9 +51,69 @@ describe('validateEnvironment', () => {
     expect(validateEnvironment(config)).toBe(config);
   });
 
+  it('allows production memory mode without REDIS_URL', () => {
+    const config = {
+      NODE_ENV: 'production',
+      THROTTLE_STORAGE: 'memory',
+      JWT_SECRET: 'a'.repeat(32),
+      JWT_REFRESH_SECRET: 'b'.repeat(32),
+      MAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_test',
+      EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+      ...PROD_INFRA,
+      REDIS_URL: undefined,
+    };
+
+    expect(validateEnvironment(config)).toBe(config);
+  });
+
+  it('requires REDIS_URL for production Redis mode', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'production',
+        THROTTLE_STORAGE: 'redis',
+        JWT_SECRET: 'a'.repeat(32),
+        JWT_REFRESH_SECRET: 'b'.repeat(32),
+        MAIL_PROVIDER: 'resend',
+        RESEND_API_KEY: 're_test',
+        EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+        ...PROD_INFRA,
+        REDIS_URL: undefined,
+      }),
+    ).toThrow('REDIS_URL must be configured');
+  });
+
+  it.each(['development', 'production'])(
+    'rejects an invalid throttler mode in %s',
+    (nodeEnv) => {
+      expect(() =>
+        validateEnvironment({
+          NODE_ENV: nodeEnv,
+          THROTTLE_STORAGE: 'Memory',
+        }),
+      ).toThrow('THROTTLE_STORAGE must be either memory or redis');
+    },
+  );
+
+  it('defaults an omitted production throttler mode to memory', () => {
+    const config = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a'.repeat(32),
+      JWT_REFRESH_SECRET: 'b'.repeat(32),
+      MAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_test',
+      EMAIL_FROM: 'TOEIC Green <no-reply@example.com>',
+      ...PROD_INFRA,
+      REDIS_URL: undefined,
+    };
+
+    expect(validateEnvironment(config)).toBe(config);
+  });
+
   it('requires production infrastructure config (database/redis/r2)', () => {
     const base = {
       NODE_ENV: 'production',
+      THROTTLE_STORAGE: 'redis',
       JWT_SECRET: 'a'.repeat(32),
       JWT_REFRESH_SECRET: 'b'.repeat(32),
       MAIL_PROVIDER: 'resend',

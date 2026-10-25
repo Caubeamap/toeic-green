@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
-import { Redis } from 'ioredis';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
@@ -20,32 +18,9 @@ import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
 import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
+import throttleConfig, { ThrottleStorageMode } from './config/throttle.config';
+import { createThrottlerStorage } from './config/throttler-storage.factory';
 import { validateEnvironment } from './config/env.validation';
-
-// Build a Redis-backed throttler store so rate limits are shared across
-// instances. Falls back to in-memory for tests and local/no-Redis setups so
-// those keep working without a Redis dependency.
-function createThrottlerStorage(url: string | undefined) {
-  const useRedis =
-    !!url &&
-    process.env.NODE_ENV !== 'test' &&
-    !/localhost|127\.0\.0\.1/.test(url);
-
-  if (!useRedis || !url) {
-    return undefined;
-  }
-
-  const client = new Redis(url, {
-    maxRetriesPerRequest: 3,
-    enableAutoPipelining: true,
-  });
-  // ioredis retries on its own; log errors so a transient Redis blip is visible
-  // without crashing the app.
-  client.on('error', (err: Error) =>
-    console.error('[redis throttler] error:', err.message),
-  );
-  return new ThrottlerStorageRedisService(client);
-}
 
 @Module({
   imports: [
@@ -58,18 +33,22 @@ function createThrottlerStorage(url: string | undefined) {
         redisConfig,
         mailConfig,
         storageConfig,
+        throttleConfig,
       ],
       validate: validateEnvironment,
     }),
-    // Rate limiting uses a shared Redis store when REDIS_URL points at a real
-    // Redis, so limits hold across instances. The in-process caches in
+    // Rate limiting uses a shared Redis store when THROTTLE_STORAGE is redis,
+    // so limits hold across instances. The in-process caches in
     // PracticeService / JwtStrategy stay in-memory on purpose: they are hot-path
     // read caches where a Redis round-trip would add latency, and their cross-
     // instance staleness is bounded by short TTLs.
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const storage = createThrottlerStorage(config.get<string>('redis.url'));
+        const storage = createThrottlerStorage(
+          config.getOrThrow<ThrottleStorageMode>('throttle.storageMode'),
+          config.get<string>('REDIS_URL'),
+        );
         return {
           throttlers: [{ ttl: 60000, limit: 100 }],
           ...(storage ? { storage } : {}),

@@ -32,8 +32,17 @@ validate_encoded_value() {
 
 write_env_file() {
   local target="$1" key value temp
+  local throttle_storage="${THROTTLE_STORAGE:-memory}"
   shift
   local -A supplied=()
+
+  case "$throttle_storage" in
+    memory|redis) ;;
+    *)
+      printf 'THROTTLE_STORAGE must be memory or redis\n' >&2
+      return 1
+      ;;
+  esac
 
   (( $# % 2 == 0 )) || {
     printf 'Environment key/value arguments are unbalanced\n' >&2
@@ -75,6 +84,9 @@ GOOGLE_CLIENT_ID=739130230350-ett9c8812jardb9a5jaagpjuu5cdhl7n.apps.googleuserco
 R2_BUCKET_NAME=toeic-green-assets
 R2_PUBLIC_URL=https://pub-4f8cb610d7574526affd8f9e156e874e.r2.dev
 ENV
+    printf 'THROTTLE_STORAGE='
+    compose_quote THROTTLE_STORAGE "$throttle_storage"
+    printf '\n'
     for key in "${required[@]}"; do
       printf '%s=' "$key"
       compose_quote "$key" "${supplied[$key]}"

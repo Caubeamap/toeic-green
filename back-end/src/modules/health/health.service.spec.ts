@@ -6,9 +6,8 @@ jest.mock('ioredis', () => ({ Redis: jest.fn() }));
 
 describe('HealthService', () => {
   const prisma = { $queryRawUnsafe: jest.fn() };
-  const config = {
-    get: jest.fn().mockReturnValue('rediss://cache.example:6379'),
-  };
+  const config = { get: jest.fn() };
+  let configValues: Record<string, unknown>;
   const redis = {
     status: 'ready',
     on: jest.fn(),
@@ -18,13 +17,71 @@ describe('HealthService', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    configValues = {
+      'throttle.storageMode': 'redis',
+      'redis.url': 'rediss://cache.example:6379',
+    };
+    config.get.mockImplementation((key: string) => configValues[key]);
     (Redis as unknown as jest.Mock).mockImplementation(() => redis);
     prisma.$queryRawUnsafe.mockResolvedValue([{ '?column?': 1 }]);
     redis.status = 'ready';
     redis.connect.mockResolvedValue(undefined);
     redis.ping.mockResolvedValue('PONG');
   });
+
+  it.each([undefined, 'rediss://stale.example:6379'])(
+    'checks PostgreSQL without Redis in memory mode with URL %p',
+    async (redisUrl) => {
+      configValues['throttle.storageMode'] = 'memory';
+      configValues['redis.url'] = redisUrl;
+      const service = new HealthService(prisma as never, config as never);
+
+      await expect(service.ready()).resolves.toEqual({ status: 'ready' });
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith('SELECT 1');
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+      expect(Redis).not.toHaveBeenCalled();
+      expect(redis.connect).not.toHaveBeenCalled();
+      expect(redis.ping).not.toHaveBeenCalled();
+    },
+  );
+
+  it('returns a generic 503 when PostgreSQL fails in memory mode', async () => {
+    configValues['throttle.storageMode'] = 'memory';
+    prisma.$queryRawUnsafe.mockRejectedValue(new Error('database detail'));
+    const service = new HealthService(prisma as never, config as never);
+
+    const error = await service.ready().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getStatus()).toBe(503);
+    expect((error as ServiceUnavailableException).getResponse()).toEqual({
+      status: 'not_ready',
+    });
+    expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith('SELECT 1');
+    expect(Redis).not.toHaveBeenCalled();
+  });
+
+  it('does not disconnect Redis on memory-mode shutdown', () => {
+    configValues['throttle.storageMode'] = 'memory';
+    const service = new HealthService(prisma as never, config as never);
+
+    service.onModuleDestroy();
+
+    expect(redis.disconnect).not.toHaveBeenCalled();
+    expect(Redis).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, ''])(
+    'fails closed without a Redis URL in Redis mode (%p)',
+    (redisUrl) => {
+      configValues['redis.url'] = redisUrl;
+
+      expect(() => new HealthService(prisma as never, config as never)).toThrow(
+        'REDIS_URL',
+      );
+      expect(Redis).not.toHaveBeenCalled();
+    },
+  );
 
   it('reports ready when PostgreSQL and Redis respond', async () => {
     const service = new HealthService(prisma as never, config as never);
@@ -38,9 +95,24 @@ describe('HealthService', () => {
     const service = new HealthService(prisma as never, config as never);
     const error = await service.ready().catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getStatus()).toBe(503);
     expect((error as ServiceUnavailableException).getResponse()).toEqual({
       status: 'not_ready',
     });
+  });
+
+  it('returns a generic 503 when Redis fails in Redis mode', async () => {
+    redis.ping.mockRejectedValue(new Error('Redis quota detail'));
+    const service = new HealthService(prisma as never, config as never);
+
+    const error = await service.ready().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getStatus()).toBe(503);
+    expect((error as ServiceUnavailableException).getResponse()).toEqual({
+      status: 'not_ready',
+    });
+    expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith('SELECT 1');
+    expect(redis.ping).toHaveBeenCalledTimes(1);
   });
 
   it('shares an initial Redis connection across concurrent readiness checks', async () => {
@@ -110,7 +182,7 @@ describe('HealthService', () => {
     expect(redis.ping).toHaveBeenCalledTimes(1);
   });
 
-  it('disconnects the readiness Redis client on shutdown', () => {
+  it('disconnects the readiness Redis client exactly once on Redis-mode shutdown', () => {
     const service = new HealthService(prisma as never, config as never);
     service.onModuleDestroy();
     expect(redis.disconnect).toHaveBeenCalledTimes(1);

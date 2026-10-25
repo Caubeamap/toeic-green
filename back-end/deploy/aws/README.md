@@ -19,10 +19,18 @@ Vercel (toeicgreen.com / www.toeicgreen.com)
 - Region cố định: `ap-northeast-1`.
 - Một EC2 ARM64 `t4g.small`, CPU credit `standard`, root EBS `gp3` 30 GB được mã hóa.
 - Chỉ mở inbound TCP 80/443. Quản trị bằng AWS Systems Manager Session Manager; không mở SSH/22.
-- Supabase PostgreSQL, Upstash Redis, Cloudflare R2 và Resend vẫn là dịch vụ ngoài AWS. Vercel vẫn host frontend.
+- Supabase PostgreSQL, Cloudflare R2 và Resend vẫn là dịch vụ ngoài AWS. Upstash Redis được giữ cấu hình cho mode Redis trong tương lai. Vercel vẫn host frontend.
 - Một EC2 luôn chạy loại bỏ cold start của Cloud Run, nhưng **không phải high availability**. Host hỏng, reboot hoặc bị thay thế sẽ gây gián đoạn ngắn cho đến khi host và container phục hồi.
 - AWS Budget chỉ gửi thông báo; không phải hard spending cap và không tự dừng/xóa tài nguyên.
 - CloudFormation chỉ bootstrap host, Docker/Compose/SSM agent, swap và clone repository. Stack `CREATE_COMPLETE` không có nghĩa ứng dụng đã chạy. Chỉ deploy ứng dụng thủ công sau khi secret và staging DNS đã sẵn sàng.
+
+### Mode lưu trữ rate limit
+
+Deployment hiện tại trên một EC2 dùng `THROTTLE_STORAGE=memory`. `render-env.sh` mặc định ghi `THROTTLE_STORAGE='memory'` vào `backend.env` khi biến của renderer không được đặt hoặc để trống. Counter nằm trong từng process và reset khi process restart; mode này không tạo Redis client cho throttling hoặc health check.
+
+Chỉ hai giá trị chính xác `memory` và `redis` được chấp nhận. Mode sai làm render thất bại và giữ nguyên file env hiện hữu. `THROTTLE_STORAGE` là cấu hình không bí mật truyền qua environment của renderer/deploy, không phải parameter SSM thứ 11. Giữ nguyên đủ 10 SecureString, bao gồm `REDIS_URL`; URL này được giữ cho lần chuyển sang Redis được chọn tường minh trong tương lai.
+
+Trước khi scale ngang sang nhiều process/container/instance, phải dùng Redis chung để các counter rate limit được chia sẻ. Khi đã chuẩn bị Redis và xác minh kết nối/quota, truyền `THROTTLE_STORAGE=redis` cùng các biến của lệnh deploy đã audit (ví dụ thêm `THROTTLE_STORAGE=redis` trước `DEPLOY_SHA=...` trong lệnh ở mục 6). Phải truyền lại override này cho mỗi lần deploy cần Redis; bỏ override sẽ trở về `memory`. Không in `REDIS_URL` hay toàn bộ `backend.env` để kiểm tra mode.
 
 ## 2. Điều kiện tài khoản AWS
 

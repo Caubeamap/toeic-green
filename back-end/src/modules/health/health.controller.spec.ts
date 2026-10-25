@@ -8,6 +8,12 @@ describe('HealthController', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it('skips the default throttler for all health routes', () => {
+    expect(Reflect.getMetadata('THROTTLER:SKIPdefault', HealthController)).toBe(
+      true,
+    );
+  });
+
   it('returns a dependency-free liveness response', () => {
     expect(controller.live()).toEqual({ status: 'ok' });
     expect(healthService.ready).not.toHaveBeenCalled();

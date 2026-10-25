@@ -14,7 +14,8 @@ fail() {
 source "$AWS_DIR/render-env.sh"
 
 target="$TEST_TMP/backend.env"
-write_env_file "$target" \
+unset THROTTLE_STORAGE
+valid_pairs=(
   JWT_SECRET "space # dollar \$ back\\slash and apostrophe '" \
   JWT_REFRESH_SECRET 'refresh secret' \
   DATABASE_URL 'postgresql://user:p$a\ss@db/app?x=a#fragment' \
@@ -22,6 +23,8 @@ write_env_file "$target" \
   REDIS_URL 'rediss://default:pa ss@redis:6379' \
   R2_ACCOUNT_ID account R2_ACCESS_KEY access R2_SECRET_KEY "it's\\literal" \
   RESEND_API_KEY 're_$end' GOOGLE_CLIENT_SECRET 'google secret'
+)
+write_env_file "$target" "${valid_pairs[@]}"
 
 parse_env_value() {
   local key="$1" line value
@@ -37,6 +40,31 @@ expected="space # dollar \$ back\\slash and apostrophe '"
 [[ "$(parse_env_value DATABASE_URL)" == 'postgresql://user:p$a\ss@db/app?x=a#fragment' ]] || fail 'DATABASE_URL was not preserved'
 [[ "$(parse_env_value R2_SECRET_KEY)" == "it's\\literal" ]] || fail 'apostrophe/backslash value was not preserved'
 [[ "$(stat -c '%a' "$target")" == 600 ]] || fail 'backend.env mode is not 0600'
+grep -qx "THROTTLE_STORAGE='memory'" "$target" || fail 'default throttle storage is not quoted memory'
+
+THROTTLE_STORAGE=redis write_env_file "$target" "${valid_pairs[@]}"
+grep -qx "THROTTLE_STORAGE='redis'" "$target" || fail 'explicit redis throttle storage was not rendered'
+
+THROTTLE_STORAGE=memory write_env_file "$target" "${valid_pairs[@]}"
+grep -qx "THROTTLE_STORAGE='memory'" "$target" || fail 'explicit memory throttle storage was not rendered'
+
+THROTTLE_STORAGE='' write_env_file "$target" "${valid_pairs[@]}"
+grep -qx "THROTTLE_STORAGE='memory'" "$target" || fail 'empty throttle storage did not default to memory'
+
+for invalid_mode in typo Redis REDIS ' redis' 'redis '; do
+  printf 'previous environment\n' > "$target"
+  chmod 640 "$target"
+  if THROTTLE_STORAGE="$invalid_mode" write_env_file "$target" "${valid_pairs[@]}" \
+    >"$TEST_TMP/out" 2>"$TEST_TMP/err"; then
+    fail 'render accepted an invalid THROTTLE_STORAGE'
+  fi
+  grep -q 'THROTTLE_STORAGE' "$TEST_TMP/err" || fail 'invalid mode error did not identify THROTTLE_STORAGE'
+  [[ "$(cat "$target")" == 'previous environment' ]] || fail 'invalid mode changed backend.env content'
+  [[ "$(stat -c '%a' "$target")" == 640 ]] || fail 'invalid mode changed backend.env mode'
+  if find "$TEST_TMP" -maxdepth 1 -type f -name 'backend.env.tmp.*' | grep -q .; then
+    fail 'invalid mode left a decrypted temporary file'
+  fi
+done
 
 printf 'sentinel\n' > "$target"
 chmod 600 "$target"

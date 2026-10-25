@@ -5,19 +5,28 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
+import type { ThrottleStorageMode } from '../../config/throttle.config';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const DEPENDENCY_TIMEOUT_MS = 2000;
 
 @Injectable()
 export class HealthService implements OnModuleDestroy {
-  private readonly redis: Redis;
+  private readonly redis?: Redis;
   private redisConnectionPromise?: Promise<void>;
 
   constructor(
     private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
+    const storageMode = config.get<ThrottleStorageMode>(
+      'throttle.storageMode',
+      'memory',
+    );
+    if (storageMode !== 'redis') {
+      return;
+    }
+
     const redisUrl = config.get<string>('redis.url');
     if (!redisUrl) {
       throw new Error('REDIS_URL environment variable is not defined');
@@ -34,13 +43,18 @@ export class HealthService implements OnModuleDestroy {
 
   async ready() {
     try {
-      await Promise.all([
+      const checks = [
         withTimeout(
           this.prisma.$queryRawUnsafe('SELECT 1'),
           DEPENDENCY_TIMEOUT_MS,
         ),
-        withTimeout(this.pingRedis(), DEPENDENCY_TIMEOUT_MS),
-      ]);
+      ];
+      if (this.redis) {
+        checks.push(
+          withTimeout(this.pingRedis(this.redis), DEPENDENCY_TIMEOUT_MS),
+        );
+      }
+      await Promise.all(checks);
       return { status: 'ready' };
     } catch {
       throw new ServiceUnavailableException({ status: 'not_ready' });
@@ -48,25 +62,25 @@ export class HealthService implements OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    this.redis.disconnect();
+    this.redis?.disconnect();
   }
 
-  private async pingRedis() {
+  private async pingRedis(redis: Redis) {
     if (
-      (this.redis.status === 'wait' || this.redis.status === 'end') &&
+      (redis.status === 'wait' || redis.status === 'end') &&
       !this.redisConnectionPromise
     ) {
-      this.redisConnectionPromise = this.redis.connect().finally(() => {
+      this.redisConnectionPromise = redis.connect().finally(() => {
         this.redisConnectionPromise = undefined;
       });
     }
     if (this.redisConnectionPromise) {
       await this.redisConnectionPromise;
     }
-    if (this.redis.status !== 'ready') {
+    if (redis.status !== 'ready') {
       throw new Error('Redis client is not ready');
     }
-    await this.redis.ping();
+    await redis.ping();
   }
 }
 

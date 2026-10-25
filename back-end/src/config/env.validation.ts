@@ -1,3 +1,5 @@
+import { resolveThrottleStorageMode } from './throttle.config';
+
 const MINIMUM_SECRET_LENGTH = 32;
 
 // Các giá trị secret từng được hardcode làm fallback trong mã nguồn (đã có trong
@@ -13,6 +15,10 @@ const KNOWN_DEFAULT_SECRETS = new Set([
 ]);
 
 export function validateEnvironment(config: Record<string, unknown>) {
+  const throttleStorageMode = resolveThrottleStorageMode(
+    config.THROTTLE_STORAGE,
+  );
+
   // Kiểm tra phổ quát (mọi môi trường): nếu một secret ĐƯỢC cung cấp thì nó phải
   // đủ mạnh và không phải giá trị default công khai. Khác với production, dev/test
   // không bắt buộc PHẢI có secret (đã fail-closed ở runtime khi thiếu), nhưng đã
@@ -45,11 +51,12 @@ export function validateEnvironment(config: Record<string, unknown>) {
   // Hạ tầng bắt buộc ở production: thiếu các giá trị này hiện đang fail âm thầm
   // (config đọc với fallback hoặc undefined) → khởi động nhầm với cấu hình thiếu.
   // - DATABASE_URL: không có DB thì app vô dụng.
-  // - REDIS_URL: thiếu → throttler tụt về in-memory per-instance → rate-limit KHÔNG
-  //   chia sẻ giữa các instance khi scale (đúng yêu cầu nhiều người dùng đồng thời).
+  // - REDIS_URL: bắt buộc khi throttling dùng Redis.
   // - R2_*: thiếu → upload/đọc media (avatar, ảnh/audio đề thi) hỏng.
   requireProductionValue(config, 'DATABASE_URL');
-  requireProductionValue(config, 'REDIS_URL');
+  if (throttleStorageMode === 'redis') {
+    requireProductionValue(config, 'REDIS_URL');
+  }
   requireProductionValue(config, 'COOKIE_DOMAIN');
   requireProductionValue(config, 'R2_ACCOUNT_ID');
   requireProductionValue(config, 'R2_ACCESS_KEY');

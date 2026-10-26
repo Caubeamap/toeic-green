@@ -4,9 +4,20 @@ Tài liệu này là quy trình bootstrap, triển khai, chuyển DNS, rollback 
 
 Các file triển khai có thẩm quyền là [cloudformation.yml](./cloudformation.yml), [deploy.sh](./deploy.sh), [render-env.sh](./render-env.sh), [compose.yml](./compose.yml) và [Caddyfile](./Caddyfile). Nếu runbook và code khác nhau, dừng triển khai và sửa runbook/code qua review; không ứng biến trực tiếp trên host.
 
+> **Trạng thái hiện tại — xác minh ngày 2026-10-26:** migration và DNS cutover
+> đã hoàn tất. Production đang chạy release
+> `dd5999e7c46b9bc40c56b1644a7c8e21cf01eccb` trên EC2 với
+> `THROTTLE_STORAGE=memory`; cả `api.toeicgreen.com` và
+> `aws-api.toeicgreen.com` trả live/ready HTTP 200. Supabase đã được restore về
+> `ACTIVE_HEALTHY`. Xem bằng chứng và phạm vi kiểm tra mới nhất tại
+> [`../../../docs/production-status.md`](../../../docs/production-status.md).
+>
+> Các mục bootstrap, staging và cutover bên dưới được giữ làm quy trình tái tạo
+> hoặc disaster recovery; không chạy lại chúng như công việc còn dang dở.
+
 ## 1. Kiến trúc và giới hạn
 
-Luồng production sau cutover:
+Luồng production hiện tại:
 
 ```text
 Vercel (toeicgreen.com / www.toeicgreen.com)
@@ -53,7 +64,10 @@ Yêu cầu công cụ/quyền truy cập:
 - Git và quyền push/đọc repository GitHub public được cấu hình trong stack.
 - AWS CLI đã đăng nhập, hoặc AWS CloudShell, với quyền CloudFormation/EC2/IAM/SSM/Budgets cần thiết.
 - Quyền sửa DNS của `toeicgreen.com` tại Hostinger.
-- Quyền đọc giá trị secret hiện tại ở GCP Secret Manager, Supabase, Upstash, R2, Resend và Google OAuth.
+- Quyền đọc metadata của 10 SSM SecureString hiện tại. Khi tái tạo secret bị
+  mất, lấy giá trị từ chủ sở hữu dịch vụ tương ứng (Supabase, R2, Resend, Google
+  OAuth và Redis nếu chọn mode Redis); không mặc định GCP Secret Manager vẫn là
+  nguồn khả dụng.
 - `dig`, `curl` và trình duyệt để xác minh DNS/TLS/luồng người dùng.
 
 Sau khi thay đổi đã merge/push, trên checkout sạch của `main`:
@@ -182,7 +196,7 @@ Không tiếp tục nếu Docker hoặc SSM agent không active, Compose không 
 
 `render-env.sh` yêu cầu chính xác 10 parameter sau:
 
-| GCP Secret Manager hiện tại | AWS SSM Parameter Store |
+| Runtime variable | AWS SSM Parameter Store hiện tại |
 |---|---|
 | `JWT_SECRET` | `/toeic-green/prod/JWT_SECRET` |
 | `JWT_REFRESH_SECRET` | `/toeic-green/prod/JWT_REFRESH_SECRET` |
@@ -195,7 +209,10 @@ Không tiếp tục nếu Docker hoặc SSM agent không active, Compose không 
 | `RESEND_API_KEY` | `/toeic-green/prod/RESEND_API_KEY` |
 | `GOOGLE_CLIENT_SECRET` | `/toeic-green/prod/GOOGLE_CLIENT_SECRET` |
 
-Đây là ánh xạ 1:1 đã được khai báo trong `deploy-cloudrun.sh` và `create-secrets.sh`; không đổi tên và không tạo thêm suffix như `_AWS` hay `_PROD`.
+Đây là contract tên biến mà `render-env.sh` và runtime hiện tại sử dụng.
+`deploy-cloudrun.sh`/`create-secrets.sh` còn giữ cùng tên cho tương thích lịch sử,
+nhưng không phải production deployment path hiện tại. Không đổi tên và không
+tạo suffix như `_AWS` hay `_PROD`.
 
 ### Cách nhập an toàn
 
@@ -231,7 +248,31 @@ aws ssm describe-parameters \
 
 Gate: count bằng `10`; danh sách tên khớp chính xác bảng; mọi row là `SecureString`, `Standard`, dùng `alias/aws/ssm`. Không dùng `get-parameter --with-decryption` để kiểm tra thủ công.
 
-## 6. Staging DNS và deploy đầu tiên
+## 6. Staging DNS và deploy đầu tiên (đã hoàn tất; dùng khi tái tạo host)
+
+### Deploy production định kỳ (quy trình hiện tại)
+
+Sau khi release đã audit, merge/push và reachable từ `origin/main`, mở Session
+Manager và chạy:
+
+```bash
+sudo -i
+cd /opt/toeic-green/repo
+THROTTLE_STORAGE=memory \
+  DEPLOY_SHA=<40-char-audited-commit-sha> \
+  REPOSITORY_BRANCH=main \
+  API_HOSTS=aws-api.toeicgreen.com,api.toeicgreen.com \
+  VERIFY_HOSTS=aws-api.toeicgreen.com,api.toeicgreen.com \
+  back-end/deploy/aws/deploy.sh
+```
+
+Giữ `THROTTLE_STORAGE=memory` khi production còn một API process. Chỉ thay bằng
+`redis` sau khi đã duyệt thay đổi kiến trúc, xác minh Redis connectivity/quota
+và chuẩn bị shared counters cho scale ngang. Sau deploy, thực hiện các lệnh
+inspect an toàn và gate tại mục 7; không coi exit code build là bằng chứng
+production đã khỏe.
+
+Phần còn lại của mục 6 mô tả staging/first deploy khi tái tạo host.
 
 ### Tạo DNS staging
 
@@ -255,7 +296,7 @@ dig +short @8.8.8.8 aws-api.toeicgreen.com A
 
 Không deploy trước khi cả ba kết quả là `$EXPECTED_IP`.
 
-### Deploy SHA đã audit
+### Deploy SHA đã audit cho staging/first deploy
 
 Mở Session Manager, sau đó chạy trên EC2:
 
@@ -360,7 +401,7 @@ curl --fail --silent --show-error https://aws-api.toeicgreen.com/api/health/read
 
 TLS, SSM, API và Caddy đều phải tự phục hồi sau reboot.
 
-## 8. Cutover DNS/TLS với dual hosts
+## 8. Cutover DNS/TLS với dual hosts (đã hoàn tất; dùng khi migration/recovery)
 
 ### Chuẩn bị TTL và rollback value
 
@@ -390,7 +431,12 @@ curl --fail --silent --show-error https://aws-api.toeicgreen.com/api/health/live
 curl --fail --silent --show-error https://aws-api.toeicgreen.com/api/health/ready
 ```
 
-Ở thời điểm này `api.toeicgreen.com` vẫn trỏ Cloud Run. Vì vậy `VERIFY_HOSTS` chỉ được set `aws-api.toeicgreen.com`; nếu bắt script verify `api.toeicgreen.com` trước cutover thì kết quả chỉ phản ánh endpoint cũ, và khi Cloud Run đang 503 nó sẽ làm fail một staging deploy vốn đang khỏe. Caddy có thể load cấu hình dual hosts, nhưng certificate cho `api.toeicgreen.com` chỉ có thể issue sau khi DNS hostname đó trỏ đến EC2 và CA truy cập được cổng 80/443.
+Trong lần migration lịch sử, `api.toeicgreen.com` vẫn trỏ Cloud Run ở bước này,
+vì vậy `VERIFY_HOSTS` chỉ dùng `aws-api.toeicgreen.com`. Khi dùng lại quy trình
+này để tái tạo host, xác định target DNS thực tế trước khi chọn `VERIFY_HOSTS`;
+không sao chép giả định Cloud Run cũ. Caddy có thể load cấu hình dual hosts,
+nhưng certificate cho một hostname chỉ issue sau khi DNS hostname đó trỏ đến
+host mới và CA truy cập được cổng 80/443.
 
 ### Đổi production DNS
 
@@ -469,18 +515,26 @@ Lệnh trên mặc định verify cả hai hostname. Nếu đang rollback trư�
 
 ### DNS rollback
 
-Nếu cần trả traffic về Cloud Run và Cloud Run vẫn hoạt động:
+Cloud Run không còn là backend production và không được coi là rollback target
+mặc định. Chỉ trả traffic về một target cũ sau khi operator xác minh ngay tại
+thời điểm incident rằng target đó còn tồn tại, billing đang hoạt động, release
+đúng, health/readiness đạt và TLS/domain mapping hợp lệ. Nếu target đã xác minh
+thực sự là Cloud Run cũ:
 
 1. Ghi evidence lỗi và xác nhận lại rollback target đã lưu.
 2. Tại Hostinger xóa A record `api -> <ElasticIp>`.
 3. Tạo lại CNAME `api -> ghs.googlehosted.com` với TTL `300`.
 4. Kiểm tra authoritative DNS, `1.1.1.1`, `8.8.8.8`, TLS, live/ready và Vercel end-to-end.
 
-Resolver có thể giữ A record đến hết TTL trước đó; DNS rollback không tức thời. `ghs.googlehosted.com` phải được operator xác nhận ngay trước cutover, và Cloud Run/billing phải còn hoạt động thì rollback DNS mới hữu dụng.
+Resolver có thể giữ A record đến hết TTL trước đó; DNS rollback không tức thời.
+Không dùng giá trị lịch sử `ghs.googlehosted.com` nếu chưa xác nhận lại target,
+Cloud Run service, billing, TLS và health. Phương án ưu tiên cho lỗi application
+release là redeploy SHA trước bằng transaction rollback ở mục trên, không đổi
+DNS.
 
 ### Host hỏng hoặc bị thay thế
 
-1. Xác nhận Supabase/Upstash/R2/Resend không bị ảnh hưởng; chúng là nguồn dữ liệu/dịch vụ ngoài host.
+1. Xác nhận Supabase/R2/Resend không bị ảnh hưởng; chúng là nguồn dữ liệu/dịch vụ ngoài host. Chỉ kiểm tra Upstash như dependency bắt buộc nếu release chọn `THROTTLE_STORAGE=redis`.
 2. Nếu update trong cùng stack thay instance, EIP có thể được reassociate nhưng vẫn có một khoảng outage. Root EBS `DeleteOnTermination: true`; local image, log, repo và Caddy certificate cache trên host cũ không phải backup.
 3. Chờ `CreationPolicy` của host mới, xác minh SSM/Docker/cloud-init.
 4. SSM parameters nằm ngoài stack và phải còn đủ đúng 10 secret.
@@ -515,13 +569,16 @@ AWS cost/budget data có độ trễ; email không phải real-time và không t
 - Hằng tuần: `systemctl is-active amazon-ssm-agent` và `aws ssm describe-instance-information` báo `Online`.
 - Thiết lập lịch patch Amazon Linux và reboot có kiểm soát ít nhất hằng tháng, hoặc sớm hơn cho bản vá critical; chạy lại reboot/recovery gate sau patch.
 - Thiết lập external uptime monitoring cho cả `/api/health/live` và `/api/health/ready`, từ ngoài AWS, kèm cảnh báo cho operator.
-- Theo dõi Supabase connection pool, Upstash rate/usage, R2 và Resend quota độc lập với AWS.
+- Theo dõi Supabase connection pool, R2 và Resend quota độc lập với AWS. Chỉ
+  theo dõi Upstash command quota khi production được chủ động chuyển sang
+  `THROTTLE_STORAGE=redis`; memory mode hiện tại không gửi rate-limit command tới
+  Redis.
 
 Stop EC2 vẫn để EBS tồn tại và có thể vẫn phát sinh phí; Elastic IPv4/public IPv4 cũng có thể tính phí tùy trạng thái/account. Terminate instance xóa root EBS nhưng có thể để stack drift/EIP tiếp tục tồn tại. Chỉ xóa stack khi đã có quyết định backup/recovery, DNS rollback và chấp nhận EIP thay đổi; không dùng stack deletion như một nút “tạm dừng chi phí”.
 
 ## 11. Go/no-go và evidence record
 
-### Go/no-go cuối
+### Go/no-go migration (hồ sơ lịch sử; dùng lại khi tái tạo/cutover)
 
 - [ ] AWS Free Plan credit/ngày hết hạn và `t4g.small` eligibility đã được xác nhận trong account.
 - [ ] Root MFA bật, không có root access key; operator không phải root và có MFA.

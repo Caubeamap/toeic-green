@@ -4,6 +4,8 @@ A full-stack web app for practicing the TOEIC Listening & Reading exam. Users ca
 
 > 🌐 **Live in production — try it now at [https://toeicgreen.com](https://toeicgreen.com)**
 > No setup required. Just open the site, sign up (email/password or Google), and start practicing. The local setup below is only for development. See [Live Site](#live-site) for details.
+> Production architecture and the latest verified release are recorded in
+> [`docs/production-status.md`](docs/production-status.md).
 
 ---
 
@@ -52,7 +54,7 @@ The domain `toeicgreen.com` is registered and DNS-managed through **Hostinger**.
 This is a monorepo with two independent applications:
 
 ```
-EnglishUsuk_sys/
+toeic-green/
 ├── back-end/               # NestJS API server (port 2409)
 │   ├── src/
 │   │   ├── modules/
@@ -70,7 +72,7 @@ EnglishUsuk_sys/
 │   │   ├── schema.prisma   # Full database schema
 │   │   └── migrations/     # SQL migration history
 │   ├── scripts/            # Seeding and data upload scripts
-│   ├── deploy/             # Google Cloud Run deploy scripts
+│   ├── deploy/             # AWS production runtime + legacy deployment scripts
 │   └── docker-compose.yml  # Local PostgreSQL + Redis
 │
 ├── front-end/              # Next.js web app (port 6868)
@@ -80,9 +82,7 @@ EnglishUsuk_sys/
 │       ├── lib/            # Shared utilities (API client, auth)
 │       └── components/     # Reusable UI components
 │
-├── toeic-crawler/          # Scripts for crawling TOEIC test data
-├── docs/                   # Internal documentation
-└── tasks/                  # Task tracking and dev notes
+└── docs/                   # Architecture, status, specs, and implementation plans
 ```
 
 ---
@@ -97,7 +97,7 @@ EnglishUsuk_sys/
 | Database | PostgreSQL 16 |
 | ORM | Prisma 7 |
 | Auth | JWT (access + refresh token rotation) |
-| Cache / Rate limiting | Redis (ioredis) — Upstash in production |
+| Cache / Rate limiting | In-process cache + Nest throttler; memory-backed rate limits on the current single EC2, optional Redis mode for horizontal scaling |
 | File storage | Cloudflare R2 (S3-compatible) |
 | Email | Nodemailer via Gmail SMTP (dev) / Resend (production) |
 | OAuth | Google (authorization code flow) + GitHub |
@@ -114,9 +114,10 @@ EnglishUsuk_sys/
 
 ### Infrastructure
 - Docker + Docker Compose for local development
-- Google Cloud Run for backend deployment (live at `api.toeicgreen.com`)
+- AWS EC2 + Docker Compose + Caddy for backend deployment (live at `api.toeicgreen.com`)
 - Vercel for frontend deployment (live at `toeicgreen.com`)
 - Domain & DNS managed on Hostinger
+- AWS SSM Parameter Store for production backend secrets
 
 ---
 
@@ -198,20 +199,32 @@ CORS_ALLOWED_ORIGINS=             # Optional extra origins, comma-separated
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/toeicgreen?schema=public"
+# Optional locally; Prisma migrations fall back to DATABASE_URL when unset.
+DIRECT_URL="postgresql://user:password@localhost:5432/toeicgreen?schema=public"
 ```
 
 For production with Supabase + PgBouncer:
 ```env
 DATABASE_URL="postgresql://user:password@aws-0-region.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://user:password@aws-0-region.pooler.supabase.com:5432/postgres"
 ```
 
-### Redis
+The API runtime uses `DATABASE_URL`. Prisma deployment migrations prefer
+`DIRECT_URL` so they do not run through transaction pooling.
+
+### Rate-limit storage
 
 ```env
+THROTTLE_STORAGE="memory" # Current single-instance production default
+
+# Required only when THROTTLE_STORAGE=redis:
 REDIS_URL="redis://localhost:6379"
-# Upstash in production:
 # REDIS_URL="rediss://default:password@your-instance.upstash.io:6379"
 ```
+
+`memory` keeps rate limiting inside the API process and does not construct a
+Redis client. Select `redis` only when multiple API processes need shared
+counters and the Redis service, credentials, and quota have been verified.
 
 ### JWT
 
@@ -287,9 +300,9 @@ COOKIE_DOMAIN=""        # Optional cookie domain restriction
 │  └────────┘ └──────────┘ └─────────┘ └─────────────┘  │
 │                                                         │
 │  ┌─────────────┐    ┌──────────────┐    ┌───────────┐  │
-│  │   Prisma    │    │    Redis     │    │ Cloudflare│  │
-│  │  (PostgreSQL│    │  (cache +    │    │    R2     │  │
-│  │   queries)  │    │   throttle)  │    │  (media)  │  │
+│  │   Prisma    │    │  Throttler   │    │ Cloudflare│  │
+│  │ (PostgreSQL │    │ (memory now; │    │    R2     │  │
+│  │   queries)  │    │ Redis opt-in)│    │  (media)  │  │
 │  └─────────────┘    └──────────────┘    └───────────┘  │
 └─────────────────────────────────────────────────────────┘
           │
@@ -302,7 +315,12 @@ COOKIE_DOMAIN=""        # Optional cookie domain restriction
 
 ### Key design decisions
 
-**Caching strategy:** Hot-path data (test catalog, questions) is cached in-memory on the backend with short TTLs (60s for tests, 5min for questions). Redis is used for distributed rate limiting across instances, not for general caching. This means a single backend pod doesn't need Redis to function — it falls back to in-memory rate limiting automatically.
+**Caching and throttling:** Hot-path data (test catalog, questions) is cached
+in-memory on the backend with short TTLs (60s for tests, 5 minutes for
+questions). Rate-limit storage is selected explicitly through
+`THROTTLE_STORAGE`; the current single-process production deployment uses
+`memory`. Redis is reserved for an explicit multi-process deployment and is not
+an automatic runtime fallback.
 
 **Refresh token rotation:** Each time a user refreshes their session, the old refresh token is revoked and a new one is issued. This means stolen refresh tokens become invalid after the first legitimate use.
 
@@ -784,12 +802,12 @@ The app is **live at [https://toeicgreen.com](https://toeicgreen.com)**. Here is
 |---------|---------|---------|
 | Domain registrar / DNS | **Hostinger** | `toeicgreen.com` is bought and DNS-managed here |
 | Frontend hosting | **Vercel** | Next.js app (project root `front-end`), served at `toeicgreen.com` |
-| Backend hosting | **Google Cloud Run** | NestJS API, region `asia-northeast1` (Tokyo), served at `api.toeicgreen.com` |
+| Backend hosting | **AWS EC2** | One ARM64 `t4g.small` in `ap-northeast-1`; Caddy terminates TLS and proxies the NestJS container at `api.toeicgreen.com` |
 | Database | **Supabase** (PostgreSQL) | Runtime via PgBouncer pooler (`:6543`, `pgbouncer=true`); migrations via direct connection (`:5432`) |
-| Cache / Rate limiting | **Upstash** (serverless Redis) | Shared rate-limit store across Cloud Run instances |
+| Cache / Rate limiting | **Process memory** | Current single-process rate-limit counters; optional Redis mode is retained for future horizontal scaling |
 | File storage | **Cloudflare R2** | Images & audio, served from a public CDN origin |
 | Email | **Resend** | Domain verified; sends from `no-reply@toeicgreen.com` |
-| Secrets | **GCP Secret Manager** | Backend secrets injected into Cloud Run at runtime |
+| Secrets | **AWS SSM Parameter Store** | SecureString values rendered on EC2 during deployment; runtime env files are not committed |
 
 #### Domain & DNS (Hostinger)
 
@@ -799,17 +817,26 @@ Both the frontend and the API live under the **same registrable domain** (`toeic
 |--------|------|-----------|---------|
 | `A` | `@` | Vercel IP | `toeicgreen.com` → frontend (Vercel) |
 | `CNAME` | `www` | `toeicgreen.com` | `www` alias |
-| `CNAME` | `api` | `ghs.googlehosted.com` | `api.toeicgreen.com` → Cloud Run (domain mapping) |
+| `A` | `api` | AWS Elastic IPv4 | `api.toeicgreen.com` → Caddy on EC2 |
+| `A` | `aws-api` | AWS Elastic IPv4 | Retained operational/staging hostname for independent verification |
 | `TXT` / `MX` | Resend records | Resend | DKIM / SPF / DMARC for email deliverability |
 
-> Step-by-step deploy guides live in [`docs/CLOUD_RUN_DEPLOY.md`](docs/CLOUD_RUN_DEPLOY.md) and [`docs/DEPLOY_CHECKLIST.md`](docs/DEPLOY_CHECKLIST.md). Backend deploy scripts are in [`back-end/deploy/`](back-end/deploy/).
+> Current status is in [`docs/production-status.md`](docs/production-status.md).
+> The authoritative deploy, verification, rollback, and maintenance procedure is
+> [`back-end/deploy/aws/README.md`](back-end/deploy/aws/README.md).
 
-#### Cloud Run configuration
+#### AWS runtime configuration
 
-- Same region as Supabase (`asia-northeast1` ↔ `ap-northeast-1`) to minimize DB round-trip latency.
-- `--min-instances 1` (no cold start), `--max-instances 10`, `1` CPU, `512Mi`, concurrency `80`.
-- Each instance opens at most `DB_POOL_MAX` (5) connections → max `5 × 10 = 50` pooled connections to Supabase.
-- Built and deployed straight from source: `gcloud run deploy --source .` (no manual Docker registry step).
+- One EC2 instance and one API process are currently deployed; this topology is
+  not high availability.
+- Caddy and the API run through the production Compose definition under
+  `back-end/deploy/aws/`.
+- Releases are immutable and tagged from an audited 40-character Git SHA.
+- The deploy script renders SSM secrets, builds the API and migrator, runs
+  `prisma migrate deploy`, applies health gates, and preserves rollback evidence
+  when routing verification fails.
+- Legacy provider scripts remain in `back-end/deploy/` for history or an
+  explicitly planned recovery; they are not the current production path.
 
 ### Seeding
 
